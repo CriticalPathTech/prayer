@@ -317,7 +317,7 @@ export async function publishOwnDraft(
   return db.transaction().execute(async (trx) => {
     const existing = await trx
       .selectFrom('posts')
-      .select(['id', 'body', 'expires_at'])
+      .select(['id', 'body', 'is_anonymous', 'expires_at'])
       .where('author_id', '=', args.userId)
       .where('status', '=', 'draft')
       .where('parent_id', 'is', null)
@@ -327,16 +327,28 @@ export async function publishOwnDraft(
       throw new ValidationError('body is required to publish');
     }
     const expiresAt = existing.expires_at ?? new Date(now.getTime() + DEFAULT_EXPIRY_MS);
+
+    // DELETE old draft + INSERT a fresh published row (atomic: same trx).
+    // Drafts can't accumulate child rows (comments/reactions/prayers all
+    // gate on status='published'), so the DELETE has no FK side effects.
+    // The new row gets a fresh UUIDv7 id and a fresh column-default
+    // created_at, so both feed ordering and "X ago" displays reflect the
+    // publish moment rather than the draft creation moment.
+    const newPostId = newId();
+    await trx.deleteFrom('posts').where('id', '=', existing.id).execute();
     await trx
-      .updateTable('posts')
-      .set({
+      .insertInto('posts')
+      .values({
+        id: newPostId,
+        author_id: args.userId,
+        body: existing.body,
+        is_anonymous: existing.is_anonymous,
         status: 'published',
         expires_at: expiresAt,
         edit_deadline: new Date(now.getTime() + EDIT_WINDOW_MS),
       })
-      .where('id', '=', existing.id)
       .execute();
-    const row = await fetchPostRow(trx, existing.id);
+    const row = await fetchPostRow(trx, newPostId);
     return toPostDto(row, { role: args.callerRole }, args.userId);
   });
 }

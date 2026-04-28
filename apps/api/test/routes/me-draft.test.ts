@@ -223,5 +223,69 @@ describe('/me/draft', () => {
         .execute();
       expect(postRows).toHaveLength(2);
     });
+
+    it('publish refreshes id and created_at to the publish moment (not the draft moment)', async () => {
+      // Reproduces the draft-staleness bug: opening compose creates a draft
+      // row with id+created_at set to "now". If the user comes back hours or
+      // days later and clicks Share, the published post must surface as fresh
+      // — fresh UUIDv7 (so feed-by-id-desc puts it on top) and fresh
+      // created_at (so "X ago" displays the publish time, not the draft
+      // moment). publishOwnDraft achieves this by DELETE + INSERT in one trx.
+      const user = await insertUser(ctx.db);
+      const token = await mintTestJwt({ sub: user.supabaseAuthId, email: user.email });
+
+      // Create a draft with PUT /me/draft. Capture the draft's id + created_at
+      // by reading the underlying row.
+      await request(ctx.app)
+        .put('/me/draft')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ body: 'first written long ago' });
+      const draftRow = await ctx.db
+        .selectFrom('posts')
+        .select(['id', 'created_at'])
+        .where('author_id', '=', user.id)
+        .where('status', '=', 'draft')
+        .executeTakeFirstOrThrow();
+
+      // Backdate the draft's created_at so the test demonstrates the gap
+      // — without this, the draft and the published row would both round to
+      // the same wall-clock instant and the test couldn't distinguish them.
+      const backdated = new Date(Date.now() - 36 * 3600_000);
+      await ctx.db
+        .updateTable('posts')
+        .set({ created_at: backdated })
+        .where('id', '=', draftRow.id)
+        .execute();
+
+      const beforePublish = Date.now();
+      const pub = await request(ctx.app)
+        .post('/me/draft/publish')
+        .set('Authorization', `Bearer ${token}`);
+      expect(pub.status).toBe(200);
+
+      // Assertion 1: published post has a NEW id (not the draft's id)
+      expect(pub.body.post.id).not.toBe(draftRow.id);
+
+      // Assertion 2: published post's created_at is the publish moment
+      // (within a small slack of `beforePublish`), not the backdated draft
+      const publishedRow = await ctx.db
+        .selectFrom('posts')
+        .select(['created_at'])
+        .where('id', '=', pub.body.post.id)
+        .executeTakeFirstOrThrow();
+      expect(publishedRow.created_at.getTime()).toBeGreaterThanOrEqual(beforePublish - 1_000);
+      expect(publishedRow.created_at.getTime()).toBeLessThanOrEqual(Date.now() + 1_000);
+
+      // Assertion 3: the original draft id no longer exists (DELETE happened)
+      const draftStillExists = await ctx.db
+        .selectFrom('posts')
+        .select('id')
+        .where('id', '=', draftRow.id)
+        .executeTakeFirst();
+      expect(draftStillExists).toBeUndefined();
+
+      // Assertion 4: the body and is_anonymous carried over correctly
+      expect(pub.body.post.body).toBe('first written long ago');
+    });
   });
 });
