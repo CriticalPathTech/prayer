@@ -25,7 +25,7 @@ docs/             deployment.md, superpowers/specs/, superpowers/plans/
 
 ```
 pnpm install
-pnpm db:up              # start local Postgres (docker)
+pnpm db:up              # legacy — starts only Postgres. Prefer `docker compose up -d postgres gotrue` (see Dev modes / Known rough edges)
 pnpm db:migrate         # apply migrations
 pnpm bootstrap          # 5 dev users, 10 posts, 6 comments
 pnpm dev                # api :3001 + web :5173
@@ -74,6 +74,7 @@ pnpm --filter @prayer/db --filter @prayer/shared build      # project-ref artifa
 
 - Generic self-hosting guide: `docs/self-hosting.md`.
 - Per-app guidance: `apps/api/CLAUDE.md`, `apps/web/CLAUDE.md`.
+- Internal product roadmap, design specs, and implementation plans live in a separate private repo (`prayer-cloud`).
 
 ## Branch and PR workflow
 
@@ -90,6 +91,8 @@ Husky installs a `pre-push` hook (`.husky/pre-push`) that runs `pnpm format:chec
 - Use `git push --no-verify` to bypass only when you explicitly know why (e.g., pushing a WIP branch that's not going to CI yet).
 
 Claude Code also runs hooks (`.claude/settings.json`): `pnpm lint` before every `git commit`, and `git rebase origin/main` + a main-branch guard before every `git push`.
+
+- The main-branch guard prints `PreToolUse:Bash hook stopped continuation: Direct pushes to main are not allowed` after every push that targets `main`. **This is informational — the push itself still goes through.** Real blocks come from GitHub's branch protection ruleset, which surfaces as `remote rejected ... push declined due to repository rule violations`. Don't repeat-attempt a push because of the hook warning.
 
 ## Known rough edges
 

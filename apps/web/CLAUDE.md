@@ -54,6 +54,11 @@ src/
     ModQueuePage, ModInvitesPage, NotFoundPage
 test/
   mobile/                 Playwright specs (smoke.spec.ts + axe.spec.ts) — iPhone SE + iPhone 12 Pro
+  e2e/
+    oss-stack-smoke.spec.ts  Login + feed-renders smoke against a live local stack; runs on
+                             every PR via CI's oss-smoke job (Chromium only) and on every
+                             tagged release via release-tag.yml's e2e job (Chromium + WebKit)
+    signup.spec.ts, reset-password.spec.ts  (skipped without AUTH_ADMIN_KEY)
 playwright.config.ts
 ```
 
