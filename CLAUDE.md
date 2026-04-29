@@ -9,8 +9,8 @@ apps/api          Express + Kysely backend (@prayer/api)
 apps/web          Vite + React frontend (@prayer/web)
 packages/db       Kysely schema types, migrations (SQL), bootstrap, shared invite-code helpers (@prayer/db)
 packages/shared   Shared zod-validated env parsers (@prayer/shared)
-docker/           Local Postgres compose config
-docs/             deployment.md, superpowers/specs/, superpowers/plans/
+docker/           Local stack fixtures: gotrue-jwt/ (RS256 dev keypair), gotrue-proxy/ (nginx config), init-db.sh
+docs/             self-hosting.md (internal product docs live in the private prayer-cloud repo)
 ```
 
 ## Stack
@@ -27,7 +27,7 @@ docs/             deployment.md, superpowers/specs/, superpowers/plans/
 pnpm install
 pnpm db:up              # legacy — starts only Postgres. Prefer `docker compose up -d postgres gotrue` (see Dev modes / Known rough edges)
 pnpm db:migrate         # apply migrations
-pnpm bootstrap          # 5 dev users, 10 posts, 6 comments
+pnpm bootstrap          # 5 dev users, 10 posts, 6 comments. Refuses non-localhost AUTH_URL/DATABASE_URL by default; set BOOTSTRAP_ALLOW_REMOTE=1 only for legitimate cloud-tenant onboarding.
 pnpm dev                # api :3001 + web :5173
 pnpm dev:remote         # web only, proxied to a remote API (set PROD_API_URL=https://… first)
 pnpm test               # all workspaces
@@ -69,6 +69,7 @@ pnpm --filter @prayer/db --filter @prayer/shared build      # project-ref artifa
 - **Events outbox:** Every post mutation writes a row to `events` in the **same transaction** as the data write (via `writePostEvent` in `apps/api/src/services/events.ts`). Consumed by `services/event-worker.ts` (LISTEN/NOTIFY) which dispatches notification builders, count recomputers, flag-auto-hide, and the feed snapshot holder.
 - **Feed reactions:** `GET /feed` batch-fetches the per-emoji reaction map for each page of posts (one extra query, same pattern as the `prayed` flag). Each `FeedPost` includes `reactions: Record<string, {count, mine}>` — don't assume it's only on the post-detail endpoint.
 - **`exactOptionalPropertyTypes: true`** in `tsconfig.base.json` → passing `{ foo: value | undefined }` fails type-check. For optional fields, spread conditionally: `...(value !== undefined ? { foo: value } : {})`.
+- **Draft → published is DELETE+INSERT, not UPDATE-in-place.** `services/posts.ts#publishOwnDraft` removes the draft row and inserts a fresh published row in the same transaction. This refreshes both `id` (UUIDv7) and `created_at` to the publish moment, so feed ordering and "X ago" displays reflect when users actually published rather than when they first opened compose. If you edit this code path, preserve the DELETE+INSERT shape — UPDATE-in-place reintroduces a stale-timestamp bug fixed in #49.
 
 ## Where to look
 
