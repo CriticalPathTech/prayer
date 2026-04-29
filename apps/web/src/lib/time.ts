@@ -13,6 +13,12 @@ export function expiringSoon(iso: string | null): string | null {
   const d = (new Date(iso).getTime() - Date.now()) / 86400000;
   if (d < 0) return null;
   if (d < 1) return 'Expires today';
-  if (d < 7) return `Expires in ${Math.ceil(d)} days`;
+  if (d < 7) {
+    // Round (not ceil) so a "1 day" expiry that ends up at 1.0003 days
+    // remaining (the 30s buffer in ComposePage's buildExpiresAt) still
+    // displays as "1 day" instead of "2 days".
+    const days = Math.round(d);
+    return `Expires in ${days} ${days === 1 ? 'day' : 'days'}`;
+  }
   return null;
 }
