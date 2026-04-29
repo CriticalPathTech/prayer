@@ -309,6 +309,12 @@ export async function bootstrap(
 // .env (e.g., `AUTH_URL` left pointing at a hosted Supabase project) would
 // otherwise have bootstrap silently create test users + sample posts in a
 // real tenant. Defence in depth on top of the NODE_ENV=production check.
+//
+// Cloud-onboarding workflow (creating a fresh tenant in a remote Supabase
+// project) is a legitimate use case — operators opt out of the local-only
+// guard by setting BOOTSTRAP_ALLOW_REMOTE=1. The guard remains the default
+// to keep self-hosters and contributors from accidentally writing to a real
+// project.
 const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '::1']);
 function assertLocalUrl(label: string, raw: string): void {
   let url: URL;
@@ -317,12 +323,15 @@ function assertLocalUrl(label: string, raw: string): void {
   } catch {
     throw new Error(`bootstrap: ${label} is not a valid URL: ${raw}`);
   }
+  if (process.env.BOOTSTRAP_ALLOW_REMOTE === '1') {
+    return;
+  }
   if (!LOCAL_HOSTS.has(url.hostname)) {
     throw new Error(
       `bootstrap refuses non-local ${label}: ${url.hostname}\n` +
         `  Allowed hostnames: ${[...LOCAL_HOSTS].join(', ')}\n` +
-        `  Bootstrap seeds local Docker stacks only — point ${label} at the local\n` +
-        `  GoTrue/Postgres before re-running, or use a different tool for cloud writes.`,
+        `  Bootstrap seeds local Docker stacks by default. To intentionally seed\n` +
+        `  a remote tenant (cloud onboarding), re-run with BOOTSTRAP_ALLOW_REMOTE=1.`,
     );
   }
 }
@@ -337,6 +346,15 @@ if (process.argv[1] === __filename) {
   const databaseUrl = process.env.DATABASE_URL;
   if (!authUrl || !adminKey || !databaseUrl) {
     throw new Error('AUTH_URL, AUTH_ADMIN_KEY, and DATABASE_URL are required');
+  }
+  if (process.env.BOOTSTRAP_ALLOW_REMOTE === '1') {
+    const authHost = new URL(authUrl).hostname;
+    const dbHost = new URL(databaseUrl).hostname;
+    console.warn(
+      `bootstrap: BOOTSTRAP_ALLOW_REMOTE=1 — seeding remote tenant\n` +
+        `  AUTH_URL host:     ${authHost}\n` +
+        `  DATABASE_URL host: ${dbHost}\n`,
+    );
   }
   assertLocalUrl('AUTH_URL', authUrl);
   assertLocalUrl('DATABASE_URL', databaseUrl);
