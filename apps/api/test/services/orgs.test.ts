@@ -25,9 +25,46 @@ describe('findOrgByHost', () => {
     expect(result).toBeNull();
   });
 
-  it('returns null for non-prays.online host', async () => {
+  it('returns null for hosts with no matching slug in DB', async () => {
     const result = await findOrgByHost(app.db, 'evil.com');
     expect(result).toBeNull();
+  });
+
+  it('matches the api.<slug>.<domain> pattern (per-cell api hostname)', async () => {
+    const orgId = await insertOrg(app.db, { slug: 'api-host-fixture' });
+    const result = await findOrgByHost(app.db, 'api.api-host-fixture.prays.online');
+    expect(result?.id).toBe(orgId);
+    expect(result?.slug).toBe('api-host-fixture');
+  });
+
+  it('platform-agnostic — works on any domain (OSS / self-hosted)', async () => {
+    // An OSS deployer running at e.g. `prayer.mychurch.org` should resolve
+    // their org via the leftmost label without prayer's cloud domain being
+    // hardcoded in the resolver. The slug `prayer` matches the org row;
+    // the rest of the host is irrelevant.
+    const orgId = await insertOrg(app.db, { slug: 'oss-host-test' });
+    const result = await findOrgByHost(app.db, 'oss-host-test.mychurch.org');
+    expect(result?.id).toBe(orgId);
+    expect(result?.slug).toBe('oss-host-test');
+  });
+
+  it('uses the second label when the first is `api` (skips proxy prefix)', async () => {
+    const orgId = await insertOrg(app.db, { slug: 'api-skip-test' });
+    const result = await findOrgByHost(app.db, 'api.api-skip-test.example.com');
+    expect(result?.id).toBe(orgId);
+    expect(result?.slug).toBe('api-skip-test');
+  });
+
+  it('returns null for bare hostnames (no domain)', async () => {
+    const result = await findOrgByHost(app.db, 'localhost');
+    expect(result).toBeNull();
+  });
+
+  it('returns null for hosts whose first label fails DNS-label validation', async () => {
+    // Leading hyphen, trailing hyphen, empty, etc. are not valid DNS labels
+    // and so are not valid slugs.
+    expect(await findOrgByHost(app.db, '-bad.example.com')).toBeNull();
+    expect(await findOrgByHost(app.db, 'bad-.example.com')).toBeNull();
   });
 });
 

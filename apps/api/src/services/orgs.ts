@@ -43,15 +43,36 @@ export function createOrgResolver(db: Kysely<Database>): OrgResolver {
   };
 }
 
-const SLUG_HOST_RE = /^([a-z0-9-]+)\.prays\.online$/;
+/** A DNS label per RFC 1123: 1-63 chars, alphanumeric and hyphens, no
+ * leading/trailing hyphen. Used to validate the slug we extract from the
+ * leftmost subdomain before we send it to the DB. */
+const DNS_LABEL_RE = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
+
+/** Pull the candidate org slug out of a hostname. Platform-agnostic — works
+ * whether the deployment lives on `prays.online`, a self-hosted custom
+ * domain, or anything else. The first label is the slug; if the first
+ * label is `api` (the per-cell api endpoint pattern), use the second.
+ *
+ * Returns null for hostnames that can't carry a slug (bare hostnames,
+ * IPs, malformed labels). The actual "is this a real org?" check is the
+ * DB lookup downstream; we don't hardcode any platform domain here.
+ */
+function extractSlugFromHost(host: string): string | null {
+  const labels = host.split('.');
+  // Need at least 2 labels (`<slug>.<domain>`) to extract a slug. Bare
+  // `localhost` / IPs are handled by `resolveLocalhost` upstream, not here.
+  if (labels.length < 2) return null;
+  const slug = labels[0] === 'api' ? labels[1] : labels[0];
+  if (!slug || !DNS_LABEL_RE.test(slug)) return null;
+  return slug;
+}
 
 export async function findOrgByHost(
   db: Kysely<Database>,
   host: string,
 ): Promise<ResolvedOrg | null> {
-  const m = SLUG_HOST_RE.exec(host);
-  if (!m) return null;
-  const slug = m[1]!;
+  const slug = extractSlugFromHost(host);
+  if (!slug) return null;
   const row = await db
     .selectFrom('orgs')
     .where('slug', '=', slug)
