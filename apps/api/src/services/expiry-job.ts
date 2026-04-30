@@ -1,3 +1,12 @@
+// expiry-job.ts is the cron sweeper that archives expired posts.
+//
+// Multi-tenant note: this job is intentionally cross-org. The sweep query
+// (`UPDATE posts SET status='archived' WHERE status='published' AND expires_at < NOW()`)
+// runs against ALL orgs in a single pass — there is no caller principal to scope to,
+// the cron runs as the system. This is correct for the current per-post expiry
+// policy. If we ever introduce per-org expiry policies (different default windows,
+// suspended-org carve-outs, etc.), revisit by adding a per-org loop.
+
 import type { Database } from '@prayer/db';
 import type { Kysely } from 'kysely';
 import cron, { type ScheduledTask } from 'node-cron';

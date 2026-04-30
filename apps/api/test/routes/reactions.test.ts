@@ -7,8 +7,10 @@ import { createTestApp, type TestApp } from '../helpers/supertest.js';
 
 describe('POST /posts/:postId/reactions', () => {
   let ctx: TestApp;
+  let orgId: string;
   beforeAll(async () => {
     ctx = await createTestApp();
+    orgId = ctx.orgId;
   });
   afterAll(async () => {
     await ctx.close();
@@ -18,13 +20,14 @@ describe('POST /posts/:postId/reactions', () => {
     await ctx.db.deleteFrom('reactions').execute();
     await ctx.db.deleteFrom('comments').execute();
     await ctx.db.deleteFrom('posts').execute();
+    await ctx.db.deleteFrom('user_orgs').execute();
     await ctx.db.deleteFrom('users').execute();
   });
 
   it('toggles on then off and returns { reacted, reaction_count }', async () => {
-    const author = await insertUser(ctx.db);
-    const reactor = await insertUser(ctx.db);
-    const post = await insertPost(ctx.db, { authorId: author.id, status: 'published' });
+    const author = await insertUser(ctx.db, { orgId });
+    const reactor = await insertUser(ctx.db, { orgId });
+    const post = await insertPost(ctx.db, { authorId: author.id, orgId, status: 'published' });
     const token = await mintTestJwt({ sub: reactor.supabaseAuthId, email: reactor.email });
 
     const r1 = await request(ctx.app)
@@ -42,8 +45,8 @@ describe('POST /posts/:postId/reactions', () => {
   });
 
   it('400s on bad emoji', async () => {
-    const author = await insertUser(ctx.db);
-    const post = await insertPost(ctx.db, { authorId: author.id, status: 'published' });
+    const author = await insertUser(ctx.db, { orgId });
+    const post = await insertPost(ctx.db, { authorId: author.id, orgId, status: 'published' });
     const token = await mintTestJwt({ sub: author.supabaseAuthId, email: author.email });
     const res = await request(ctx.app)
       .post(`/posts/${post.id}/reactions`)
@@ -53,13 +56,14 @@ describe('POST /posts/:postId/reactions', () => {
   });
 
   it('403 on comment reaction from non-participant', async () => {
-    const postAuthor = await insertUser(ctx.db);
-    const participant = await insertUser(ctx.db);
-    const stranger = await insertUser(ctx.db);
-    const post = await insertPost(ctx.db, { authorId: postAuthor.id, status: 'published' });
+    const postAuthor = await insertUser(ctx.db, { orgId });
+    const participant = await insertUser(ctx.db, { orgId });
+    const stranger = await insertUser(ctx.db, { orgId });
+    const post = await insertPost(ctx.db, { authorId: postAuthor.id, orgId, status: 'published' });
     const comment = await insertComment(ctx.db, {
       postId: post.id,
       authorId: participant.id,
+      orgId,
       participantId: participant.id,
     });
     const token = await mintTestJwt({ sub: stranger.supabaseAuthId, email: stranger.email });

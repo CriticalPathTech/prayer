@@ -18,6 +18,7 @@ export function feedRouter(deps: { db: Kysely<Database> }): Router {
         ...parsed.data,
         callerRole: req.user.role,
         callerId: req.user.id,
+        orgId: req.user.orgId,
       });
       res.json(out);
     } catch (err) {
@@ -28,7 +29,7 @@ export function feedRouter(deps: { db: Kysely<Database> }): Router {
   router.get('/feed/snapshot', async (req, res, next) => {
     try {
       if (!req.user) throw new UnauthorizedError();
-      res.json({ snapshotId: await getSnapshotId(deps.db) });
+      res.json({ snapshotId: await getSnapshotId(deps.db, req.user.orgId) });
     } catch (err) {
       next(err);
     }

@@ -5,12 +5,14 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
 import { initDb } from '../../../src/db/index.js';
 import { commentCreatedBuilder } from '../../../src/services/notification-builders/comment-created.js';
-import { insertPost, insertUser } from '../../helpers/seed.js';
+import { insertOrg, insertPost, insertUser } from '../../helpers/seed.js';
 
 describe('commentCreatedBuilder', () => {
   let db: Kysely<Database>;
-  beforeAll(() => {
+  let orgId: string;
+  beforeAll(async () => {
     db = initDb(process.env.TEST_DATABASE_URL!);
+    orgId = await insertOrg(db, { slug: 'lakeside-nb-comment-created' });
   });
   afterAll(async () => {
     await db.destroy();
@@ -19,18 +21,20 @@ describe('commentCreatedBuilder', () => {
     await db.deleteFrom('notifications').execute();
     await db.deleteFrom('comments').execute();
     await db.deleteFrom('posts').execute();
+    await db.deleteFrom('user_orgs').execute();
     await db.deleteFrom('users').execute();
   });
 
   it('writes one notification row for the post author', async () => {
-    const author = await insertUser(db);
-    const commenter = await insertUser(db);
-    const post = await insertPost(db, { authorId: author.id, status: 'published' });
+    const author = await insertUser(db, { orgId });
+    const commenter = await insertUser(db, { orgId });
+    const post = await insertPost(db, { authorId: author.id, orgId, status: 'published' });
     const commentId = newId();
     await db.transaction().execute(async (trx) => {
       await commentCreatedBuilder(
         {
           id: newId(),
+          org_id: orgId,
           type: 'comment.created',
           post_id: post.id,
           actor_id: commenter.id,
@@ -53,13 +57,14 @@ describe('commentCreatedBuilder', () => {
   });
 
   it('skips self-notification when the commenter IS the post author', async () => {
-    const user = await insertUser(db);
-    const post = await insertPost(db, { authorId: user.id, status: 'published' });
+    const user = await insertUser(db, { orgId });
+    const post = await insertPost(db, { authorId: user.id, orgId, status: 'published' });
     const commentId = newId();
     await db.transaction().execute(async (trx) => {
       await commentCreatedBuilder(
         {
           id: newId(),
+          org_id: orgId,
           type: 'comment.created',
           post_id: post.id,
           actor_id: user.id,

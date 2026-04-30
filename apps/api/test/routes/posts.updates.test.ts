@@ -7,8 +7,10 @@ import { createTestApp, type TestApp } from '../helpers/supertest.js';
 
 describe('POST /posts/:id/updates', () => {
   let ctx: TestApp;
+  let orgId: string;
   beforeAll(async () => {
     ctx = await createTestApp();
+    orgId = ctx.orgId;
   });
   afterAll(async () => {
     await ctx.close();
@@ -16,12 +18,13 @@ describe('POST /posts/:id/updates', () => {
   afterEach(async () => {
     await ctx.db.deleteFrom('events').execute();
     await ctx.db.deleteFrom('posts').execute();
+    await ctx.db.deleteFrom('user_orgs').execute();
     await ctx.db.deleteFrom('users').execute();
   });
 
   it('author creates an update', async () => {
-    const user = await insertUser(ctx.db);
-    const post = await insertPost(ctx.db, { authorId: user.id, status: 'published' });
+    const user = await insertUser(ctx.db, { orgId });
+    const post = await insertPost(ctx.db, { authorId: user.id, orgId, status: 'published' });
     const token = await mintTestJwt({ sub: user.supabaseAuthId, email: user.email });
     const res = await request(ctx.app)
       .post(`/posts/${post.id}/updates`)
@@ -34,9 +37,9 @@ describe('POST /posts/:id/updates', () => {
   });
 
   it('403 for non-author', async () => {
-    const author = await insertUser(ctx.db);
-    const other = await insertUser(ctx.db);
-    const post = await insertPost(ctx.db, { authorId: author.id, status: 'published' });
+    const author = await insertUser(ctx.db, { orgId });
+    const other = await insertUser(ctx.db, { orgId });
+    const post = await insertPost(ctx.db, { authorId: author.id, orgId, status: 'published' });
     const token = await mintTestJwt({ sub: other.supabaseAuthId, email: other.email });
     const res = await request(ctx.app)
       .post(`/posts/${post.id}/updates`)
@@ -46,8 +49,8 @@ describe('POST /posts/:id/updates', () => {
   });
 
   it('createUpdate with isAnsweredPrayer=true flips parent.is_answered_prayer to true', async () => {
-    const user = await insertUser(ctx.db);
-    const post = await insertPost(ctx.db, { authorId: user.id, status: 'published' });
+    const user = await insertUser(ctx.db, { orgId });
+    const post = await insertPost(ctx.db, { authorId: user.id, orgId, status: 'published' });
     const token = await mintTestJwt({ sub: user.supabaseAuthId, email: user.email });
     const res = await request(ctx.app)
       .post(`/posts/${post.id}/updates`)
@@ -63,9 +66,10 @@ describe('POST /posts/:id/updates', () => {
   });
 
   it('inherits is_anonymous from parent regardless of payload', async () => {
-    const user = await insertUser(ctx.db);
+    const user = await insertUser(ctx.db, { orgId });
     const post = await insertPost(ctx.db, {
       authorId: user.id,
+      orgId,
       status: 'published',
       isAnonymous: true,
     });
@@ -86,8 +90,10 @@ describe('POST /posts/:id/updates', () => {
 
 describe('PATCH /posts/:id/updates/:uid', () => {
   let ctx: TestApp;
+  let orgId: string;
   beforeAll(async () => {
     ctx = await createTestApp();
+    orgId = ctx.orgId;
   });
   afterAll(async () => {
     await ctx.close();
@@ -95,14 +101,16 @@ describe('PATCH /posts/:id/updates/:uid', () => {
   afterEach(async () => {
     await ctx.db.deleteFrom('events').execute();
     await ctx.db.deleteFrom('posts').execute();
+    await ctx.db.deleteFrom('user_orgs').execute();
     await ctx.db.deleteFrom('users').execute();
   });
 
   it('edits update body within deadline', async () => {
-    const user = await insertUser(ctx.db);
-    const post = await insertPost(ctx.db, { authorId: user.id, status: 'published' });
+    const user = await insertUser(ctx.db, { orgId });
+    const post = await insertPost(ctx.db, { authorId: user.id, orgId, status: 'published' });
     const update = await insertPost(ctx.db, {
       authorId: user.id,
+      orgId,
       status: 'published',
       parentId: post.id,
     });
@@ -117,10 +125,11 @@ describe('PATCH /posts/:id/updates/:uid', () => {
   });
 
   it('editUpdate toggling isAnsweredPrayer=true propagates to parent', async () => {
-    const user = await insertUser(ctx.db);
-    const post = await insertPost(ctx.db, { authorId: user.id, status: 'published' });
+    const user = await insertUser(ctx.db, { orgId });
+    const post = await insertPost(ctx.db, { authorId: user.id, orgId, status: 'published' });
     const update = await insertPost(ctx.db, {
       authorId: user.id,
+      orgId,
       status: 'published',
       parentId: post.id,
     });
@@ -140,10 +149,11 @@ describe('PATCH /posts/:id/updates/:uid', () => {
   });
 
   it('403 EDIT_DEADLINE_PASSED when deadline elapsed', async () => {
-    const user = await insertUser(ctx.db);
-    const post = await insertPost(ctx.db, { authorId: user.id, status: 'published' });
+    const user = await insertUser(ctx.db, { orgId });
+    const post = await insertPost(ctx.db, { authorId: user.id, orgId, status: 'published' });
     const update = await insertPost(ctx.db, {
       authorId: user.id,
+      orgId,
       status: 'published',
       parentId: post.id,
       editDeadline: new Date(Date.now() - 60_000),

@@ -13,6 +13,7 @@ export interface NotificationRow {
 }
 
 export interface ListNotificationsArgs {
+  orgId: string;
   callerId: string;
   unread?: boolean;
   cursor?: string;
@@ -44,6 +45,7 @@ export async function listNotifications(
   let q = db
     .selectFrom('notifications')
     .select(['id', 'user_id', 'type', 'payload', 'read_at', 'created_at'])
+    .where('org_id', '=', args.orgId)
     .where('user_id', '=', args.callerId)
     .orderBy('id', 'desc')
     .limit(args.limit + 1);
@@ -61,6 +63,7 @@ export async function listNotifications(
   const unreadCountRow = await db
     .selectFrom('notifications')
     .select((eb) => eb.fn.count<number>('id').as('count'))
+    .where('org_id', '=', args.orgId)
     .where('user_id', '=', args.callerId)
     .where('read_at', 'is', null)
     .executeTakeFirstOrThrow();
@@ -83,6 +86,7 @@ export async function listNotifications(
 }
 
 export interface MarkReadArgs {
+  orgId: string;
   callerId: string;
   id: string;
 }
@@ -99,6 +103,7 @@ export async function markNotificationRead(
   const updated = await db
     .updateTable('notifications')
     .set({ read_at: new Date() })
+    .where('org_id', '=', args.orgId)
     .where('id', '=', args.id)
     .where('user_id', '=', args.callerId)
     .where('read_at', 'is', null)
@@ -113,6 +118,7 @@ export async function markNotificationRead(
   const existing = await db
     .selectFrom('notifications')
     .select(['id', 'read_at'])
+    .where('org_id', '=', args.orgId)
     .where('id', '=', args.id)
     .where('user_id', '=', args.callerId)
     .executeTakeFirst();
@@ -126,6 +132,7 @@ export async function markNotificationRead(
 }
 
 export interface MarkAllReadArgs {
+  orgId: string;
   callerId: string;
 }
 
@@ -140,6 +147,7 @@ export async function markAllNotificationsRead(
   const rows = await db
     .updateTable('notifications')
     .set({ read_at: new Date() })
+    .where('org_id', '=', args.orgId)
     .where('user_id', '=', args.callerId)
     .where('read_at', 'is', null)
     .returning('id')

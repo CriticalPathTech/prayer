@@ -13,6 +13,7 @@ function requireModeratorRole(role: UserRole): void {
 export interface HideTargetInput {
   callerId: string;
   callerRole: UserRole;
+  orgId: string;
   targetType: ReactionTargetType;
   targetId: string;
 }
@@ -32,12 +33,14 @@ export async function hideTarget(
         .updateTable('posts')
         .set({ status: 'hidden' })
         .where('id', '=', input.targetId)
+        .where('org_id', '=', input.orgId)
         .where('status', '!=', 'hidden')
         .returning('id')
         .executeTakeFirst();
       if (flipped) {
         await writeModerationEvent(trx, {
           kind: 'moderator.hide',
+          orgId: input.orgId,
           postId: input.targetId,
           actorId: input.callerId,
           targetType: 'post',
@@ -51,6 +54,7 @@ export async function hideTarget(
       .selectFrom('comments')
       .select('post_id')
       .where('id', '=', input.targetId)
+      .where('org_id', '=', input.orgId)
       .executeTakeFirst();
     if (!comment) return { hidden: true };
     const flipped = await trx
@@ -63,6 +67,7 @@ export async function hideTarget(
     if (flipped) {
       await writeModerationEvent(trx, {
         kind: 'moderator.hide',
+        orgId: input.orgId,
         postId: comment.post_id,
         actorId: input.callerId,
         targetType: 'comment',
@@ -85,12 +90,14 @@ export async function unhideTarget(
         .updateTable('posts')
         .set({ status: 'published' })
         .where('id', '=', input.targetId)
+        .where('org_id', '=', input.orgId)
         .where('status', '=', 'hidden')
         .returning('id')
         .executeTakeFirst();
       if (flipped) {
         await writeModerationEvent(trx, {
           kind: 'moderator.unhide',
+          orgId: input.orgId,
           postId: input.targetId,
           actorId: input.callerId,
           targetType: 'post',
@@ -104,6 +111,7 @@ export async function unhideTarget(
       .selectFrom('comments')
       .select('post_id')
       .where('id', '=', input.targetId)
+      .where('org_id', '=', input.orgId)
       .executeTakeFirst();
     if (!comment) return { hidden: false };
     const flipped = await trx
@@ -116,6 +124,7 @@ export async function unhideTarget(
     if (flipped) {
       await writeModerationEvent(trx, {
         kind: 'moderator.unhide',
+        orgId: input.orgId,
         postId: comment.post_id,
         actorId: input.callerId,
         targetType: 'comment',
@@ -143,6 +152,7 @@ export interface ModQueueItem {
 
 export interface ListModQueueInput {
   callerRole: UserRole;
+  orgId: string;
   status?: 'pending' | 'auto_hidden' | 'manually_hidden';
   cursor?: string;
   limit: number;
@@ -180,6 +190,7 @@ export async function listModQueue(
         ARRAY_AGG(DISTINCT f.reason) AS reasons
       FROM flags f
       WHERE f.resolved_at IS NULL
+        AND f.org_id = ${input.orgId}
       GROUP BY f.target_type, f.target_id
     )
     SELECT

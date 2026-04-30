@@ -5,7 +5,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
 import { initDb } from '../../../src/db/index.js';
 import { inviteAcceptedBuilder } from '../../../src/services/notification-builders/invite-accepted.js';
-import { insertUser } from '../../helpers/seed.js';
+import { insertOrg, insertUser } from '../../helpers/seed.js';
 
 async function displayNameOf(db: Kysely<Database>, userId: string): Promise<string> {
   const row = await db
@@ -18,26 +18,30 @@ async function displayNameOf(db: Kysely<Database>, userId: string): Promise<stri
 
 describe('inviteAcceptedBuilder', () => {
   let db: Kysely<Database>;
-  beforeAll(() => {
+  let orgId: string;
+  beforeAll(async () => {
     db = initDb(process.env.TEST_DATABASE_URL!);
+    orgId = await insertOrg(db, { slug: 'lakeside-nb-invite-accepted' });
   });
   afterAll(async () => {
     await db.destroy();
   });
   afterEach(async () => {
     await db.deleteFrom('notifications').execute();
+    await db.deleteFrom('user_orgs').execute();
     await db.deleteFrom('users').execute();
   });
 
   it('writes one notification to the invitor', async () => {
-    const invitor = await insertUser(db);
-    const invitee = await insertUser(db);
+    const invitor = await insertUser(db, { orgId });
+    const invitee = await insertUser(db, { orgId });
     const inviteeName = await displayNameOf(db, invitee.id);
 
     await db.transaction().execute(async (trx) => {
       await inviteAcceptedBuilder(
         {
           id: newId(),
+          org_id: orgId,
           type: 'invite.accepted',
           post_id: null,
           actor_id: invitor.id,
@@ -54,16 +58,18 @@ describe('inviteAcceptedBuilder', () => {
     expect(rows).toHaveLength(1);
     expect(rows[0]!.user_id).toBe(invitor.id);
     expect(rows[0]!.type).toBe('invite.accepted');
+    expect(rows[0]!.org_id).toBe(orgId);
   });
 
   it('is a no-op when actor_id is null', async () => {
-    const invitee = await insertUser(db);
+    const invitee = await insertUser(db, { orgId });
     const inviteeName = await displayNameOf(db, invitee.id);
 
     await db.transaction().execute(async (trx) => {
       await inviteAcceptedBuilder(
         {
           id: newId(),
+          org_id: orgId,
           type: 'invite.accepted',
           post_id: null,
           actor_id: null,

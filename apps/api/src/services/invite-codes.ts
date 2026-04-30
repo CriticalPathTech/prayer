@@ -61,12 +61,13 @@ export async function previewInviteCode(
 
 export async function retireInviteCode(
   db: Kysely<Database>,
-  input: { codeId: string },
+  input: { codeId: string; orgId: string },
 ): Promise<void> {
   await db
     .updateTable('invite_codes')
     .set({ is_active: false })
     .where('id', '=', input.codeId)
+    .where('org_id', '=', input.orgId)
     .execute();
 }
 
@@ -82,12 +83,13 @@ export interface InviteCodeWithRedemptions {
 
 export async function listInviteCodesForOwner(
   db: Kysely<Database>,
-  input: { ownerId: string },
+  input: { ownerId: string; orgId: string },
 ): Promise<InviteCodeWithRedemptions[]> {
   const codes = await db
     .selectFrom('invite_codes')
     .selectAll()
     .where('owner_id', '=', input.ownerId)
+    .where('org_id', '=', input.orgId)
     .orderBy('created_at', 'desc')
     .execute();
   if (codes.length === 0) return [];

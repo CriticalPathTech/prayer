@@ -20,6 +20,7 @@ class AlreadyFlaggedError extends AppError {
 
 export interface CreateFlagInput {
   callerId: string;
+  orgId: string;
   targetType: ReactionTargetType;
   postId: string;
   targetId: string;
@@ -41,6 +42,7 @@ export async function createFlag(
         .selectFrom('posts')
         .select(['id', 'author_id', 'status', 'flag_count'])
         .where('id', '=', input.targetId)
+        .where('org_id', '=', input.orgId)
         .executeTakeFirst();
       if (!post) throw new NotFoundError('Post not found');
       if (post.author_id === input.callerId) throw new SelfFlagError();
@@ -54,6 +56,7 @@ export async function createFlag(
           .insertInto('flags')
           .values({
             id,
+            org_id: input.orgId,
             target_type: 'post',
             target_id: input.targetId,
             flagger_id: input.callerId,
@@ -69,6 +72,7 @@ export async function createFlag(
 
       await writeFlagEvent(trx, {
         kind: 'flag.created',
+        orgId: input.orgId,
         postId: input.postId,
         actorId: input.callerId,
         flagId: id,
@@ -86,6 +90,7 @@ export async function createFlag(
       .selectFrom('comments')
       .select(['id', 'post_id', 'author_id', 'is_hidden', 'flag_count'])
       .where('id', '=', input.targetId)
+      .where('org_id', '=', input.orgId)
       .executeTakeFirst();
     if (!comment) throw new NotFoundError('Comment not found');
     if (comment.post_id !== input.postId) throw new NotFoundError('Comment not found');
@@ -100,6 +105,7 @@ export async function createFlag(
         .insertInto('flags')
         .values({
           id,
+          org_id: input.orgId,
           target_type: 'comment',
           target_id: input.targetId,
           flagger_id: input.callerId,
@@ -115,6 +121,7 @@ export async function createFlag(
 
     await writeFlagEvent(trx, {
       kind: 'flag.created',
+      orgId: input.orgId,
       postId: input.postId,
       actorId: input.callerId,
       flagId: id,
@@ -131,6 +138,7 @@ export async function createFlag(
 export interface DismissFlagsInput {
   callerId: string;
   callerRole: UserRole;
+  orgId: string;
   targetType: ReactionTargetType;
   postId: string;
   targetId: string;
@@ -151,6 +159,7 @@ export async function dismissFlags(
     const resolved = await trx
       .updateTable('flags')
       .set({ resolved_at: new Date(), resolved_by_id: input.callerId })
+      .where('org_id', '=', input.orgId)
       .where('target_type', '=', input.targetType)
       .where('target_id', '=', input.targetId)
       .where('resolved_at', 'is', null)
@@ -159,6 +168,7 @@ export async function dismissFlags(
     for (const row of resolved) {
       await writeFlagEvent(trx, {
         kind: 'flag.resolved',
+        orgId: input.orgId,
         postId: input.postId,
         actorId: input.callerId,
         flagId: row.id,

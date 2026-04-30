@@ -1,3 +1,17 @@
+// services/avatars.ts handles avatar uploads to S3-compatible storage.
+//
+// Multi-tenant note: storage paths are NOT scoped by org_id in Phase 1. Avatars
+// live at the flat path `avatars/<user_id>.jpg`. This is intentional —
+//   1. The `users` table is global to identity (Option C: one Supabase identity
+//      per email, many user_orgs memberships per identity), so a user's avatar
+//      is the same image across every org they belong to.
+//   2. Migrating to per-org-scoped storage paths (e.g., `orgs/<org_id>/users/<id>.jpg`)
+//      is a separate concern, deferred until we either move off Supabase Storage
+//      or have a real isolation requirement.
+//
+// The `users.avatar_url` column is per-user (no org_id). The avatar URL itself
+// embeds the user_id only.
+
 import type { Database } from '@prayer/db';
 import type { Kysely } from 'kysely';
 

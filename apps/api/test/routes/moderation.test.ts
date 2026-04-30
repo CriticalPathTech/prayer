@@ -6,13 +6,15 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
 import { initDb } from '../../src/db/index.js';
 import { mintTestJwt } from '../helpers/jwt.js';
-import { insertPost, insertUser } from '../helpers/seed.js';
+import { getLakesideOrgId, insertPost, insertUser } from '../helpers/seed.js';
 import { createTestApp } from '../helpers/supertest.js';
 
 describe('POST /mod/posts/:id/hide', () => {
   let db: Kysely<Database>;
-  beforeAll(() => {
+  let orgId: string;
+  beforeAll(async () => {
     db = initDb(process.env.TEST_DATABASE_URL!);
+    orgId = await getLakesideOrgId(db);
   });
   afterAll(async () => {
     await db.destroy();
@@ -21,13 +23,14 @@ describe('POST /mod/posts/:id/hide', () => {
     await db.deleteFrom('events').execute();
     await db.deleteFrom('flags').execute();
     await db.deleteFrom('posts').execute();
+    await db.deleteFrom('user_orgs').execute();
     await db.deleteFrom('users').execute();
   });
 
   it('moderator hides → 200 { hidden: true } + moderator.hide event', async () => {
-    const author = await insertUser(db);
-    const mod = await insertUser(db, { role: 'moderator' });
-    const post = await insertPost(db, { authorId: author.id, status: 'published' });
+    const author = await insertUser(db, { orgId });
+    const mod = await insertUser(db, { orgId, role: 'moderator' });
+    const post = await insertPost(db, { authorId: author.id, orgId, status: 'published' });
     const ctx = await createTestApp();
     const token = await mintTestJwt({ sub: mod.supabaseAuthId, email: mod.email });
     const res = await request(ctx.app)
@@ -51,9 +54,9 @@ describe('POST /mod/posts/:id/hide', () => {
   });
 
   it('member → 403', async () => {
-    const author = await insertUser(db);
-    const mem = await insertUser(db);
-    const post = await insertPost(db, { authorId: author.id, status: 'published' });
+    const author = await insertUser(db, { orgId });
+    const mem = await insertUser(db, { orgId });
+    const post = await insertPost(db, { authorId: author.id, orgId, status: 'published' });
     const ctx = await createTestApp();
     const token = await mintTestJwt({ sub: mem.supabaseAuthId, email: mem.email });
     const res = await request(ctx.app)
@@ -66,8 +69,10 @@ describe('POST /mod/posts/:id/hide', () => {
 
 describe('POST /mod/posts/:id/dismiss-flags', () => {
   let db: Kysely<Database>;
-  beforeAll(() => {
+  let orgId: string;
+  beforeAll(async () => {
     db = initDb(process.env.TEST_DATABASE_URL!);
+    orgId = await getLakesideOrgId(db);
   });
   afterAll(async () => {
     await db.destroy();
@@ -76,18 +81,20 @@ describe('POST /mod/posts/:id/dismiss-flags', () => {
     await db.deleteFrom('events').execute();
     await db.deleteFrom('flags').execute();
     await db.deleteFrom('posts').execute();
+    await db.deleteFrom('user_orgs').execute();
     await db.deleteFrom('users').execute();
   });
 
   it('dismisses flags and emits flag.resolved per row', async () => {
-    const author = await insertUser(db);
-    const mod = await insertUser(db, { role: 'moderator' });
-    const flagger = await insertUser(db);
-    const post = await insertPost(db, { authorId: author.id, status: 'published' });
+    const author = await insertUser(db, { orgId });
+    const mod = await insertUser(db, { orgId, role: 'moderator' });
+    const flagger = await insertUser(db, { orgId });
+    const post = await insertPost(db, { authorId: author.id, orgId, status: 'published' });
     await db
       .insertInto('flags')
       .values({
         id: newId(),
+        org_id: orgId,
         target_type: 'post',
         target_id: post.id,
         flagger_id: flagger.id,
@@ -119,8 +126,10 @@ describe('POST /mod/posts/:id/dismiss-flags', () => {
 
 describe('GET /mod/queue', () => {
   let db: Kysely<Database>;
-  beforeAll(() => {
+  let orgId: string;
+  beforeAll(async () => {
     db = initDb(process.env.TEST_DATABASE_URL!);
+    orgId = await getLakesideOrgId(db);
   });
   afterAll(async () => {
     await db.destroy();
@@ -128,20 +137,27 @@ describe('GET /mod/queue', () => {
   afterEach(async () => {
     await db.deleteFrom('flags').execute();
     await db.deleteFrom('posts').execute();
+    await db.deleteFrom('user_orgs').execute();
     await db.deleteFrom('users').execute();
   });
 
   it('returns deduped-per-target pending rows; 403 for non-mod', async () => {
-    const author = await insertUser(db);
-    const mod = await insertUser(db, { role: 'moderator' });
-    const f1 = await insertUser(db);
-    const f2 = await insertUser(db);
-    const post = await insertPost(db, { authorId: author.id, status: 'published', body: 'hello' });
+    const author = await insertUser(db, { orgId });
+    const mod = await insertUser(db, { orgId, role: 'moderator' });
+    const f1 = await insertUser(db, { orgId });
+    const f2 = await insertUser(db, { orgId });
+    const post = await insertPost(db, {
+      authorId: author.id,
+      orgId,
+      status: 'published',
+      body: 'hello',
+    });
     await db
       .insertInto('flags')
       .values([
         {
           id: newId(),
+          org_id: orgId,
           target_type: 'post',
           target_id: post.id,
           flagger_id: f1.id,
@@ -149,6 +165,7 @@ describe('GET /mod/queue', () => {
         },
         {
           id: newId(),
+          org_id: orgId,
           target_type: 'post',
           target_id: post.id,
           flagger_id: f2.id,

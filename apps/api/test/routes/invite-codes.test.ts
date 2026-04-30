@@ -7,9 +7,11 @@ import { createTestApp, type TestApp } from '../helpers/supertest.js';
 
 describe('GET /invite-codes/:code', () => {
   let ctx: TestApp;
+  let orgId: string;
 
   beforeAll(async () => {
     ctx = await createTestApp();
+    orgId = ctx.orgId;
   });
   afterAll(async () => {
     await ctx.close();
@@ -17,17 +19,18 @@ describe('GET /invite-codes/:code', () => {
   afterEach(async () => {
     await ctx.db.deleteFrom('invitations').execute();
     await ctx.db.deleteFrom('invite_codes').execute();
+    await ctx.db.deleteFrom('user_orgs').execute();
     await ctx.db.deleteFrom('users').execute();
   });
 
   it('returns valid with seats info', async () => {
-    const owner = await insertUser(ctx.db, { email: 'ben@test.local' });
+    const owner = await insertUser(ctx.db, { orgId, email: 'ben@test.local' });
     await ctx.db
       .updateTable('users')
       .set({ display_name: 'Ben' })
       .where('id', '=', owner.id)
       .execute();
-    const code = await mintInviteCode(ctx.db, { ownerId: owner.id, seatCap: 3 });
+    const code = await mintInviteCode(ctx.db, { ownerId: owner.id, orgId, seatCap: 3 });
     const res = await request(ctx.app).get(`/invite-codes/${code.code}`);
     expect(res.status).toBe(200);
     expect(res.body).toEqual({
@@ -45,13 +48,13 @@ describe('GET /invite-codes/:code', () => {
   });
 
   it('returns full when seats exhausted', async () => {
-    const owner = await insertUser(ctx.db, { email: 'ben2@test.local' });
+    const owner = await insertUser(ctx.db, { orgId, email: 'ben2@test.local' });
     await ctx.db
       .updateTable('users')
       .set({ display_name: 'Ben' })
       .where('id', '=', owner.id)
       .execute();
-    const code = await mintInviteCode(ctx.db, { ownerId: owner.id, seatCap: 1 });
+    const code = await mintInviteCode(ctx.db, { ownerId: owner.id, orgId, seatCap: 1 });
     await ctx.db
       .updateTable('invite_codes')
       .set({ seats_remaining: 0 })
@@ -63,13 +66,13 @@ describe('GET /invite-codes/:code', () => {
   });
 
   it('accepts uppercase input', async () => {
-    const owner = await insertUser(ctx.db, { email: 'ben3@test.local' });
+    const owner = await insertUser(ctx.db, { orgId, email: 'ben3@test.local' });
     await ctx.db
       .updateTable('users')
       .set({ display_name: 'Ben' })
       .where('id', '=', owner.id)
       .execute();
-    const code = await mintInviteCode(ctx.db, { ownerId: owner.id, seatCap: 3 });
+    const code = await mintInviteCode(ctx.db, { ownerId: owner.id, orgId, seatCap: 3 });
     const res = await request(ctx.app).get(`/invite-codes/${code.code.toUpperCase()}`);
     expect(res.status).toBe(200);
     expect(res.body.status).toBe('valid');

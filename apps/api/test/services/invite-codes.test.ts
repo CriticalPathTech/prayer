@@ -1,5 +1,5 @@
 import { createDb, newId } from '@prayer/db';
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach, beforeAll } from 'vitest';
 
 import {
   generateInviteCode,
@@ -7,8 +7,14 @@ import {
   previewInviteCode,
   retireInviteCode,
 } from '../../src/services/invite-codes.js';
+import { insertOrg } from '../helpers/seed.js';
 
 const db = createDb(process.env.DATABASE_URL!);
+let orgId: string;
+
+beforeAll(async () => {
+  orgId = await insertOrg(db, { slug: 'lakeside-svc-invite-codes' });
+});
 
 async function insertUser(displayName: string) {
   const id = newId();
@@ -27,6 +33,7 @@ async function insertUser(displayName: string) {
 afterEach(async () => {
   await db.deleteFrom('invitations').execute();
   await db.deleteFrom('invite_codes').execute();
+  await db.deleteFrom('user_orgs').execute();
   await db.deleteFrom('users').execute();
 });
 
@@ -42,7 +49,7 @@ describe('generateInviteCode', () => {
 describe('mintInviteCode', () => {
   it('inserts a unique code with seats_remaining = seat_cap', async () => {
     const owner = await insertUser('Ben');
-    const out = await mintInviteCode(db, { ownerId: owner, seatCap: 3 });
+    const out = await mintInviteCode(db, { ownerId: owner, orgId, seatCap: 3 });
     expect(out.code).toMatch(/^[a-z0-9]{5}$/);
     expect(out.seat_cap).toBe(3);
     expect(out.seats_remaining).toBe(3);
@@ -59,7 +66,7 @@ describe('mintInviteCode', () => {
 describe('previewInviteCode', () => {
   it('returns valid + invitor_display_name for an active code with seats', async () => {
     const owner = await insertUser('Ben');
-    const minted = await mintInviteCode(db, { ownerId: owner, seatCap: 3 });
+    const minted = await mintInviteCode(db, { ownerId: owner, orgId, seatCap: 3 });
     const out = await previewInviteCode(db, { code: minted.code });
     expect(out).toEqual({
       status: 'valid',
@@ -76,7 +83,7 @@ describe('previewInviteCode', () => {
 
   it('returns full when seats_remaining = 0', async () => {
     const owner = await insertUser('Ben');
-    const minted = await mintInviteCode(db, { ownerId: owner, seatCap: 1 });
+    const minted = await mintInviteCode(db, { ownerId: owner, orgId, seatCap: 1 });
     await db
       .updateTable('invite_codes')
       .set({ seats_remaining: 0 })
@@ -89,15 +96,15 @@ describe('previewInviteCode', () => {
 
   it('returns inactive when is_active = false', async () => {
     const owner = await insertUser('Ben');
-    const minted = await mintInviteCode(db, { ownerId: owner, seatCap: 3 });
-    await retireInviteCode(db, { codeId: minted.id });
+    const minted = await mintInviteCode(db, { ownerId: owner, orgId, seatCap: 3 });
+    await retireInviteCode(db, { codeId: minted.id, orgId });
     const out = await previewInviteCode(db, { code: minted.code });
     expect(out.status).toBe('inactive');
   });
 
   it('normalizes uppercase input to lowercase', async () => {
     const owner = await insertUser('Ben');
-    const minted = await mintInviteCode(db, { ownerId: owner, seatCap: 3 });
+    const minted = await mintInviteCode(db, { ownerId: owner, orgId, seatCap: 3 });
     const out = await previewInviteCode(db, { code: minted.code.toUpperCase() });
     expect(out.status).toBe('valid');
   });
@@ -106,8 +113,8 @@ describe('previewInviteCode', () => {
 describe('retireInviteCode', () => {
   it('sets is_active to false without touching seats_remaining', async () => {
     const owner = await insertUser('Ben');
-    const minted = await mintInviteCode(db, { ownerId: owner, seatCap: 5 });
-    await retireInviteCode(db, { codeId: minted.id });
+    const minted = await mintInviteCode(db, { ownerId: owner, orgId, seatCap: 5 });
+    await retireInviteCode(db, { codeId: minted.id, orgId });
     const row = await db
       .selectFrom('invite_codes')
       .selectAll()

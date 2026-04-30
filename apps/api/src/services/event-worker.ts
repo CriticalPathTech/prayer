@@ -1,3 +1,11 @@
+// event-worker.ts is the LISTEN/NOTIFY consumer that dispatches events to handlers.
+//
+// Multi-tenant: every event row has `org_id NOT NULL` (M1 schema). Handlers receive
+// the full event row, so they can extract `event.org_id` to scope their downstream
+// queries. The worker itself is org-AGNOSTIC — it processes events for all orgs in
+// a single global stream. Per-org partitioning was considered and rejected for v1
+// (the spec's "leaning simple" position).
+
 import type { Database } from '@prayer/db';
 import type { Kysely, Transaction } from 'kysely';
 import { sql } from 'kysely';
@@ -8,6 +16,7 @@ import type { EventKind } from './events.js';
 
 export interface EventRow {
   id: string;
+  org_id: string;
   type: string;
   post_id: string | null;
   actor_id: string | null;
@@ -62,7 +71,7 @@ export function createEventWorker(deps: EventWorkerDeps): EventWorker {
         .set({ processed_at: new Date() })
         .where('id', '=', id)
         .where('processed_at', 'is', null)
-        .returning(['id', 'type', 'post_id', 'actor_id', 'payload'])
+        .returning(['id', 'org_id', 'type', 'post_id', 'actor_id', 'payload'])
         .executeTakeFirst();
       if (!row) return; // already processed — commit no-op
       const handler = handlers[row.type as EventKind];

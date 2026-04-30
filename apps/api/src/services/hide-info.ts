@@ -14,6 +14,7 @@ export interface HideInfo {
 export async function fetchHideInfo(
   db: Kysely<Database>,
   postIds: string[],
+  orgId: string,
 ): Promise<Map<string, HideInfo>> {
   const result = new Map<string, HideInfo>();
   if (postIds.length === 0) return result;
@@ -27,6 +28,7 @@ export async function fetchHideInfo(
       sql<string | null>`e.payload->>'source'`.as('source'),
       'e.created_at',
     ])
+    .where('e.org_id', '=', orgId)
     .where('e.type', '=', 'moderator.hide')
     .where('e.post_id', 'in', postIds)
     .orderBy('e.post_id')

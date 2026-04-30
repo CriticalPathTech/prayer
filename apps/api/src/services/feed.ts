@@ -29,7 +29,7 @@ export interface FeedResponse {
 
 export async function fetchFeed(
   db: Kysely<Database>,
-  args: FeedQuery & { callerRole: UserRole; callerId: string },
+  args: FeedQuery & { callerRole: UserRole; callerId: string; orgId: string },
 ): Promise<FeedResponse> {
   const isPrivileged = isPrivilegedRole(args.callerRole);
 
@@ -52,6 +52,7 @@ export async function fetchFeed(
       'posts.edit_deadline',
       'posts.created_at',
     ])
+    .where('posts.org_id', '=', args.orgId)
     .where('posts.parent_id', 'is', null)
     .$if(!isPrivileged, (b) => b.where('posts.status', '=', 'published'))
     .$if(isPrivileged, (b) => b.where('posts.status', 'in', ['published', 'hidden']))
@@ -85,6 +86,7 @@ export async function fetchFeed(
     const prayedRows = await db
       .selectFrom('prayers')
       .select('post_id')
+      .where('org_id', '=', args.orgId)
       .where('user_id', '=', args.callerId)
       .where('post_id', 'in', postIds)
       .execute();
@@ -98,6 +100,7 @@ export async function fetchFeed(
         (eb) => eb.fn.count<number>('id').as('count'),
         (eb) => sql<boolean>`bool_or(${eb.ref('author_id')} = ${args.callerId})`.as('mine'),
       ])
+      .where('org_id', '=', args.orgId)
       .where('target_type', '=', 'post')
       .where('target_id', 'in', postIds)
       .groupBy(['target_id', 'emoji'])
@@ -130,6 +133,7 @@ export async function fetchFeed(
           'posts.edit_deadline',
           'posts.created_at',
         ])
+        .where('posts.org_id', '=', args.orgId)
         .where('posts.parent_id', 'in', postIds)
         .where('posts.is_answered_prayer', '=', true)
         .where('posts.status', '=', 'published')
@@ -152,6 +156,7 @@ export async function fetchFeed(
     ? await fetchHideInfo(
         db,
         page.filter((p) => p.status === 'hidden').map((p) => p.id),
+        args.orgId,
       )
     : new Map<string, HideInfo>();
   for (const row of page) {
@@ -166,7 +171,7 @@ export async function fetchFeed(
   const nextCursor: string | null =
     hasMore && last ? encodeCursor({ filter: args.filter, id: last.id }) : null;
 
-  const snapshotId = await getSnapshotId(db);
+  const snapshotId = await getSnapshotId(db, args.orgId);
   return {
     posts: page.map((r) => ({
       ...toPostDto(r, { role: args.callerRole }, args.callerId),

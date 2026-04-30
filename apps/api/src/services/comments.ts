@@ -129,6 +129,7 @@ const COMMENT_PREVIEW_MAX = 120;
 
 export interface CreateCommentArgs {
   postId: string;
+  orgId: string;
   callerId: string;
   callerRole: UserRole;
   body: string;
@@ -147,6 +148,7 @@ export async function createComment(
       .selectFrom('posts')
       .select(['id', 'author_id', 'status', 'is_anonymous'])
       .where('id', '=', args.postId)
+      .where('org_id', '=', args.orgId)
       .executeTakeFirst();
     if (!post || post.status !== 'published') throw new NotFoundError('Post not found');
 
@@ -164,6 +166,7 @@ export async function createComment(
           .selectFrom('comments')
           .select('id')
           .where('post_id', '=', args.postId)
+          .where('org_id', '=', args.orgId)
           .where('participant_id', '=', args.participantId)
           .limit(1)
           .executeTakeFirst();
@@ -179,6 +182,7 @@ export async function createComment(
           .selectFrom('comments')
           .select('id')
           .where('post_id', '=', args.postId)
+          .where('org_id', '=', args.orgId)
           .where('participant_id', '=', args.participantId)
           .limit(1)
           .executeTakeFirst();
@@ -194,6 +198,7 @@ export async function createComment(
       .insertInto('comments')
       .values({
         id,
+        org_id: args.orgId,
         post_id: args.postId,
         author_id: args.callerId,
         participant_id: participantId,
@@ -210,6 +215,7 @@ export async function createComment(
     const preview = args.body.slice(0, COMMENT_PREVIEW_MAX);
     await writeCommentEvent(trx, {
       kind: 'comment.created',
+      orgId: args.orgId,
       postId: args.postId,
       actorId: args.callerId,
       payload: {
@@ -238,6 +244,7 @@ export async function createComment(
 
 export interface EditCommentArgs {
   commentId: string;
+  orgId: string;
   callerId: string;
   callerRole: UserRole;
   body: string;
@@ -263,6 +270,7 @@ export async function editComment(
         'posts.is_anonymous as post_is_anonymous',
       ])
       .where('comments.id', '=', args.commentId)
+      .where('comments.org_id', '=', args.orgId)
       .executeTakeFirst();
     if (!row) throw new NotFoundError('Comment not found');
     if (row.author_id !== args.callerId) throw new ForbiddenError();
@@ -274,6 +282,7 @@ export async function editComment(
       .updateTable('comments')
       .set({ body: args.body, updated_at: new Date() as never })
       .where('id', '=', args.commentId)
+      .where('org_id', '=', args.orgId)
       .execute();
 
     const fresh = await fetchCommentRow(trx, args.commentId);
@@ -291,6 +300,7 @@ export async function editComment(
 
 export interface HideCommentArgs {
   commentId: string;
+  orgId: string;
   callerId: string;
   callerRole: UserRole;
 }
@@ -301,6 +311,7 @@ export async function hideComment(db: Kysely<Database>, args: HideCommentArgs): 
       .selectFrom('comments')
       .select(['id', 'author_id', 'post_id'])
       .where('id', '=', args.commentId)
+      .where('org_id', '=', args.orgId)
       .executeTakeFirst();
     if (!row) throw new NotFoundError('Comment not found');
     const isOwn = row.author_id === args.callerId;
@@ -311,12 +322,14 @@ export async function hideComment(db: Kysely<Database>, args: HideCommentArgs): 
       .updateTable('comments')
       .set({ is_hidden: true, updated_at: new Date() as never })
       .where('id', '=', args.commentId)
+      .where('org_id', '=', args.orgId)
       .execute();
   });
 }
 
 export interface ListCommentsArgs {
   postId: string;
+  orgId: string;
   callerId: string;
   callerRole: UserRole;
 }
@@ -335,6 +348,7 @@ export async function listCommentsForPost(
     .selectFrom('posts')
     .select(['id', 'author_id', 'status', 'is_anonymous'])
     .where('id', '=', args.postId)
+    .where('org_id', '=', args.orgId)
     .executeTakeFirst();
   if (!post) throw new NotFoundError('Post not found');
 
@@ -358,6 +372,7 @@ export async function listCommentsForPost(
       'comments.updated_at',
     ])
     .where('comments.post_id', '=', args.postId)
+    .where('comments.org_id', '=', args.orgId)
     .orderBy('comments.created_at', 'asc')
     .execute()) as unknown as (CommentRow & { participant_display_name: string })[];
 

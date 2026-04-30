@@ -39,6 +39,7 @@ export function meRouter(deps: {
       if (!parsed.success) throw new ValidationError(parsed.error.message);
       const out = await updateDisplayName(deps.db, {
         userId: req.user.id,
+        orgId: req.user.orgId,
         input: parsed.data.display_name,
       });
       res.json(out);
@@ -120,7 +121,10 @@ export function meRouter(deps: {
   router.get('/me/invites', async (req, res, next) => {
     try {
       if (!req.user) throw new UnauthorizedError();
-      const codes = await listInviteCodesForOwner(deps.db, { ownerId: req.user.id });
+      const codes = await listInviteCodesForOwner(deps.db, {
+        ownerId: req.user.id,
+        orgId: req.user.orgId,
+      });
       res.json({
         active: codes.filter((c) => c.is_active),
         retired: codes.filter((c) => !c.is_active),

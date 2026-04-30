@@ -120,10 +120,32 @@ export async function isFreshInstall(db: Db): Promise<boolean> {
   return Number(row.count) === 0;
 }
 
+export interface FindOrCreateOrgResult {
+  id: string;
+  created: boolean;
+}
+
+export async function findOrCreateOrg(
+  db: Db,
+  slug: string,
+  displayName: string,
+): Promise<FindOrCreateOrgResult> {
+  const existing = await db
+    .selectFrom('orgs')
+    .where('slug', '=', slug)
+    .select('id')
+    .executeTakeFirst();
+  if (existing) return { id: existing.id, created: false };
+  const id = newId();
+  await db.insertInto('orgs').values({ id, slug, display_name: displayName }).execute();
+  return { id, created: true };
+}
+
 export async function upsertAppUser(
   db: Db,
   supabaseAuthId: string,
   user: BootstrapUser,
+  orgId: string,
 ): Promise<string> {
   const result = await db
     .insertInto('users')
@@ -132,33 +154,52 @@ export async function upsertAppUser(
       supabase_auth_id: supabaseAuthId,
       email: user.email,
       display_name: user.displayName,
-      role: user.role,
     })
     .onConflict((oc) =>
       oc.column('supabase_auth_id').doUpdateSet({
         email: user.email,
         display_name: user.displayName,
-        role: user.role,
       }),
     )
     .returning('id')
     .executeTakeFirstOrThrow();
+
+  await db
+    .insertInto('user_orgs')
+    .values({ user_id: result.id, org_id: orgId, role: user.role })
+    // First-write-wins: bootstrap seeds the role on first install but does NOT
+    // override existing memberships on re-run. This protects users whose role
+    // was promoted out-of-band (e.g., via M4+ admin tooling) from being silently
+    // demoted back to the fixture default.
+    .onConflict((oc) => oc.columns(['user_id', 'org_id']).doNothing())
+    .execute();
+
   return result.id;
 }
 
-export async function mintInviteCodeIfMissing(db: Db, ownerId: string): Promise<boolean> {
+export async function mintInviteCodeIfMissing(
+  db: Db,
+  ownerId: string,
+  orgId: string,
+): Promise<boolean> {
   const existing = await db
     .selectFrom('invite_codes')
     .select('id')
     .where('owner_id', '=', ownerId)
+    .where('org_id', '=', orgId)
     .limit(1)
     .executeTakeFirst();
   if (existing) return false;
-  await mintInviteCode(db, { ownerId, seatCap: 3 });
+  await mintInviteCode(db, { ownerId, orgId, seatCap: 3 });
   return true;
 }
 
-export async function seedPosts(db: Db, userIds: string[], fresh: boolean): Promise<string[]> {
+export async function seedPosts(
+  db: Db,
+  userIds: string[],
+  orgId: string,
+  fresh: boolean,
+): Promise<string[]> {
   if (!fresh) return [];
 
   const now = new Date();
@@ -179,6 +220,7 @@ export async function seedPosts(db: Db, userIds: string[], fresh: boolean): Prom
       .insertInto('posts')
       .values({
         id,
+        org_id: orgId,
         parent_id: null,
         author_id: authorId,
         body: fixture.body,
@@ -197,6 +239,7 @@ export async function seedComments(
   db: Db,
   userIds: string[],
   postIds: string[],
+  orgId: string,
   fresh: boolean,
 ): Promise<number> {
   if (!fresh) return 0;
@@ -214,6 +257,7 @@ export async function seedComments(
       .insertInto('comments')
       .values({
         id: newId(),
+        org_id: orgId,
         post_id: postId,
         author_id: authorId,
         // participant_id is NOT NULL with no default; use author_id as the
@@ -229,8 +273,8 @@ export async function seedComments(
 
 function parseArgs(argv: string[]): BootstrapOptions {
   const opts: BootstrapOptions = {
-    name: 'Default Church',
-    slug: 'default',
+    name: 'Hope',
+    slug: 'hope',
     skipSeed: false,
   };
   for (let i = 0; i < argv.length; i++) {
@@ -242,9 +286,9 @@ function parseArgs(argv: string[]): BootstrapOptions {
   return opts;
 }
 
-function printSummary(result: BootstrapResult): void {
+function printSummary(result: BootstrapResult, opts: BootstrapOptions): void {
   console.log('');
-  console.log('Bootstrap complete.');
+  console.log(`Bootstrap complete for org "${opts.slug}" (${opts.name}).`);
   console.log(`  users created:  ${result.usersCreated}`);
   console.log(`  users reused:   ${result.usersReused}`);
   console.log(`  posts created:  ${result.postsCreated}`);
@@ -264,6 +308,8 @@ export async function bootstrap(
 ): Promise<BootstrapResult> {
   const { db, supabase } = deps;
 
+  const { id: orgId } = await findOrCreateOrg(db, opts.slug, opts.name);
+
   const fresh = await isFreshInstall(db);
   const seedContent = fresh && !opts.skipSeed;
 
@@ -272,7 +318,7 @@ export async function bootstrap(
   const userIds: string[] = [];
 
   for (const u of BOOTSTRAP_USERS) {
-    const beforeAuthCount = await db
+    const beforeUserCount = await db
       .selectFrom('users')
       .select(({ fn }) => fn.count<number>('id').as('count'))
       .where('email', '=', u.email)
@@ -282,20 +328,20 @@ export async function bootstrap(
       email: u.email,
       password: u.password,
     });
-    const userId = await upsertAppUser(db, supabaseId, u);
+    const userId = await upsertAppUser(db, supabaseId, u, orgId);
     userIds.push(userId);
 
-    if (Number(beforeAuthCount.count) === 0) {
+    if (Number(beforeUserCount.count) === 0) {
       usersCreated += 1;
     } else {
       usersReused += 1;
     }
 
-    await mintInviteCodeIfMissing(db, userId);
+    await mintInviteCodeIfMissing(db, userId, orgId);
   }
 
-  const postIds = await seedPosts(db, userIds, seedContent);
-  const commentsCreated = await seedComments(db, userIds, postIds, seedContent);
+  const postIds = await seedPosts(db, userIds, orgId, seedContent);
+  const commentsCreated = await seedComments(db, userIds, postIds, orgId, seedContent);
 
   return {
     usersCreated,
@@ -365,7 +411,7 @@ if (process.argv[1] === __filename) {
   const opts = parseArgs(process.argv.slice(2));
   bootstrap({ db, supabase }, opts)
     .then((result) => {
-      printSummary(result);
+      printSummary(result, opts);
     })
     .catch((err) => {
       console.error(err);

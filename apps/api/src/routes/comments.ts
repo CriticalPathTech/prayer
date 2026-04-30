@@ -33,6 +33,7 @@ export function commentsRouter(deps: { db: Kysely<Database> }): Router {
       if (!parsed.success) throw new ValidationError(parsed.error.message);
       const comment = await createComment(deps.db, {
         postId: req.params.postId!,
+        orgId: req.user.orgId,
         callerId: req.user.id,
         callerRole: req.user.role,
         body: parsed.data.body,
@@ -51,6 +52,7 @@ export function commentsRouter(deps: { db: Kysely<Database> }): Router {
       if (!req.user) throw new UnauthorizedError();
       const out = await listCommentsForPost(deps.db, {
         postId: req.params.postId!,
+        orgId: req.user.orgId,
         callerId: req.user.id,
         callerRole: req.user.role,
       });
@@ -67,6 +69,7 @@ export function commentsRouter(deps: { db: Kysely<Database> }): Router {
       if (!parsed.success) throw new ValidationError(parsed.error.message);
       const comment = await editComment(deps.db, {
         commentId: req.params.id!,
+        orgId: req.user.orgId,
         callerId: req.user.id,
         callerRole: req.user.role,
         body: parsed.data.body,
@@ -82,6 +85,7 @@ export function commentsRouter(deps: { db: Kysely<Database> }): Router {
       if (!req.user) throw new UnauthorizedError();
       await hideComment(deps.db, {
         commentId: req.params.id!,
+        orgId: req.user.orgId,
         callerId: req.user.id,
         callerRole: req.user.role,
       });
@@ -99,6 +103,7 @@ export function commentsRouter(deps: { db: Kysely<Database> }): Router {
       const out = await toggleReaction(deps.db, {
         callerId: req.user.id,
         callerRole: req.user.role,
+        orgId: req.user.orgId,
         targetType: 'comment',
         postId: req.params.postId!,
         targetId: req.params.commentId!,
@@ -117,6 +122,7 @@ export function commentsRouter(deps: { db: Kysely<Database> }): Router {
       if (!parsed.success) throw new ValidationError(parsed.error.message);
       const out = await createFlag(deps.db, {
         callerId: req.user.id,
+        orgId: req.user.orgId,
         targetType: 'comment',
         postId: req.params.postId!,
         targetId: req.params.commentId!,

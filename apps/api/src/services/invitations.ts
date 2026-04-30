@@ -63,23 +63,26 @@ export async function redeemInvitation(
     //    same code; otherwise it's an attempt to jump codes.
     const existing = await trx
       .selectFrom('invitations')
-      .select(['id', 'invite_code_id'])
+      .innerJoin('invite_codes as ic', 'ic.id', 'invitations.invite_code_id')
+      .select(['invitations.id', 'invitations.invite_code_id', 'ic.code as ic_code', 'ic.org_id'])
       .where('invitee_id', '=', user.id)
       .executeTakeFirst();
     if (existing) {
-      const currentCode = await trx
-        .selectFrom('invite_codes')
-        .select(['code'])
-        .where('id', '=', existing.invite_code_id)
-        .executeTakeFirstOrThrow();
-      if (currentCode.code === code) {
+      if (existing.ic_code === code) {
+        // Idempotent re-redeem: look up role from user_orgs for this org
+        const uo = await trx
+          .selectFrom('user_orgs as uo')
+          .where('uo.user_id', '=', user.id)
+          .where('uo.org_id', '=', existing.org_id)
+          .select('role')
+          .executeTakeFirst();
         return {
           user: {
             id: user.id,
             supabase_auth_id: user.supabase_auth_id,
             email: user.email,
             display_name: user.display_name,
-            role: user.role,
+            role: uo?.role ?? 'member',
           },
         };
       }
@@ -87,13 +90,14 @@ export async function redeemInvitation(
     }
 
     // 3. Atomic seat decrement. Returns nothing if code missing / full / inactive.
+    //    Also fetch org_id so all subsequent writes are scoped to the correct org.
     const claimed = await trx
       .updateTable('invite_codes')
       .set((eb) => ({ seats_remaining: eb('seats_remaining', '-', 1) }))
       .where('code', '=', code)
       .where('seats_remaining', '>', 0)
       .where('is_active', '=', true)
-      .returning(['id', 'owner_id'])
+      .returning(['id', 'owner_id', 'org_id'])
       .executeTakeFirst();
 
     if (!claimed) {
@@ -108,24 +112,37 @@ export async function redeemInvitation(
       throw new CodeFullError();
     }
 
-    // 4. Ledger row
+    const orgId = claimed.org_id;
+
+    // 4. Ensure the new member has a user_orgs row for this org.
+    //    ON CONFLICT DO NOTHING is safe: if the row already exists (e.g. re-redeem
+    //    of a different code path) the role is preserved.
+    await trx
+      .insertInto('user_orgs')
+      .values({ user_id: user.id, org_id: orgId, role: 'member' })
+      .onConflict((oc) => oc.columns(['user_id', 'org_id']).doNothing())
+      .execute();
+
+    // 5. Ledger row — scoped to the org
     const invitationId = newId();
     await trx
       .insertInto('invitations')
       .values({
         id: invitationId,
+        org_id: orgId,
         invite_code_id: claimed.id,
         invitor_id: claimed.owner_id,
         invitee_id: user.id,
       })
       .execute();
 
-    // 5. Mint the new member's own initial code
-    await mintInviteCode(trx, { ownerId: user.id, seatCap: 3 });
+    // 6. Mint the new member's own initial code, scoped to the same org
+    await mintInviteCode(trx, { ownerId: user.id, orgId, seatCap: 3 });
 
-    // 6. Outbox event
+    // 7. Outbox event
     await writeInvitationEvent(trx, {
       kind: 'invitation.redeemed',
+      orgId,
       actorId: claimed.owner_id,
       invitationId,
       invitorId: claimed.owner_id,
@@ -140,7 +157,7 @@ export async function redeemInvitation(
         supabase_auth_id: user.supabase_auth_id,
         email: user.email,
         display_name: user.display_name,
-        role: user.role,
+        role: 'member',
       },
     };
   });

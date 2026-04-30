@@ -8,8 +8,10 @@ import { createTestApp, type TestApp } from '../helpers/supertest.js';
 
 describe('POST /posts', () => {
   let ctx: TestApp;
+  let orgId: string;
   beforeAll(async () => {
     ctx = await createTestApp();
+    orgId = ctx.orgId;
   });
   afterAll(async () => {
     await ctx.close();
@@ -17,6 +19,7 @@ describe('POST /posts', () => {
   afterEach(async () => {
     await ctx.db.deleteFrom('events').execute();
     await ctx.db.deleteFrom('posts').execute();
+    await ctx.db.deleteFrom('user_orgs').execute();
     await ctx.db.deleteFrom('users').execute();
   });
 
@@ -26,7 +29,7 @@ describe('POST /posts', () => {
   });
 
   it('creates a draft with defaults', async () => {
-    const user = await insertUser(ctx.db);
+    const user = await insertUser(ctx.db, { orgId });
     const token = await mintTestJwt({ sub: user.supabaseAuthId, email: user.email });
     const res = await request(ctx.app)
       .post('/posts')
@@ -46,7 +49,7 @@ describe('POST /posts', () => {
   });
 
   it('rejects empty body', async () => {
-    const user = await insertUser(ctx.db);
+    const user = await insertUser(ctx.db, { orgId });
     const token = await mintTestJwt({ sub: user.supabaseAuthId, email: user.email });
     const res = await request(ctx.app)
       .post('/posts')
@@ -56,7 +59,7 @@ describe('POST /posts', () => {
   });
 
   it('rejects body > 10KB', async () => {
-    const user = await insertUser(ctx.db);
+    const user = await insertUser(ctx.db, { orgId });
     const token = await mintTestJwt({ sub: user.supabaseAuthId, email: user.email });
     const res = await request(ctx.app)
       .post('/posts')
@@ -66,7 +69,7 @@ describe('POST /posts', () => {
   });
 
   it('rejects expires_at < now+1d', async () => {
-    const user = await insertUser(ctx.db);
+    const user = await insertUser(ctx.db, { orgId });
     const token = await mintTestJwt({ sub: user.supabaseAuthId, email: user.email });
     const res = await request(ctx.app)
       .post('/posts')
@@ -78,8 +81,10 @@ describe('POST /posts', () => {
 
 describe('POST /posts/:id/publish', () => {
   let ctx: TestApp;
+  let orgId: string;
   beforeAll(async () => {
     ctx = await createTestApp();
+    orgId = ctx.orgId;
   });
   afterAll(async () => {
     await ctx.close();
@@ -87,12 +92,13 @@ describe('POST /posts/:id/publish', () => {
   afterEach(async () => {
     await ctx.db.deleteFrom('events').execute();
     await ctx.db.deleteFrom('posts').execute();
+    await ctx.db.deleteFrom('user_orgs').execute();
     await ctx.db.deleteFrom('users').execute();
   });
 
   it("publishes author's draft", async () => {
-    const user = await insertUser(ctx.db);
-    const post = await insertPost(ctx.db, { authorId: user.id, status: 'draft' });
+    const user = await insertUser(ctx.db, { orgId });
+    const post = await insertPost(ctx.db, { authorId: user.id, orgId, status: 'draft' });
     const token = await mintTestJwt({ sub: user.supabaseAuthId, email: user.email });
     const res = await request(ctx.app)
       .post(`/posts/${post.id}/publish`)
@@ -102,9 +108,9 @@ describe('POST /posts/:id/publish', () => {
   });
 
   it('403 for non-author', async () => {
-    const author = await insertUser(ctx.db);
-    const other = await insertUser(ctx.db);
-    const post = await insertPost(ctx.db, { authorId: author.id, status: 'draft' });
+    const author = await insertUser(ctx.db, { orgId });
+    const other = await insertUser(ctx.db, { orgId });
+    const post = await insertPost(ctx.db, { authorId: author.id, orgId, status: 'draft' });
     const token = await mintTestJwt({ sub: other.supabaseAuthId, email: other.email });
     const res = await request(ctx.app)
       .post(`/posts/${post.id}/publish`)
@@ -113,7 +119,7 @@ describe('POST /posts/:id/publish', () => {
   });
 
   it('404 for unknown post', async () => {
-    const user = await insertUser(ctx.db);
+    const user = await insertUser(ctx.db, { orgId });
     const token = await mintTestJwt({ sub: user.supabaseAuthId, email: user.email });
     const res = await request(ctx.app)
       .post(`/posts/018f0000-0000-7000-8000-0000000000ff/publish`)
@@ -124,8 +130,10 @@ describe('POST /posts/:id/publish', () => {
 
 describe('GET /posts/:id', () => {
   let ctx: TestApp;
+  let orgId: string;
   beforeAll(async () => {
     ctx = await createTestApp();
+    orgId = ctx.orgId;
   });
   afterAll(async () => {
     await ctx.close();
@@ -133,14 +141,16 @@ describe('GET /posts/:id', () => {
   afterEach(async () => {
     await ctx.db.deleteFrom('events').execute();
     await ctx.db.deleteFrom('posts').execute();
+    await ctx.db.deleteFrom('user_orgs').execute();
     await ctx.db.deleteFrom('users').execute();
   });
 
   it('returns the post + updates array', async () => {
-    const user = await insertUser(ctx.db);
-    const post = await insertPost(ctx.db, { authorId: user.id, status: 'published' });
+    const user = await insertUser(ctx.db, { orgId });
+    const post = await insertPost(ctx.db, { authorId: user.id, orgId, status: 'published' });
     const update = await insertPost(ctx.db, {
       authorId: user.id,
+      orgId,
       parentId: post.id,
       status: 'published',
     });
@@ -155,9 +165,9 @@ describe('GET /posts/:id', () => {
   });
 
   it('404 for archived post when caller is not the author', async () => {
-    const author = await insertUser(ctx.db);
-    const other = await insertUser(ctx.db);
-    const post = await insertPost(ctx.db, { authorId: author.id, status: 'archived' });
+    const author = await insertUser(ctx.db, { orgId });
+    const other = await insertUser(ctx.db, { orgId });
+    const post = await insertPost(ctx.db, { authorId: author.id, orgId, status: 'archived' });
     const token = await mintTestJwt({ sub: other.supabaseAuthId, email: other.email });
     const res = await request(ctx.app)
       .get(`/posts/${post.id}`)
@@ -166,8 +176,8 @@ describe('GET /posts/:id', () => {
   });
 
   it('author sees their own archived post', async () => {
-    const author = await insertUser(ctx.db);
-    const post = await insertPost(ctx.db, { authorId: author.id, status: 'archived' });
+    const author = await insertUser(ctx.db, { orgId });
+    const post = await insertPost(ctx.db, { authorId: author.id, orgId, status: 'archived' });
     const token = await mintTestJwt({ sub: author.supabaseAuthId, email: author.email });
     const res = await request(ctx.app)
       .get(`/posts/${post.id}`)
@@ -178,8 +188,10 @@ describe('GET /posts/:id', () => {
 
 describe('PATCH /posts/:id', () => {
   let ctx: TestApp;
+  let orgId: string;
   beforeAll(async () => {
     ctx = await createTestApp();
+    orgId = ctx.orgId;
   });
   afterAll(async () => {
     await ctx.close();
@@ -187,12 +199,13 @@ describe('PATCH /posts/:id', () => {
   afterEach(async () => {
     await ctx.db.deleteFrom('events').execute();
     await ctx.db.deleteFrom('posts').execute();
+    await ctx.db.deleteFrom('user_orgs').execute();
     await ctx.db.deleteFrom('users').execute();
   });
 
   it('edits body within edit_deadline', async () => {
-    const user = await insertUser(ctx.db);
-    const post = await insertPost(ctx.db, { authorId: user.id, status: 'published' });
+    const user = await insertUser(ctx.db, { orgId });
+    const post = await insertPost(ctx.db, { authorId: user.id, orgId, status: 'published' });
     const token = await mintTestJwt({ sub: user.supabaseAuthId, email: user.email });
     const res = await request(ctx.app)
       .patch(`/posts/${post.id}`)
@@ -203,10 +216,11 @@ describe('PATCH /posts/:id', () => {
   });
 
   it('rejects with 403 edit_deadline_passed when deadline elapsed', async () => {
-    const user = await insertUser(ctx.db);
+    const user = await insertUser(ctx.db, { orgId });
     const past = new Date(Date.now() - 60_000);
     const post = await insertPost(ctx.db, {
       authorId: user.id,
+      orgId,
       status: 'published',
       editDeadline: past,
     });
@@ -220,9 +234,9 @@ describe('PATCH /posts/:id', () => {
   });
 
   it('403 for non-author', async () => {
-    const author = await insertUser(ctx.db);
-    const other = await insertUser(ctx.db);
-    const post = await insertPost(ctx.db, { authorId: author.id, status: 'published' });
+    const author = await insertUser(ctx.db, { orgId });
+    const other = await insertUser(ctx.db, { orgId });
+    const post = await insertPost(ctx.db, { authorId: author.id, orgId, status: 'published' });
     const token = await mintTestJwt({ sub: other.supabaseAuthId, email: other.email });
     const res = await request(ctx.app)
       .patch(`/posts/${post.id}`)
@@ -234,8 +248,10 @@ describe('PATCH /posts/:id', () => {
 
 describe('DELETE /posts/:id', () => {
   let ctx: TestApp;
+  let orgId: string;
   beforeAll(async () => {
     ctx = await createTestApp();
+    orgId = ctx.orgId;
   });
   afterAll(async () => {
     await ctx.close();
@@ -243,12 +259,13 @@ describe('DELETE /posts/:id', () => {
   afterEach(async () => {
     await ctx.db.deleteFrom('events').execute();
     await ctx.db.deleteFrom('posts').execute();
+    await ctx.db.deleteFrom('user_orgs').execute();
     await ctx.db.deleteFrom('users').execute();
   });
 
   it("archives author's post", async () => {
-    const user = await insertUser(ctx.db);
-    const post = await insertPost(ctx.db, { authorId: user.id, status: 'published' });
+    const user = await insertUser(ctx.db, { orgId });
+    const post = await insertPost(ctx.db, { authorId: user.id, orgId, status: 'published' });
     const token = await mintTestJwt({ sub: user.supabaseAuthId, email: user.email });
     const res = await request(ctx.app)
       .delete(`/posts/${post.id}`)
@@ -263,9 +280,9 @@ describe('DELETE /posts/:id', () => {
   });
 
   it('403 for non-author', async () => {
-    const author = await insertUser(ctx.db);
-    const other = await insertUser(ctx.db);
-    const post = await insertPost(ctx.db, { authorId: author.id, status: 'published' });
+    const author = await insertUser(ctx.db, { orgId });
+    const other = await insertUser(ctx.db, { orgId });
+    const post = await insertPost(ctx.db, { authorId: author.id, orgId, status: 'published' });
     const token = await mintTestJwt({ sub: other.supabaseAuthId, email: other.email });
     const res = await request(ctx.app)
       .delete(`/posts/${post.id}`)
@@ -276,8 +293,10 @@ describe('DELETE /posts/:id', () => {
 
 describe('GET /posts/me/archive', () => {
   let ctx: TestApp;
+  let orgId: string;
   beforeAll(async () => {
     ctx = await createTestApp();
+    orgId = ctx.orgId;
   });
   afterAll(async () => {
     await ctx.close();
@@ -285,13 +304,14 @@ describe('GET /posts/me/archive', () => {
   afterEach(async () => {
     await ctx.db.deleteFrom('events').execute();
     await ctx.db.deleteFrom('posts').execute();
+    await ctx.db.deleteFrom('user_orgs').execute();
     await ctx.db.deleteFrom('users').execute();
   });
 
   it("returns only caller's archived posts", async () => {
-    const me = await insertUser(ctx.db);
-    await insertPost(ctx.db, { authorId: me.id, status: 'archived' });
-    await insertPost(ctx.db, { authorId: me.id, status: 'published' });
+    const me = await insertUser(ctx.db, { orgId });
+    await insertPost(ctx.db, { authorId: me.id, orgId, status: 'archived' });
+    await insertPost(ctx.db, { authorId: me.id, orgId, status: 'published' });
     const token = await mintTestJwt({ sub: me.supabaseAuthId, email: me.email });
     const res = await request(ctx.app)
       .get('/posts/me/archive')
@@ -304,8 +324,10 @@ describe('GET /posts/me/archive', () => {
 
 describe('GET /posts/:id — M5 reactions + prayer hydration', () => {
   let ctx: TestApp;
+  let orgId: string;
   beforeAll(async () => {
     ctx = await createTestApp();
+    orgId = ctx.orgId;
   });
   afterAll(async () => {
     await ctx.close();
@@ -315,25 +337,47 @@ describe('GET /posts/:id — M5 reactions + prayer hydration', () => {
     await ctx.db.deleteFrom('reactions').execute();
     await ctx.db.deleteFrom('prayers').execute();
     await ctx.db.deleteFrom('posts').execute();
+    await ctx.db.deleteFrom('user_orgs').execute();
     await ctx.db.deleteFrom('users').execute();
   });
 
   it('returns reactions + prayer summaries with mine flag for the caller', async () => {
-    const author = await insertUser(ctx.db);
-    const caller = await insertUser(ctx.db);
-    const other = await insertUser(ctx.db);
-    const post = await insertPost(ctx.db, { authorId: author.id, status: 'published' });
+    const author = await insertUser(ctx.db, { orgId });
+    const caller = await insertUser(ctx.db, { orgId });
+    const other = await insertUser(ctx.db, { orgId });
+    const post = await insertPost(ctx.db, { authorId: author.id, orgId, status: 'published' });
     await ctx.db
       .insertInto('reactions')
       .values([
-        { id: newId(), target_type: 'post', target_id: post.id, author_id: caller.id, emoji: '🙏' },
-        { id: newId(), target_type: 'post', target_id: post.id, author_id: other.id, emoji: '🙏' },
-        { id: newId(), target_type: 'post', target_id: post.id, author_id: other.id, emoji: '❤️' },
+        {
+          id: newId(),
+          org_id: orgId,
+          target_type: 'post',
+          target_id: post.id,
+          author_id: caller.id,
+          emoji: '🙏',
+        },
+        {
+          id: newId(),
+          org_id: orgId,
+          target_type: 'post',
+          target_id: post.id,
+          author_id: other.id,
+          emoji: '🙏',
+        },
+        {
+          id: newId(),
+          org_id: orgId,
+          target_type: 'post',
+          target_id: post.id,
+          author_id: other.id,
+          emoji: '❤️',
+        },
       ])
       .execute();
     await ctx.db
       .insertInto('prayers')
-      .values({ id: newId(), post_id: post.id, user_id: caller.id })
+      .values({ id: newId(), org_id: orgId, post_id: post.id, user_id: caller.id })
       .execute();
 
     const token = await mintTestJwt({ sub: caller.supabaseAuthId, email: caller.email });

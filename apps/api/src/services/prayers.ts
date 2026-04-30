@@ -8,6 +8,7 @@ import { writePrayerEvent } from './events.js';
 
 export interface TogglePrayerInput {
   callerId: string;
+  orgId: string;
   postId: string;
 }
 
@@ -25,6 +26,7 @@ export async function togglePrayer(
       .selectFrom('posts')
       .select(['id', 'status', 'prayer_count'])
       .where('id', '=', input.postId)
+      .where('org_id', '=', input.orgId)
       .executeTakeFirst();
     if (!post || post.status !== 'published') throw new NotFoundError('Post not found');
 
@@ -40,6 +42,7 @@ export async function togglePrayer(
       await trx.deleteFrom('prayers').where('id', '=', existing.id).execute();
       await writePrayerEvent(trx, {
         kind: 'prayer.removed',
+        orgId: input.orgId,
         postId: input.postId,
         actorId: input.callerId,
       });
@@ -48,12 +51,14 @@ export async function togglePrayer(
         .insertInto('prayers')
         .values({
           id: newId(),
+          org_id: input.orgId,
           post_id: input.postId,
           user_id: input.callerId,
         })
         .execute();
       await writePrayerEvent(trx, {
         kind: 'prayer.added',
+        orgId: input.orgId,
         postId: input.postId,
         actorId: input.callerId,
       });
@@ -62,6 +67,7 @@ export async function togglePrayer(
       .selectFrom('posts')
       .select('prayer_count')
       .where('id', '=', input.postId)
+      .where('org_id', '=', input.orgId)
       .executeTakeFirstOrThrow();
     return { prayed: !existing, prayer_count: after.prayer_count };
   });

@@ -1,16 +1,18 @@
-import { newId } from '@prayer/db';
 import request from 'supertest';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
 import { mintInviteCode } from '../../src/services/invite-codes.js';
 import { mintTestJwt } from '../helpers/jwt.js';
+import { insertUser } from '../helpers/seed.js';
 import { createTestApp, type TestApp } from '../helpers/supertest.js';
 
 describe('moderator invite-code routes', () => {
   let ctx: TestApp;
+  let orgId: string;
 
   beforeAll(async () => {
     ctx = await createTestApp();
+    orgId = ctx.orgId;
   });
   afterAll(async () => {
     await ctx.close();
@@ -19,23 +21,13 @@ describe('moderator invite-code routes', () => {
   afterEach(async () => {
     await ctx.db.deleteFrom('invitations').execute();
     await ctx.db.deleteFrom('invite_codes').execute();
+    await ctx.db.deleteFrom('user_orgs').execute();
     await ctx.db.deleteFrom('users').execute();
   });
 
   async function makeUser(name: string, role: 'member' | 'moderator' = 'member') {
-    const id = newId();
-    const subj = newId();
-    await ctx.db
-      .insertInto('users')
-      .values({
-        id,
-        supabase_auth_id: subj,
-        email: `${id}@e.com`,
-        display_name: name,
-        role,
-      })
-      .execute();
-    return { id, jwt: await mintTestJwt({ sub: subj, email: `${id}@e.com` }) };
+    const user = await insertUser(ctx.db, { orgId, role, displayName: name });
+    return { id: user.id, jwt: await mintTestJwt({ sub: user.supabaseAuthId, email: user.email }) };
   }
 
   it('non-moderator cannot grant', async () => {
@@ -74,7 +66,7 @@ describe('moderator invite-code routes', () => {
   it('retire preserves redemption history', async () => {
     const mod = await makeUser('m', 'moderator');
     const target = await makeUser('t');
-    const c = await mintInviteCode(ctx.db, { ownerId: target.id, seatCap: 3 });
+    const c = await mintInviteCode(ctx.db, { ownerId: target.id, orgId, seatCap: 3 });
     const res = await request(ctx.app)
       .post(`/mod/invite-codes/${c.id}/retire`)
       .set('Authorization', `Bearer ${mod.jwt}`);
@@ -105,7 +97,7 @@ describe('moderator invite-code routes', () => {
   it('lists codes with redemptions for owner', async () => {
     const mod = await makeUser('m', 'moderator');
     const target = await makeUser('t');
-    await mintInviteCode(ctx.db, { ownerId: target.id, seatCap: 3 });
+    await mintInviteCode(ctx.db, { ownerId: target.id, orgId, seatCap: 3 });
     const res = await request(ctx.app)
       .get(`/mod/invite-codes?owner_id=${target.id}`)
       .set('Authorization', `Bearer ${mod.jwt}`);

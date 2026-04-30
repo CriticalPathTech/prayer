@@ -10,21 +10,22 @@ interface ReactionPayload {
 
 export const reactionCountRecomputer: EventHandler = async (event, trx) => {
   const payload = event.payload as ReactionPayload;
+  const orgId = event.org_id;
   if (payload.target_type === 'post') {
     await sql`
       UPDATE posts SET reaction_count = (
         SELECT COUNT(*) FROM reactions
-        WHERE target_type = 'post' AND target_id = ${payload.target_id}
+        WHERE target_type = 'post' AND target_id = ${payload.target_id} AND org_id = ${orgId}
       )
-      WHERE id = ${payload.target_id}
+      WHERE id = ${payload.target_id} AND org_id = ${orgId}
     `.execute(trx);
   } else {
     await sql`
       UPDATE comments SET reaction_count = (
         SELECT COUNT(*) FROM reactions
-        WHERE target_type = 'comment' AND target_id = ${payload.target_id}
+        WHERE target_type = 'comment' AND target_id = ${payload.target_id} AND org_id = ${orgId}
       )
-      WHERE id = ${payload.target_id}
+      WHERE id = ${payload.target_id} AND org_id = ${orgId}
     `.execute(trx);
   }
 };

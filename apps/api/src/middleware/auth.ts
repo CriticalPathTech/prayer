@@ -4,7 +4,7 @@ import type { Kysely } from 'kysely';
 
 import type { JwtVerifier } from '../lib/jwt.js';
 
-import { ForbiddenError, OnboardingRequiredError, UnauthorizedError } from './error.js';
+import { ForbiddenError, UnauthorizedError } from './error.js';
 
 export interface AuthDependencies {
   db: Kysely<Database>;
@@ -53,7 +53,7 @@ export function requireSession(deps: Pick<AuthDependencies, 'jwtVerifier'>): Req
   };
 }
 
-/** requireSession + users row must exist. */
+/** requireSession + users row must exist with an active org membership. */
 export function requireAuth(deps: AuthDependencies): RequestHandler {
   const session = requireSession(deps);
   return (req, res, next) => {
@@ -61,11 +61,21 @@ export function requireAuth(deps: AuthDependencies): RequestHandler {
       if (err) return next(err);
       try {
         const row = await deps.db
-          .selectFrom('users')
-          .selectAll()
-          .where('supabase_auth_id', '=', req.supabase!.auth_id)
+          .selectFrom('users as u')
+          .innerJoin('user_orgs as uo', 'uo.user_id', 'u.id')
+          .select([
+            'u.id',
+            'u.supabase_auth_id',
+            'u.email',
+            'u.display_name',
+            'u.avatar_url',
+            'uo.org_id',
+            'uo.role',
+          ])
+          .where('u.supabase_auth_id', '=', req.supabase!.auth_id)
+          .where('uo.org_id', '=', req.org!.id)
           .executeTakeFirst();
-        if (!row) throw new OnboardingRequiredError();
+        if (!row) throw new ForbiddenError('Not a member of this org');
         req.user = {
           id: row.id,
           supabaseAuthId: row.supabase_auth_id,
@@ -73,6 +83,7 @@ export function requireAuth(deps: AuthDependencies): RequestHandler {
           displayName: row.display_name,
           avatarUrl: row.avatar_url,
           role: row.role,
+          orgId: row.org_id,
         };
         next();
       } catch (e) {

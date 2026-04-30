@@ -6,12 +6,14 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { initDb } from '../../src/db/index.js';
 import { ForbiddenError } from '../../src/middleware/error.js';
 import { hideTarget, listModQueue, unhideTarget } from '../../src/services/moderation.js';
-import { insertComment, insertPost, insertUser } from '../helpers/seed.js';
+import { insertComment, insertOrg, insertPost, insertUser } from '../helpers/seed.js';
 
 describe('hideTarget / unhideTarget', () => {
   let db: Kysely<Database>;
-  beforeAll(() => {
+  let orgId: string;
+  beforeAll(async () => {
     db = initDb(process.env.TEST_DATABASE_URL!);
+    orgId = await insertOrg(db, { slug: 'lakeside-svc-moderation-hide' });
   });
   afterAll(async () => {
     await db.destroy();
@@ -21,17 +23,19 @@ describe('hideTarget / unhideTarget', () => {
     await db.deleteFrom('flags').execute();
     await db.deleteFrom('comments').execute();
     await db.deleteFrom('posts').execute();
+    await db.deleteFrom('user_orgs').execute();
     await db.deleteFrom('users').execute();
   });
 
   it('hideTarget flips posts.status to hidden + emits moderator.hide manual', async () => {
-    const author = await insertUser(db);
-    const mod = await insertUser(db, { role: 'moderator' });
-    const post = await insertPost(db, { authorId: author.id, status: 'published' });
+    const author = await insertUser(db, { orgId });
+    const mod = await insertUser(db, { orgId, role: 'moderator' });
+    const post = await insertPost(db, { authorId: author.id, orgId, status: 'published' });
 
     const out = await hideTarget(db, {
       callerId: mod.id,
       callerRole: 'moderator',
+      orgId,
       targetType: 'post',
       targetId: post.id,
     });
@@ -52,12 +56,13 @@ describe('hideTarget / unhideTarget', () => {
   });
 
   it('hideTarget is idempotent — already hidden returns { hidden: true } without new event', async () => {
-    const author = await insertUser(db);
-    const mod = await insertUser(db, { role: 'moderator' });
-    const post = await insertPost(db, { authorId: author.id, status: 'hidden' });
+    const author = await insertUser(db, { orgId });
+    const mod = await insertUser(db, { orgId, role: 'moderator' });
+    const post = await insertPost(db, { authorId: author.id, orgId, status: 'hidden' });
     const out = await hideTarget(db, {
       callerId: mod.id,
       callerRole: 'moderator',
+      orgId,
       targetType: 'post',
       targetId: post.id,
     });
@@ -67,13 +72,14 @@ describe('hideTarget / unhideTarget', () => {
   });
 
   it('hideTarget forbids a member caller', async () => {
-    const mem = await insertUser(db);
-    const author = await insertUser(db);
-    const post = await insertPost(db, { authorId: author.id, status: 'published' });
+    const mem = await insertUser(db, { orgId });
+    const author = await insertUser(db, { orgId });
+    const post = await insertPost(db, { authorId: author.id, orgId, status: 'published' });
     await expect(
       hideTarget(db, {
         callerId: mem.id,
         callerRole: 'member',
+        orgId,
         targetType: 'post',
         targetId: post.id,
       }),
@@ -81,14 +87,15 @@ describe('hideTarget / unhideTarget', () => {
   });
 
   it('unhideTarget flips back + emits moderator.unhide; does NOT auto-dismiss flags', async () => {
-    const author = await insertUser(db);
-    const flagger = await insertUser(db);
-    const mod = await insertUser(db, { role: 'moderator' });
-    const post = await insertPost(db, { authorId: author.id, status: 'hidden' });
+    const author = await insertUser(db, { orgId });
+    const flagger = await insertUser(db, { orgId });
+    const mod = await insertUser(db, { orgId, role: 'moderator' });
+    const post = await insertPost(db, { authorId: author.id, orgId, status: 'hidden' });
     await db
       .insertInto('flags')
       .values({
         id: newId(),
+        org_id: orgId,
         target_type: 'post',
         target_id: post.id,
         flagger_id: flagger.id,
@@ -99,6 +106,7 @@ describe('hideTarget / unhideTarget', () => {
     const out = await unhideTarget(db, {
       callerId: mod.id,
       callerRole: 'moderator',
+      orgId,
       targetType: 'post',
       targetId: post.id,
     });
@@ -118,12 +126,13 @@ describe('hideTarget / unhideTarget', () => {
   });
 
   it('unhideTarget on a non-hidden post is idempotent (no event)', async () => {
-    const author = await insertUser(db);
-    const mod = await insertUser(db, { role: 'moderator' });
-    const post = await insertPost(db, { authorId: author.id, status: 'published' });
+    const author = await insertUser(db, { orgId });
+    const mod = await insertUser(db, { orgId, role: 'moderator' });
+    const post = await insertPost(db, { authorId: author.id, orgId, status: 'published' });
     const out = await unhideTarget(db, {
       callerId: mod.id,
       callerRole: 'moderator',
+      orgId,
       targetType: 'post',
       targetId: post.id,
     });
@@ -133,17 +142,19 @@ describe('hideTarget / unhideTarget', () => {
   });
 
   it('hideTarget + unhideTarget for comments flip is_hidden', async () => {
-    const author = await insertUser(db);
-    const mod = await insertUser(db, { role: 'moderator' });
-    const post = await insertPost(db, { authorId: author.id, status: 'published' });
+    const author = await insertUser(db, { orgId });
+    const mod = await insertUser(db, { orgId, role: 'moderator' });
+    const post = await insertPost(db, { authorId: author.id, orgId, status: 'published' });
     const comment = await insertComment(db, {
       postId: post.id,
       authorId: author.id,
+      orgId,
       participantId: author.id,
     });
     await hideTarget(db, {
       callerId: mod.id,
       callerRole: 'moderator',
+      orgId,
       targetType: 'comment',
       targetId: comment.id,
     });
@@ -156,6 +167,7 @@ describe('hideTarget / unhideTarget', () => {
     await unhideTarget(db, {
       callerId: mod.id,
       callerRole: 'moderator',
+      orgId,
       targetType: 'comment',
       targetId: comment.id,
     });
@@ -170,8 +182,10 @@ describe('hideTarget / unhideTarget', () => {
 
 describe('listModQueue', () => {
   let db: Kysely<Database>;
-  beforeAll(() => {
+  let orgId: string;
+  beforeAll(async () => {
     db = initDb(process.env.TEST_DATABASE_URL!);
+    orgId = await insertOrg(db, { slug: 'lakeside-svc-moderation-queue' });
   });
   afterAll(async () => {
     await db.destroy();
@@ -180,14 +194,20 @@ describe('listModQueue', () => {
     await db.deleteFrom('flags').execute();
     await db.deleteFrom('comments').execute();
     await db.deleteFrom('posts').execute();
+    await db.deleteFrom('user_orgs').execute();
     await db.deleteFrom('users').execute();
   });
 
   it('returns pending targets with dedup + flag_count + reasons', async () => {
-    const author = await insertUser(db);
-    const f1 = await insertUser(db);
-    const f2 = await insertUser(db);
-    const post = await insertPost(db, { authorId: author.id, status: 'published', body: 'hello' });
+    const author = await insertUser(db, { orgId });
+    const f1 = await insertUser(db, { orgId });
+    const f2 = await insertUser(db, { orgId });
+    const post = await insertPost(db, {
+      authorId: author.id,
+      orgId,
+      status: 'published',
+      body: 'hello',
+    });
     // Manually set flag_count to 2 since the consumer isn't running in this test.
     await db.updateTable('posts').set({ flag_count: 2 }).where('id', '=', post.id).execute();
 
@@ -196,6 +216,7 @@ describe('listModQueue', () => {
       .values([
         {
           id: newId(),
+          org_id: orgId,
           target_type: 'post',
           target_id: post.id,
           flagger_id: f1.id,
@@ -203,6 +224,7 @@ describe('listModQueue', () => {
         },
         {
           id: newId(),
+          org_id: orgId,
           target_type: 'post',
           target_id: post.id,
           flagger_id: f2.id,
@@ -213,6 +235,7 @@ describe('listModQueue', () => {
 
     const out = await listModQueue(db, {
       callerRole: 'moderator',
+      orgId,
       status: 'pending',
       limit: 20,
     });
@@ -222,8 +245,8 @@ describe('listModQueue', () => {
   });
 
   it('non-moderator caller throws', async () => {
-    await expect(listModQueue(db, { callerRole: 'member', limit: 20 })).rejects.toBeInstanceOf(
-      ForbiddenError,
-    );
+    await expect(
+      listModQueue(db, { callerRole: 'member', orgId, limit: 20 }),
+    ).rejects.toBeInstanceOf(ForbiddenError);
   });
 });

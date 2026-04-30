@@ -181,7 +181,7 @@ function validateExpiresAt(iso: string | undefined, now: Date): Date {
 
 export async function fetchPostRow(
   db: Kysely<Database> | Transaction<Database>,
-  postId: string,
+  args: { postId: string; orgId: string },
 ): Promise<PostRow> {
   const row = await db
     .selectFrom('posts')
@@ -202,20 +202,22 @@ export async function fetchPostRow(
       'posts.edit_deadline',
       'posts.created_at',
     ])
-    .where('posts.id', '=', postId)
+    .where('posts.id', '=', args.postId)
+    .where('posts.org_id', '=', args.orgId)
     .executeTakeFirstOrThrow();
   return row as unknown as PostRow;
 }
 
 export async function publishPost(
   db: Kysely<Database>,
-  args: { postId: string; callerId: string; callerRole: UserRole },
+  args: { postId: string; orgId: string; callerId: string; callerRole: UserRole },
 ): Promise<PostDto> {
   return db.transaction().execute(async (trx) => {
     const existing = await trx
       .selectFrom('posts')
       .select(['id', 'author_id', 'status'])
       .where('id', '=', args.postId)
+      .where('org_id', '=', args.orgId)
       .executeTakeFirst();
     if (!existing) throw new NotFoundError('Post not found');
     if (existing.author_id !== args.callerId) throw new ForbiddenError();
@@ -224,8 +226,9 @@ export async function publishPost(
       .updateTable('posts')
       .set({ status: 'published' })
       .where('id', '=', args.postId)
+      .where('org_id', '=', args.orgId)
       .execute();
-    const row = await fetchPostRow(trx, args.postId);
+    const row = await fetchPostRow(trx, { postId: args.postId, orgId: args.orgId });
     return toPostDto(row, { role: args.callerRole }, args.callerId);
   });
 }
@@ -238,23 +241,24 @@ export interface DraftInput {
 
 export async function getOwnDraft(
   db: Kysely<Database>,
-  args: { userId: string; callerRole: UserRole },
+  args: { userId: string; orgId: string; callerRole: UserRole },
 ): Promise<PostDto | null> {
   const existing = await db
     .selectFrom('posts')
     .select(['id'])
     .where('author_id', '=', args.userId)
+    .where('org_id', '=', args.orgId)
     .where('status', '=', 'draft')
     .where('parent_id', 'is', null)
     .executeTakeFirst();
   if (!existing) return null;
-  const row = await fetchPostRow(db, existing.id);
+  const row = await fetchPostRow(db, { postId: existing.id, orgId: args.orgId });
   return toPostDto(row, { role: args.callerRole }, args.userId);
 }
 
 export async function upsertOwnDraft(
   db: Kysely<Database>,
-  args: { userId: string; callerRole: UserRole; input: DraftInput },
+  args: { userId: string; orgId: string; callerRole: UserRole; input: DraftInput },
 ): Promise<PostDto> {
   const body = args.input.body;
   if (body.length > 10_000) {
@@ -272,6 +276,7 @@ export async function upsertOwnDraft(
       .selectFrom('posts')
       .select(['id'])
       .where('author_id', '=', args.userId)
+      .where('org_id', '=', args.orgId)
       .where('status', '=', 'draft')
       .where('parent_id', 'is', null)
       .executeTakeFirst();
@@ -287,6 +292,7 @@ export async function upsertOwnDraft(
           expires_at: expiresAt,
         })
         .where('id', '=', postId)
+        .where('org_id', '=', args.orgId)
         .execute();
     } else {
       postId = newId();
@@ -294,6 +300,7 @@ export async function upsertOwnDraft(
         .insertInto('posts')
         .values({
           id: postId,
+          org_id: args.orgId,
           author_id: args.userId,
           body,
           is_anonymous: isAnonymous,
@@ -304,14 +311,14 @@ export async function upsertOwnDraft(
         .execute();
     }
 
-    const row = await fetchPostRow(trx, postId);
+    const row = await fetchPostRow(trx, { postId, orgId: args.orgId });
     return toPostDto(row, { role: args.callerRole }, args.userId);
   });
 }
 
 export async function publishOwnDraft(
   db: Kysely<Database>,
-  args: { userId: string; callerRole: UserRole },
+  args: { userId: string; orgId: string; callerRole: UserRole },
 ): Promise<PostDto> {
   const now = new Date();
   return db.transaction().execute(async (trx) => {
@@ -319,6 +326,7 @@ export async function publishOwnDraft(
       .selectFrom('posts')
       .select(['id', 'body', 'is_anonymous', 'expires_at'])
       .where('author_id', '=', args.userId)
+      .where('org_id', '=', args.orgId)
       .where('status', '=', 'draft')
       .where('parent_id', 'is', null)
       .executeTakeFirst();
@@ -335,11 +343,16 @@ export async function publishOwnDraft(
     // created_at, so both feed ordering and "X ago" displays reflect the
     // publish moment rather than the draft creation moment.
     const newPostId = newId();
-    await trx.deleteFrom('posts').where('id', '=', existing.id).execute();
+    await trx
+      .deleteFrom('posts')
+      .where('id', '=', existing.id)
+      .where('org_id', '=', args.orgId)
+      .execute();
     await trx
       .insertInto('posts')
       .values({
         id: newPostId,
+        org_id: args.orgId,
         author_id: args.userId,
         body: existing.body,
         is_anonymous: existing.is_anonymous,
@@ -348,14 +361,14 @@ export async function publishOwnDraft(
         edit_deadline: new Date(now.getTime() + EDIT_WINDOW_MS),
       })
       .execute();
-    const row = await fetchPostRow(trx, newPostId);
+    const row = await fetchPostRow(trx, { postId: newPostId, orgId: args.orgId });
     return toPostDto(row, { role: args.callerRole }, args.userId);
   });
 }
 
 export async function getPostWithUpdates(
   db: Kysely<Database>,
-  args: { postId: string; callerId: string; callerRole: UserRole },
+  args: { postId: string; orgId: string; callerId: string; callerRole: UserRole },
 ): Promise<PostWithUpdatesResponse> {
   const parentRow = await db
     .selectFrom('posts')
@@ -377,6 +390,7 @@ export async function getPostWithUpdates(
       'posts.created_at',
     ])
     .where('posts.id', '=', args.postId)
+    .where('posts.org_id', '=', args.orgId)
     .executeTakeFirst();
   if (!parentRow) throw new NotFoundError('Post not found');
   const r = parentRow as unknown as PostRow;
@@ -390,7 +404,7 @@ export async function getPostWithUpdates(
   // Hide attribution for privileged viewers on a hidden post.
   const isPrivileged = isPrivilegedRole(args.callerRole);
   if (isPrivileged && r.status === 'hidden') {
-    const hideInfo = await fetchHideInfo(db, [r.id]);
+    const hideInfo = await fetchHideInfo(db, [r.id], args.orgId);
     const info = hideInfo.get(r.id);
     if (info) {
       r.hidden_by_id = info.actorId;
@@ -463,6 +477,7 @@ export async function createPost(
   db: Kysely<Database>,
   input: {
     authorId: string;
+    orgId: string;
     callerRole: UserRole;
     body: string;
     expiresAt?: string;
@@ -477,6 +492,7 @@ export async function createPost(
       .insertInto('posts')
       .values({
         id,
+        org_id: input.orgId,
         author_id: input.authorId,
         body: input.body,
         is_anonymous: input.isAnonymous,
@@ -485,7 +501,7 @@ export async function createPost(
         edit_deadline: new Date(now.getTime() + EDIT_WINDOW_MS),
       })
       .execute();
-    const row = await fetchPostRow(trx, id);
+    const row = await fetchPostRow(trx, { postId: id, orgId: input.orgId });
     return toPostDto(row, { role: input.callerRole }, input.authorId);
   });
 }
@@ -504,6 +520,7 @@ export async function editPost(
   db: Kysely<Database>,
   args: {
     postId: string;
+    orgId: string;
     callerId: string;
     callerRole: UserRole;
     body?: string;
@@ -515,6 +532,7 @@ export async function editPost(
       .selectFrom('posts')
       .select(['id', 'author_id', 'edit_deadline', 'status'])
       .where('id', '=', args.postId)
+      .where('org_id', '=', args.orgId)
       .executeTakeFirst();
     if (!existing) throw new NotFoundError('Post not found');
     if (existing.author_id !== args.callerId) throw new ForbiddenError();
@@ -535,8 +553,13 @@ export async function editPost(
       update.expires_at = validateExpiresAt(args.expiresAt, new Date());
       fields.push('expires_at');
     }
-    await trx.updateTable('posts').set(update).where('id', '=', args.postId).execute();
-    const row = await fetchPostRow(trx, args.postId);
+    await trx
+      .updateTable('posts')
+      .set(update)
+      .where('id', '=', args.postId)
+      .where('org_id', '=', args.orgId)
+      .execute();
+    const row = await fetchPostRow(trx, { postId: args.postId, orgId: args.orgId });
     return toPostDto(row, { role: args.callerRole }, args.callerId);
   });
 }
@@ -560,6 +583,7 @@ export async function createUpdate(
   db: Kysely<Database>,
   args: {
     parentId: string;
+    orgId: string;
     callerId: string;
     callerRole: UserRole;
     body: string;
@@ -571,6 +595,7 @@ export async function createUpdate(
       .selectFrom('posts')
       .select(['id', 'author_id', 'status', 'is_anonymous', 'parent_id'])
       .where('id', '=', args.parentId)
+      .where('org_id', '=', args.orgId)
       .executeTakeFirst();
     if (!parent) throw new NotFoundError('Post not found');
     if (parent.parent_id !== null) throw new ForbiddenError('Cannot update an update');
@@ -583,6 +608,7 @@ export async function createUpdate(
       .insertInto('posts')
       .values({
         id,
+        org_id: args.orgId,
         author_id: args.callerId,
         parent_id: parent.id,
         body: args.body,
@@ -598,15 +624,17 @@ export async function createUpdate(
         .updateTable('posts')
         .set({ is_answered_prayer: true })
         .where('id', '=', parent.id)
+        .where('org_id', '=', args.orgId)
         .execute();
     }
     await writePostEvent(trx, {
       kind: 'post.update_created',
+      orgId: args.orgId,
       postId: id,
       actorId: args.callerId,
       payload: { parent_id: parent.id, is_answered_prayer: args.isAnsweredPrayer ?? false },
     });
-    const row = await fetchPostRow(trx, id);
+    const row = await fetchPostRow(trx, { postId: id, orgId: args.orgId });
     return toPostDto(row, { role: args.callerRole }, args.callerId);
   });
 }
@@ -616,6 +644,7 @@ export async function editUpdate(
   args: {
     parentId: string;
     updateId: string;
+    orgId: string;
     callerId: string;
     callerRole: UserRole;
     body?: string;
@@ -627,6 +656,7 @@ export async function editUpdate(
       .selectFrom('posts')
       .select(['id', 'author_id', 'parent_id', 'edit_deadline', 'status'])
       .where('id', '=', args.updateId)
+      .where('org_id', '=', args.orgId)
       .executeTakeFirst();
     if (!row || row.parent_id !== args.parentId) throw new NotFoundError('Update not found');
     if (row.author_id !== args.callerId) throw new ForbiddenError();
@@ -641,22 +671,28 @@ export async function editUpdate(
     if (args.isAnsweredPrayer !== undefined) {
       update.is_answered_prayer = args.isAnsweredPrayer;
     }
-    await trx.updateTable('posts').set(update).where('id', '=', args.updateId).execute();
+    await trx
+      .updateTable('posts')
+      .set(update)
+      .where('id', '=', args.updateId)
+      .where('org_id', '=', args.orgId)
+      .execute();
     if (args.isAnsweredPrayer === true) {
       await trx
         .updateTable('posts')
         .set({ is_answered_prayer: true })
         .where('id', '=', args.parentId)
+        .where('org_id', '=', args.orgId)
         .execute();
     }
-    const out = await fetchPostRow(trx, args.updateId);
+    const out = await fetchPostRow(trx, { postId: args.updateId, orgId: args.orgId });
     return toPostDto(out, { role: args.callerRole }, args.callerId);
   });
 }
 
 async function listByStatus(
   db: Kysely<Database>,
-  args: { authorId: string; status: 'draft' | 'archived'; callerRole: UserRole },
+  args: { authorId: string; orgId: string; status: 'draft' | 'archived'; callerRole: UserRole },
 ): Promise<PostDto[]> {
   const rows = await db
     .selectFrom('posts')
@@ -678,6 +714,7 @@ async function listByStatus(
       'posts.created_at',
     ])
     .where('posts.author_id', '=', args.authorId)
+    .where('posts.org_id', '=', args.orgId)
     .where('posts.status', '=', args.status)
     .where('posts.parent_id', 'is', null)
     .orderBy('posts.id', 'desc')
@@ -689,20 +726,21 @@ async function listByStatus(
 
 export async function listArchive(
   db: Kysely<Database>,
-  args: { authorId: string; callerRole: UserRole },
+  args: { authorId: string; orgId: string; callerRole: UserRole },
 ): Promise<PostDto[]> {
   return listByStatus(db, { ...args, status: 'archived' });
 }
 
 export async function archivePost(
   db: Kysely<Database>,
-  args: { postId: string; callerId: string; reason: 'author' | 'expiry' },
+  args: { postId: string; orgId: string; callerId: string; reason: 'author' | 'expiry' },
 ): Promise<void> {
   await db.transaction().execute(async (trx) => {
     const existing = await trx
       .selectFrom('posts')
       .select(['id', 'author_id', 'status'])
       .where('id', '=', args.postId)
+      .where('org_id', '=', args.orgId)
       .executeTakeFirst();
     if (!existing) throw new NotFoundError('Post not found');
     if (args.reason === 'author' && existing.author_id !== args.callerId) {
@@ -713,6 +751,7 @@ export async function archivePost(
       .updateTable('posts')
       .set({ status: 'archived' })
       .where('id', '=', args.postId)
+      .where('org_id', '=', args.orgId)
       .execute();
   });
 }

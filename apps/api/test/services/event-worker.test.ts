@@ -10,7 +10,7 @@ import {
   type EventRow,
   type EventWorker,
 } from '../../src/services/event-worker.js';
-import { insertComment, insertPost, insertUser } from '../helpers/seed.js';
+import { insertComment, insertOrg, insertPost, insertUser } from '../helpers/seed.js';
 
 async function flush(n = 5): Promise<void> {
   for (let i = 0; i < n; i++) await new Promise((r) => setImmediate(r));
@@ -19,9 +19,11 @@ async function flush(n = 5): Promise<void> {
 describe('event-worker: NOTIFY happy path', () => {
   let db: Kysely<Database>;
   let worker: EventWorker;
+  let orgId: string;
 
-  beforeAll(() => {
+  beforeAll(async () => {
     db = initDb(process.env.TEST_DATABASE_URL!);
+    orgId = await insertOrg(db, { slug: 'lakeside-ew-notify' });
   });
   afterAll(async () => {
     await db.destroy();
@@ -30,12 +32,13 @@ describe('event-worker: NOTIFY happy path', () => {
     await worker.stop();
     await db.deleteFrom('events').execute();
     await db.deleteFrom('posts').execute();
+    await db.deleteFrom('user_orgs').execute();
     await db.deleteFrom('users').execute();
   });
 
   it('processes an event inserted after start; processed_at is set', async () => {
-    const user = await insertUser(db);
-    const post = await insertPost(db, { authorId: user.id, status: 'draft' });
+    const user = await insertUser(db, { orgId });
+    const post = await insertPost(db, { authorId: user.id, orgId, status: 'draft' });
 
     worker = createEventWorker({
       connectionString: process.env.TEST_DATABASE_URL!,
@@ -51,6 +54,7 @@ describe('event-worker: NOTIFY happy path', () => {
       .insertInto('events')
       .values({
         id: eventId,
+        org_id: orgId,
         type: 'post.update_created',
         post_id: post.id,
         actor_id: user.id,
@@ -72,8 +76,8 @@ describe('event-worker: NOTIFY happy path', () => {
   });
 
   it('starts successfully when pre-existing processed events are in the table', async () => {
-    const user = await insertUser(db);
-    const post = await insertPost(db, { authorId: user.id, status: 'published' });
+    const user = await insertUser(db, { orgId });
+    const post = await insertPost(db, { authorId: user.id, orgId, status: 'published' });
 
     // Seed an event directly; mark already-processed so backup poll doesn't touch it.
     const preId = newId();
@@ -81,6 +85,7 @@ describe('event-worker: NOTIFY happy path', () => {
       .insertInto('events')
       .values({
         id: preId,
+        org_id: orgId,
         type: 'post.update_created',
         post_id: post.id,
         actor_id: user.id,
@@ -105,9 +110,11 @@ describe('event-worker: NOTIFY happy path', () => {
 describe('event-worker: backup poll + idempotency', () => {
   let db: Kysely<Database>;
   let worker: EventWorker;
+  let orgId: string;
 
-  beforeAll(() => {
+  beforeAll(async () => {
     db = initDb(process.env.TEST_DATABASE_URL!);
+    orgId = await insertOrg(db, { slug: 'lakeside-ew-backup' });
   });
   afterAll(async () => {
     await db.destroy();
@@ -116,12 +123,13 @@ describe('event-worker: backup poll + idempotency', () => {
     await worker.stop();
     await db.deleteFrom('events').execute();
     await db.deleteFrom('posts').execute();
+    await db.deleteFrom('user_orgs').execute();
     await db.deleteFrom('users').execute();
   });
 
   it('backup poll picks up unprocessed events inserted while stopped', async () => {
-    const user = await insertUser(db);
-    const post = await insertPost(db, { authorId: user.id, status: 'published' });
+    const user = await insertUser(db, { orgId });
+    const post = await insertPost(db, { authorId: user.id, orgId, status: 'published' });
 
     // Insert an event directly (no NOTIFY fan-out because no listener is connected yet)
     const eventId = newId();
@@ -129,6 +137,7 @@ describe('event-worker: backup poll + idempotency', () => {
       .insertInto('events')
       .values({
         id: eventId,
+        org_id: orgId,
         type: 'post.update_created',
         post_id: post.id,
         actor_id: user.id,
@@ -159,13 +168,14 @@ describe('event-worker: backup poll + idempotency', () => {
   });
 
   it('duplicate delivery results in exactly one handler call', async () => {
-    const user = await insertUser(db);
-    const post = await insertPost(db, { authorId: user.id, status: 'published' });
+    const user = await insertUser(db, { orgId });
+    const post = await insertPost(db, { authorId: user.id, orgId, status: 'published' });
     const eventId = newId();
     await db
       .insertInto('events')
       .values({
         id: eventId,
+        org_id: orgId,
         type: 'post.update_created',
         post_id: post.id,
         actor_id: user.id,
@@ -205,9 +215,11 @@ describe('event-worker: backup poll + idempotency', () => {
 describe('event-worker: error handling + shutdown', () => {
   let db: Kysely<Database>;
   let worker: EventWorker;
+  let orgId: string;
 
-  beforeAll(() => {
+  beforeAll(async () => {
     db = initDb(process.env.TEST_DATABASE_URL!);
+    orgId = await insertOrg(db, { slug: 'lakeside-ew-errors' });
   });
   afterAll(async () => {
     await db.destroy();
@@ -216,17 +228,19 @@ describe('event-worker: error handling + shutdown', () => {
     await worker.stop().catch(() => {});
     await db.deleteFrom('events').execute();
     await db.deleteFrom('posts').execute();
+    await db.deleteFrom('user_orgs').execute();
     await db.deleteFrom('users').execute();
   });
 
   it('handler exception rolls back processed_at (M4 semantics)', async () => {
-    const user = await insertUser(db);
-    const post = await insertPost(db, { authorId: user.id, status: 'published' });
+    const user = await insertUser(db, { orgId });
+    const post = await insertPost(db, { authorId: user.id, orgId, status: 'published' });
     const eventId = newId();
     await db
       .insertInto('events')
       .values({
         id: eventId,
+        org_id: orgId,
         type: 'post.update_created',
         post_id: post.id,
         actor_id: user.id,
@@ -259,13 +273,14 @@ describe('event-worker: error handling + shutdown', () => {
   });
 
   it('unknown event type logs a warning and marks processed', async () => {
-    const user = await insertUser(db);
-    const post = await insertPost(db, { authorId: user.id, status: 'published' });
+    const user = await insertUser(db, { orgId });
+    const post = await insertPost(db, { authorId: user.id, orgId, status: 'published' });
     const eventId = newId();
     await db
       .insertInto('events')
       .values({
         id: eventId,
+        org_id: orgId,
         type: 'unknown.kind',
         post_id: post.id,
         actor_id: user.id,
@@ -309,9 +324,11 @@ describe('event-worker: error handling + shutdown', () => {
 describe('event-worker: transactional handler pattern', () => {
   let db: Kysely<Database>;
   let worker: EventWorker;
+  let orgId: string;
 
-  beforeAll(() => {
+  beforeAll(async () => {
     db = initDb(process.env.TEST_DATABASE_URL!);
+    orgId = await insertOrg(db, { slug: 'lakeside-ew-trx' });
   });
   afterAll(async () => {
     await db.destroy();
@@ -321,17 +338,19 @@ describe('event-worker: transactional handler pattern', () => {
     await db.deleteFrom('notifications').execute();
     await db.deleteFrom('events').execute();
     await db.deleteFrom('posts').execute();
+    await db.deleteFrom('user_orgs').execute();
     await db.deleteFrom('users').execute();
   });
 
   it('handler that throws rolls back the processed_at update', async () => {
-    const user = await insertUser(db);
-    const post = await insertPost(db, { authorId: user.id, status: 'published' });
+    const user = await insertUser(db, { orgId });
+    const post = await insertPost(db, { authorId: user.id, orgId, status: 'published' });
     const eventId = newId();
     await db
       .insertInto('events')
       .values({
         id: eventId,
+        org_id: orgId,
         type: 'post.update_created',
         post_id: post.id,
         actor_id: user.id,
@@ -365,13 +384,14 @@ describe('event-worker: transactional handler pattern', () => {
   });
 
   it('handler receives a Kysely transaction that commits with processed_at', async () => {
-    const user = await insertUser(db);
-    const post = await insertPost(db, { authorId: user.id, status: 'published' });
+    const user = await insertUser(db, { orgId });
+    const post = await insertPost(db, { authorId: user.id, orgId, status: 'published' });
     const eventId = newId();
     await db
       .insertInto('events')
       .values({
         id: eventId,
+        org_id: orgId,
         type: 'post.update_created',
         post_id: post.id,
         actor_id: user.id,
@@ -393,6 +413,7 @@ describe('event-worker: transactional handler pattern', () => {
             .insertInto('notifications')
             .values({
               id: newId(),
+              org_id: orgId,
               user_id: user.id,
               type: 'test.marker',
               payload: { event_id: eventId } as never,
@@ -417,13 +438,14 @@ describe('event-worker: transactional handler pattern', () => {
   });
 
   it('failing handler leaves the row for backup poll to retry', async () => {
-    const user = await insertUser(db);
-    const post = await insertPost(db, { authorId: user.id, status: 'published' });
+    const user = await insertUser(db, { orgId });
+    const post = await insertPost(db, { authorId: user.id, orgId, status: 'published' });
     const eventId = newId();
     await db
       .insertInto('events')
       .values({
         id: eventId,
+        org_id: orgId,
         type: 'post.update_created',
         post_id: post.id,
         actor_id: user.id,
@@ -466,8 +488,10 @@ describe('event-worker: transactional handler pattern', () => {
 describe('event-worker: reaction count recomputer routing', () => {
   let db: Kysely<Database>;
   let worker: EventWorker;
-  beforeAll(() => {
+  let orgId: string;
+  beforeAll(async () => {
     db = initDb(process.env.TEST_DATABASE_URL!);
+    orgId = await insertOrg(db, { slug: 'lakeside-ew-reactions' });
   });
   afterAll(async () => {
     await db.destroy();
@@ -478,12 +502,13 @@ describe('event-worker: reaction count recomputer routing', () => {
     await db.deleteFrom('reactions').execute();
     await db.deleteFrom('comments').execute();
     await db.deleteFrom('posts').execute();
+    await db.deleteFrom('user_orgs').execute();
     await db.deleteFrom('users').execute();
   });
 
   it('reaction.added on post target triggers reactionCountRecomputer', async () => {
-    const user = await insertUser(db);
-    const post = await insertPost(db, { authorId: user.id, status: 'published' });
+    const user = await insertUser(db, { orgId });
+    const post = await insertPost(db, { authorId: user.id, orgId, status: 'published' });
     let advancedId: string | null = null;
     const reactionHandler = async (event: EventRow, trx: Transaction<Database>) => {
       const { reactionCountRecomputer } = await import('../../src/services/reaction-consumer.js');
@@ -506,6 +531,7 @@ describe('event-worker: reaction count recomputer routing', () => {
       .insertInto('events')
       .values({
         id: eventId,
+        org_id: orgId,
         type: 'reaction.added',
         post_id: post.id,
         actor_id: user.id,
@@ -517,9 +543,9 @@ describe('event-worker: reaction count recomputer routing', () => {
   });
 
   it('reaction.added on comment target does NOT trigger post-scoped handler', async () => {
-    const user = await insertUser(db);
-    const post = await insertPost(db, { authorId: user.id, status: 'published' });
-    const comment = await insertComment(db, { postId: post.id, authorId: user.id });
+    const user = await insertUser(db, { orgId });
+    const post = await insertPost(db, { authorId: user.id, orgId, status: 'published' });
+    const comment = await insertComment(db, { postId: post.id, authorId: user.id, orgId });
     let advancedId: string | null = null;
     const reactionHandler = async (event: EventRow, trx: Transaction<Database>) => {
       const { reactionCountRecomputer } = await import('../../src/services/reaction-consumer.js');
@@ -542,6 +568,7 @@ describe('event-worker: reaction count recomputer routing', () => {
       .insertInto('events')
       .values({
         id: eventId,
+        org_id: orgId,
         type: 'reaction.added',
         post_id: post.id,
         actor_id: user.id,

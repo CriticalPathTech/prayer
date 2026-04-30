@@ -5,12 +5,14 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
 import { initDb } from '../../src/db/index.js';
 import { flagConsumer } from '../../src/services/flag-consumer.js';
-import { insertComment, insertPost, insertUser } from '../helpers/seed.js';
+import { insertComment, insertOrg, insertPost, insertUser } from '../helpers/seed.js';
 
 describe('flagConsumer', () => {
   let db: Kysely<Database>;
-  beforeAll(() => {
+  let orgId: string;
+  beforeAll(async () => {
     db = initDb(process.env.TEST_DATABASE_URL!);
+    orgId = await insertOrg(db, { slug: 'lakeside-svc-flag-consumer' });
   });
   afterAll(async () => {
     await db.destroy();
@@ -20,19 +22,21 @@ describe('flagConsumer', () => {
     await db.deleteFrom('flags').execute();
     await db.deleteFrom('comments').execute();
     await db.deleteFrom('posts').execute();
+    await db.deleteFrom('user_orgs').execute();
     await db.deleteFrom('users').execute();
   });
 
   it('recomputes posts.flag_count via COUNT(*) over open flags + auto-hides at 2 + emits moderator.hide auto', async () => {
-    const author = await insertUser(db);
-    const f1 = await insertUser(db);
-    const f2 = await insertUser(db);
-    const post = await insertPost(db, { authorId: author.id, status: 'published' });
+    const author = await insertUser(db, { orgId });
+    const f1 = await insertUser(db, { orgId });
+    const f2 = await insertUser(db, { orgId });
+    const post = await insertPost(db, { authorId: author.id, orgId, status: 'published' });
     await db
       .insertInto('flags')
       .values([
         {
           id: newId(),
+          org_id: orgId,
           target_type: 'post',
           target_id: post.id,
           flagger_id: f1.id,
@@ -40,6 +44,7 @@ describe('flagConsumer', () => {
         },
         {
           id: newId(),
+          org_id: orgId,
           target_type: 'post',
           target_id: post.id,
           flagger_id: f2.id,
@@ -52,6 +57,7 @@ describe('flagConsumer', () => {
       await flagConsumer(
         {
           id: newId(),
+          org_id: orgId,
           type: 'flag.created',
           post_id: post.id,
           actor_id: f1.id,
@@ -84,13 +90,14 @@ describe('flagConsumer', () => {
   });
 
   it('does not hide below threshold', async () => {
-    const author = await insertUser(db);
-    const f1 = await insertUser(db);
-    const post = await insertPost(db, { authorId: author.id, status: 'published' });
+    const author = await insertUser(db, { orgId });
+    const f1 = await insertUser(db, { orgId });
+    const post = await insertPost(db, { authorId: author.id, orgId, status: 'published' });
     await db
       .insertInto('flags')
       .values({
         id: newId(),
+        org_id: orgId,
         target_type: 'post',
         target_id: post.id,
         flagger_id: f1.id,
@@ -102,6 +109,7 @@ describe('flagConsumer', () => {
       await flagConsumer(
         {
           id: newId(),
+          org_id: orgId,
           type: 'flag.created',
           post_id: post.id,
           actor_id: f1.id,
@@ -131,13 +139,14 @@ describe('flagConsumer', () => {
   });
 
   it('comment target — recomputes comments.flag_count and does NOT hide posts', async () => {
-    const author = await insertUser(db);
-    const f1 = await insertUser(db);
-    const f2 = await insertUser(db);
-    const post = await insertPost(db, { authorId: author.id, status: 'published' });
+    const author = await insertUser(db, { orgId });
+    const f1 = await insertUser(db, { orgId });
+    const f2 = await insertUser(db, { orgId });
+    const post = await insertPost(db, { authorId: author.id, orgId, status: 'published' });
     const comment = await insertComment(db, {
       postId: post.id,
       authorId: author.id,
+      orgId,
       participantId: author.id,
     });
     await db
@@ -145,6 +154,7 @@ describe('flagConsumer', () => {
       .values([
         {
           id: newId(),
+          org_id: orgId,
           target_type: 'comment',
           target_id: comment.id,
           flagger_id: f1.id,
@@ -152,6 +162,7 @@ describe('flagConsumer', () => {
         },
         {
           id: newId(),
+          org_id: orgId,
           target_type: 'comment',
           target_id: comment.id,
           flagger_id: f2.id,
@@ -164,6 +175,7 @@ describe('flagConsumer', () => {
       await flagConsumer(
         {
           id: newId(),
+          org_id: orgId,
           type: 'flag.created',
           post_id: post.id,
           actor_id: f1.id,
@@ -194,15 +206,16 @@ describe('flagConsumer', () => {
   });
 
   it('idempotent — running twice leaves count and status correct; emits at most one moderator.hide', async () => {
-    const author = await insertUser(db);
-    const f1 = await insertUser(db);
-    const f2 = await insertUser(db);
-    const post = await insertPost(db, { authorId: author.id, status: 'published' });
+    const author = await insertUser(db, { orgId });
+    const f1 = await insertUser(db, { orgId });
+    const f2 = await insertUser(db, { orgId });
+    const post = await insertPost(db, { authorId: author.id, orgId, status: 'published' });
     await db
       .insertInto('flags')
       .values([
         {
           id: newId(),
+          org_id: orgId,
           target_type: 'post',
           target_id: post.id,
           flagger_id: f1.id,
@@ -210,6 +223,7 @@ describe('flagConsumer', () => {
         },
         {
           id: newId(),
+          org_id: orgId,
           target_type: 'post',
           target_id: post.id,
           flagger_id: f2.id,
@@ -223,6 +237,7 @@ describe('flagConsumer', () => {
         await flagConsumer(
           {
             id: newId(),
+            org_id: orgId,
             type: 'flag.created',
             post_id: post.id,
             actor_id: f1.id,
@@ -253,14 +268,15 @@ describe('flagConsumer', () => {
   });
 
   it('flag.resolved recomputes count back down', async () => {
-    const author = await insertUser(db);
-    const f1 = await insertUser(db);
-    const post = await insertPost(db, { authorId: author.id, status: 'published' });
+    const author = await insertUser(db, { orgId });
+    const f1 = await insertUser(db, { orgId });
+    const post = await insertPost(db, { authorId: author.id, orgId, status: 'published' });
     const fid = newId();
     await db
       .insertInto('flags')
       .values({
         id: fid,
+        org_id: orgId,
         target_type: 'post',
         target_id: post.id,
         flagger_id: f1.id,
@@ -272,6 +288,7 @@ describe('flagConsumer', () => {
       await flagConsumer(
         {
           id: newId(),
+          org_id: orgId,
           type: 'flag.created',
           post_id: post.id,
           actor_id: f1.id,
@@ -300,6 +317,7 @@ describe('flagConsumer', () => {
       await flagConsumer(
         {
           id: newId(),
+          org_id: orgId,
           type: 'flag.resolved',
           post_id: post.id,
           actor_id: null,

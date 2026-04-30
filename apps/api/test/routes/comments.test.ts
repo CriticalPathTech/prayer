@@ -8,8 +8,10 @@ import { createTestApp, type TestApp } from '../helpers/supertest.js';
 
 describe('POST /posts/:postId/comments', () => {
   let ctx: TestApp;
+  let orgId: string;
   beforeAll(async () => {
     ctx = await createTestApp();
+    orgId = ctx.orgId;
   });
   afterAll(async () => {
     await ctx.close();
@@ -19,6 +21,7 @@ describe('POST /posts/:postId/comments', () => {
     await ctx.db.deleteFrom('events').execute();
     await ctx.db.deleteFrom('comments').execute();
     await ctx.db.deleteFrom('posts').execute();
+    await ctx.db.deleteFrom('user_orgs').execute();
     await ctx.db.deleteFrom('users').execute();
   });
 
@@ -28,9 +31,9 @@ describe('POST /posts/:postId/comments', () => {
   });
 
   it('creates a comment as a non-author', async () => {
-    const author = await insertUser(ctx.db);
-    const commenter = await insertUser(ctx.db);
-    const post = await insertPost(ctx.db, { authorId: author.id, status: 'published' });
+    const author = await insertUser(ctx.db, { orgId });
+    const commenter = await insertUser(ctx.db, { orgId });
+    const post = await insertPost(ctx.db, { authorId: author.id, orgId, status: 'published' });
     const token = await mintTestJwt({ sub: commenter.supabaseAuthId, email: commenter.email });
     const res = await request(ctx.app)
       .post(`/posts/${post.id}/comments`)
@@ -41,9 +44,9 @@ describe('POST /posts/:postId/comments', () => {
   });
 
   it('404 on archived post', async () => {
-    const author = await insertUser(ctx.db);
-    const commenter = await insertUser(ctx.db);
-    const post = await insertPost(ctx.db, { authorId: author.id, status: 'archived' });
+    const author = await insertUser(ctx.db, { orgId });
+    const commenter = await insertUser(ctx.db, { orgId });
+    const post = await insertPost(ctx.db, { authorId: author.id, orgId, status: 'archived' });
     const token = await mintTestJwt({ sub: commenter.supabaseAuthId, email: commenter.email });
     const res = await request(ctx.app)
       .post(`/posts/${post.id}/comments`)
@@ -53,10 +56,10 @@ describe('POST /posts/:postId/comments', () => {
   });
 
   it('400 when post author omits participant_id', async () => {
-    const author = await insertUser(ctx.db);
-    const commenter = await insertUser(ctx.db);
-    const post = await insertPost(ctx.db, { authorId: author.id, status: 'published' });
-    await insertComment(ctx.db, { postId: post.id, authorId: commenter.id });
+    const author = await insertUser(ctx.db, { orgId });
+    const commenter = await insertUser(ctx.db, { orgId });
+    const post = await insertPost(ctx.db, { authorId: author.id, orgId, status: 'published' });
+    await insertComment(ctx.db, { postId: post.id, authorId: commenter.id, orgId });
     const token = await mintTestJwt({ sub: author.supabaseAuthId, email: author.email });
     const res = await request(ctx.app)
       .post(`/posts/${post.id}/comments`)
@@ -68,8 +71,10 @@ describe('POST /posts/:postId/comments', () => {
 
 describe('GET /posts/:postId/comments', () => {
   let ctx: TestApp;
+  let orgId: string;
   beforeAll(async () => {
     ctx = await createTestApp();
+    orgId = ctx.orgId;
   });
   afterAll(async () => {
     await ctx.close();
@@ -77,15 +82,16 @@ describe('GET /posts/:postId/comments', () => {
   afterEach(async () => {
     await ctx.db.deleteFrom('comments').execute();
     await ctx.db.deleteFrom('posts').execute();
+    await ctx.db.deleteFrom('user_orgs').execute();
     await ctx.db.deleteFrom('users').execute();
   });
 
   it('non-participant gets empty threads', async () => {
-    const author = await insertUser(ctx.db);
-    const a = await insertUser(ctx.db);
-    const outsider = await insertUser(ctx.db);
-    const post = await insertPost(ctx.db, { authorId: author.id, status: 'published' });
-    await insertComment(ctx.db, { postId: post.id, authorId: a.id });
+    const author = await insertUser(ctx.db, { orgId });
+    const a = await insertUser(ctx.db, { orgId });
+    const outsider = await insertUser(ctx.db, { orgId });
+    const post = await insertPost(ctx.db, { authorId: author.id, orgId, status: 'published' });
+    await insertComment(ctx.db, { postId: post.id, authorId: a.id, orgId });
     const token = await mintTestJwt({ sub: outsider.supabaseAuthId, email: outsider.email });
     const res = await request(ctx.app)
       .get(`/posts/${post.id}/comments`)
@@ -95,13 +101,13 @@ describe('GET /posts/:postId/comments', () => {
   });
 
   it('moderator sees all threads', async () => {
-    const author = await insertUser(ctx.db);
-    const a = await insertUser(ctx.db);
-    const b = await insertUser(ctx.db);
-    const mod = await insertUser(ctx.db, { role: 'moderator' });
-    const post = await insertPost(ctx.db, { authorId: author.id, status: 'published' });
-    await insertComment(ctx.db, { postId: post.id, authorId: a.id });
-    await insertComment(ctx.db, { postId: post.id, authorId: b.id });
+    const author = await insertUser(ctx.db, { orgId });
+    const a = await insertUser(ctx.db, { orgId });
+    const b = await insertUser(ctx.db, { orgId });
+    const mod = await insertUser(ctx.db, { orgId, role: 'moderator' });
+    const post = await insertPost(ctx.db, { authorId: author.id, orgId, status: 'published' });
+    await insertComment(ctx.db, { postId: post.id, authorId: a.id, orgId });
+    await insertComment(ctx.db, { postId: post.id, authorId: b.id, orgId });
     const token = await mintTestJwt({ sub: mod.supabaseAuthId, email: mod.email });
     const res = await request(ctx.app)
       .get(`/posts/${post.id}/comments`)
@@ -112,8 +118,10 @@ describe('GET /posts/:postId/comments', () => {
 
 describe('PATCH /posts/:postId/comments/:id', () => {
   let ctx: TestApp;
+  let orgId: string;
   beforeAll(async () => {
     ctx = await createTestApp();
+    orgId = ctx.orgId;
   });
   afterAll(async () => {
     await ctx.close();
@@ -122,14 +130,15 @@ describe('PATCH /posts/:postId/comments/:id', () => {
     await ctx.db.deleteFrom('events').execute();
     await ctx.db.deleteFrom('comments').execute();
     await ctx.db.deleteFrom('posts').execute();
+    await ctx.db.deleteFrom('user_orgs').execute();
     await ctx.db.deleteFrom('users').execute();
   });
 
   it('author edits own comment within 1h', async () => {
-    const author = await insertUser(ctx.db);
-    const commenter = await insertUser(ctx.db);
-    const post = await insertPost(ctx.db, { authorId: author.id, status: 'published' });
-    const c = await insertComment(ctx.db, { postId: post.id, authorId: commenter.id });
+    const author = await insertUser(ctx.db, { orgId });
+    const commenter = await insertUser(ctx.db, { orgId });
+    const post = await insertPost(ctx.db, { authorId: author.id, orgId, status: 'published' });
+    const c = await insertComment(ctx.db, { postId: post.id, authorId: commenter.id, orgId });
     const token = await mintTestJwt({ sub: commenter.supabaseAuthId, email: commenter.email });
     const res = await request(ctx.app)
       .patch(`/posts/${post.id}/comments/${c.id}`)
@@ -140,11 +149,11 @@ describe('PATCH /posts/:postId/comments/:id', () => {
   });
 
   it('403 for non-author', async () => {
-    const author = await insertUser(ctx.db);
-    const commenter = await insertUser(ctx.db);
-    const outsider = await insertUser(ctx.db);
-    const post = await insertPost(ctx.db, { authorId: author.id, status: 'published' });
-    const c = await insertComment(ctx.db, { postId: post.id, authorId: commenter.id });
+    const author = await insertUser(ctx.db, { orgId });
+    const commenter = await insertUser(ctx.db, { orgId });
+    const outsider = await insertUser(ctx.db, { orgId });
+    const post = await insertPost(ctx.db, { authorId: author.id, orgId, status: 'published' });
+    const c = await insertComment(ctx.db, { postId: post.id, authorId: commenter.id, orgId });
     const token = await mintTestJwt({ sub: outsider.supabaseAuthId, email: outsider.email });
     const res = await request(ctx.app)
       .patch(`/posts/${post.id}/comments/${c.id}`)
@@ -156,8 +165,10 @@ describe('PATCH /posts/:postId/comments/:id', () => {
 
 describe('DELETE /posts/:postId/comments/:id', () => {
   let ctx: TestApp;
+  let orgId: string;
   beforeAll(async () => {
     ctx = await createTestApp();
+    orgId = ctx.orgId;
   });
   afterAll(async () => {
     await ctx.close();
@@ -166,14 +177,15 @@ describe('DELETE /posts/:postId/comments/:id', () => {
     await ctx.db.deleteFrom('events').execute();
     await ctx.db.deleteFrom('comments').execute();
     await ctx.db.deleteFrom('posts').execute();
+    await ctx.db.deleteFrom('user_orgs').execute();
     await ctx.db.deleteFrom('users').execute();
   });
 
   it('author hides own', async () => {
-    const author = await insertUser(ctx.db);
-    const commenter = await insertUser(ctx.db);
-    const post = await insertPost(ctx.db, { authorId: author.id, status: 'published' });
-    const c = await insertComment(ctx.db, { postId: post.id, authorId: commenter.id });
+    const author = await insertUser(ctx.db, { orgId });
+    const commenter = await insertUser(ctx.db, { orgId });
+    const post = await insertPost(ctx.db, { authorId: author.id, orgId, status: 'published' });
+    const c = await insertComment(ctx.db, { postId: post.id, authorId: commenter.id, orgId });
     const token = await mintTestJwt({ sub: commenter.supabaseAuthId, email: commenter.email });
     const res = await request(ctx.app)
       .delete(`/posts/${post.id}/comments/${c.id}`)
@@ -182,11 +194,11 @@ describe('DELETE /posts/:postId/comments/:id', () => {
   });
 
   it('moderator hides any', async () => {
-    const author = await insertUser(ctx.db);
-    const commenter = await insertUser(ctx.db);
-    const mod = await insertUser(ctx.db, { role: 'moderator' });
-    const post = await insertPost(ctx.db, { authorId: author.id, status: 'published' });
-    const c = await insertComment(ctx.db, { postId: post.id, authorId: commenter.id });
+    const author = await insertUser(ctx.db, { orgId });
+    const commenter = await insertUser(ctx.db, { orgId });
+    const mod = await insertUser(ctx.db, { orgId, role: 'moderator' });
+    const post = await insertPost(ctx.db, { authorId: author.id, orgId, status: 'published' });
+    const c = await insertComment(ctx.db, { postId: post.id, authorId: commenter.id, orgId });
     const token = await mintTestJwt({ sub: mod.supabaseAuthId, email: mod.email });
     const res = await request(ctx.app)
       .delete(`/posts/${post.id}/comments/${c.id}`)
@@ -197,8 +209,10 @@ describe('DELETE /posts/:postId/comments/:id', () => {
 
 describe('GET /posts/:id/comments — M5 reaction hydration', () => {
   let ctx: TestApp;
+  let orgId: string;
   beforeAll(async () => {
     ctx = await createTestApp();
+    orgId = ctx.orgId;
   });
   afterAll(async () => {
     await ctx.close();
@@ -207,16 +221,18 @@ describe('GET /posts/:id/comments — M5 reaction hydration', () => {
     await ctx.db.deleteFrom('reactions').execute();
     await ctx.db.deleteFrom('comments').execute();
     await ctx.db.deleteFrom('posts').execute();
+    await ctx.db.deleteFrom('user_orgs').execute();
     await ctx.db.deleteFrom('users').execute();
   });
 
   it('returns per-comment reaction summary with mine flag', async () => {
-    const author = await insertUser(ctx.db);
-    const participant = await insertUser(ctx.db);
-    const post = await insertPost(ctx.db, { authorId: author.id, status: 'published' });
+    const author = await insertUser(ctx.db, { orgId });
+    const participant = await insertUser(ctx.db, { orgId });
+    const post = await insertPost(ctx.db, { authorId: author.id, orgId, status: 'published' });
     const comment = await insertComment(ctx.db, {
       postId: post.id,
       authorId: participant.id,
+      orgId,
       participantId: participant.id,
     });
     await ctx.db
@@ -224,6 +240,7 @@ describe('GET /posts/:id/comments — M5 reaction hydration', () => {
       .values([
         {
           id: newId(),
+          org_id: orgId,
           target_type: 'comment',
           target_id: comment.id,
           author_id: author.id,
@@ -231,6 +248,7 @@ describe('GET /posts/:id/comments — M5 reaction hydration', () => {
         },
         {
           id: newId(),
+          org_id: orgId,
           target_type: 'comment',
           target_id: comment.id,
           author_id: participant.id,

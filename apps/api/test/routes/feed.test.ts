@@ -7,13 +7,15 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { initDb } from '../../src/db/index.js';
 import { clearSnapshotCache } from '../../src/services/feed-snapshot.js';
 import { mintTestJwt } from '../helpers/jwt.js';
-import { insertPost, insertUser } from '../helpers/seed.js';
+import { getLakesideOrgId, insertPost, insertUser } from '../helpers/seed.js';
 import { createTestApp, type TestApp } from '../helpers/supertest.js';
 
 describe('GET /feed', () => {
   let ctx: TestApp;
+  let orgId: string;
   beforeAll(async () => {
     ctx = await createTestApp();
+    orgId = ctx.orgId;
   });
   afterAll(async () => {
     await ctx.close();
@@ -22,15 +24,16 @@ describe('GET /feed', () => {
     clearSnapshotCache();
     await ctx.db.deleteFrom('events').execute();
     await ctx.db.deleteFrom('posts').execute();
+    await ctx.db.deleteFrom('user_orgs').execute();
     await ctx.db.deleteFrom('users').execute();
   });
 
   it('excludes drafts and archived', async () => {
-    const user = await insertUser(ctx.db);
+    const user = await insertUser(ctx.db, { orgId });
     const token = await mintTestJwt({ sub: user.supabaseAuthId, email: user.email });
-    await insertPost(ctx.db, { authorId: user.id, status: 'published' });
-    await insertPost(ctx.db, { authorId: user.id, status: 'draft' });
-    await insertPost(ctx.db, { authorId: user.id, status: 'archived' });
+    await insertPost(ctx.db, { authorId: user.id, orgId, status: 'published' });
+    await insertPost(ctx.db, { authorId: user.id, orgId, status: 'draft' });
+    await insertPost(ctx.db, { authorId: user.id, orgId, status: 'archived' });
     const res = await request(ctx.app)
       .get('/feed?filter=all')
       .set('Authorization', `Bearer ${token}`);
@@ -41,10 +44,10 @@ describe('GET /feed', () => {
   });
 
   it('excludes hidden posts for members', async () => {
-    const author = await insertUser(ctx.db);
-    const member = await insertUser(ctx.db);
-    await insertPost(ctx.db, { authorId: author.id, status: 'hidden' });
-    await insertPost(ctx.db, { authorId: author.id, status: 'published' });
+    const author = await insertUser(ctx.db, { orgId });
+    const member = await insertUser(ctx.db, { orgId });
+    await insertPost(ctx.db, { authorId: author.id, orgId, status: 'hidden' });
+    await insertPost(ctx.db, { authorId: author.id, orgId, status: 'published' });
     const token = await mintTestJwt({ sub: member.supabaseAuthId, email: member.email });
     const res = await request(ctx.app)
       .get('/feed?filter=all')
@@ -55,14 +58,15 @@ describe('GET /feed', () => {
   });
 
   it('includes hidden posts for moderators with hidden_by attribution', async () => {
-    const author = await insertUser(ctx.db);
-    const moderator = await insertUser(ctx.db, { role: 'moderator' });
-    const hidden = await insertPost(ctx.db, { authorId: author.id, status: 'hidden' });
+    const author = await insertUser(ctx.db, { orgId });
+    const moderator = await insertUser(ctx.db, { orgId, role: 'moderator' });
+    const hidden = await insertPost(ctx.db, { authorId: author.id, orgId, status: 'hidden' });
     // Write the moderator.hide event that the DTO will look up.
     await ctx.db
       .insertInto('events')
       .values({
         id: newId(),
+        org_id: orgId,
         type: 'moderator.hide',
         post_id: hidden.id,
         actor_id: moderator.id,
@@ -89,14 +93,15 @@ describe('GET /feed', () => {
   });
 
   it('includes auto-hidden posts for moderators with null hidden_by', async () => {
-    const author = await insertUser(ctx.db);
-    const moderator = await insertUser(ctx.db, { role: 'moderator' });
-    const hidden = await insertPost(ctx.db, { authorId: author.id, status: 'hidden' });
+    const author = await insertUser(ctx.db, { orgId });
+    const moderator = await insertUser(ctx.db, { orgId, role: 'moderator' });
+    const hidden = await insertPost(ctx.db, { authorId: author.id, orgId, status: 'hidden' });
     // Auto-hide event: actor_id is null, source is 'auto'.
     await ctx.db
       .insertInto('events')
       .values({
         id: newId(),
+        org_id: orgId,
         type: 'moderator.hide',
         post_id: hidden.id,
         actor_id: null,
@@ -119,10 +124,15 @@ describe('GET /feed', () => {
   });
 
   it('excludes update posts (only originals)', async () => {
-    const user = await insertUser(ctx.db);
+    const user = await insertUser(ctx.db, { orgId });
     const token = await mintTestJwt({ sub: user.supabaseAuthId, email: user.email });
-    const parent = await insertPost(ctx.db, { authorId: user.id, status: 'published' });
-    await insertPost(ctx.db, { authorId: user.id, status: 'published', parentId: parent.id });
+    const parent = await insertPost(ctx.db, { authorId: user.id, orgId, status: 'published' });
+    await insertPost(ctx.db, {
+      authorId: user.id,
+      orgId,
+      status: 'published',
+      parentId: parent.id,
+    });
     const res = await request(ctx.app)
       .get('/feed?filter=all')
       .set('Authorization', `Bearer ${token}`);
@@ -131,10 +141,10 @@ describe('GET /feed', () => {
   });
 
   it('all: paginates by cursor', async () => {
-    const user = await insertUser(ctx.db);
+    const user = await insertUser(ctx.db, { orgId });
     const token = await mintTestJwt({ sub: user.supabaseAuthId, email: user.email });
     for (let i = 0; i < 3; i++) {
-      await insertPost(ctx.db, { authorId: user.id, status: 'published' });
+      await insertPost(ctx.db, { authorId: user.id, orgId, status: 'published' });
     }
     const first = await request(ctx.app)
       .get('/feed?filter=all&limit=2')
@@ -149,7 +159,7 @@ describe('GET /feed', () => {
   });
 
   it('rejects limit > 50', async () => {
-    const user = await insertUser(ctx.db);
+    const user = await insertUser(ctx.db, { orgId });
     const token = await mintTestJwt({ sub: user.supabaseAuthId, email: user.email });
     const res = await request(ctx.app)
       .get('/feed?filter=all&limit=100')
@@ -158,7 +168,7 @@ describe('GET /feed', () => {
   });
 
   it('rejects bad filter', async () => {
-    const user = await insertUser(ctx.db);
+    const user = await insertUser(ctx.db, { orgId });
     const token = await mintTestJwt({ sub: user.supabaseAuthId, email: user.email });
     const res = await request(ctx.app)
       .get('/feed?filter=weird')
@@ -167,11 +177,11 @@ describe('GET /feed', () => {
   });
 
   it('mine: only returns posts authored by the caller', async () => {
-    const author = await insertUser(ctx.db);
-    const other = await insertUser(ctx.db);
+    const author = await insertUser(ctx.db, { orgId });
+    const other = await insertUser(ctx.db, { orgId });
     const token = await mintTestJwt({ sub: author.supabaseAuthId, email: author.email });
-    const mine = await insertPost(ctx.db, { authorId: author.id, status: 'published' });
-    await insertPost(ctx.db, { authorId: other.id, status: 'published' });
+    const mine = await insertPost(ctx.db, { authorId: author.id, orgId, status: 'published' });
+    await insertPost(ctx.db, { authorId: other.id, orgId, status: 'published' });
     const res = await request(ctx.app)
       .get('/feed?filter=mine')
       .set('Authorization', `Bearer ${token}`);
@@ -181,10 +191,10 @@ describe('GET /feed', () => {
   });
 
   it('answered: only returns parents flagged answered and embeds every answered update chronologically', async () => {
-    const author = await insertUser(ctx.db);
+    const author = await insertUser(ctx.db, { orgId });
     const token = await mintTestJwt({ sub: author.supabaseAuthId, email: author.email });
-    const pending = await insertPost(ctx.db, { authorId: author.id, status: 'published' });
-    const answered = await insertPost(ctx.db, { authorId: author.id, status: 'published' });
+    const pending = await insertPost(ctx.db, { authorId: author.id, orgId, status: 'published' });
+    const answered = await insertPost(ctx.db, { authorId: author.id, orgId, status: 'published' });
     await ctx.db
       .updateTable('posts')
       .set({ is_answered_prayer: true })
@@ -192,6 +202,7 @@ describe('GET /feed', () => {
       .execute();
     const earlierUpdate = await insertPost(ctx.db, {
       authorId: author.id,
+      orgId,
       status: 'published',
       parentId: answered.id,
       body: 'interim',
@@ -203,6 +214,7 @@ describe('GET /feed', () => {
       .execute();
     const laterUpdate = await insertPost(ctx.db, {
       authorId: author.id,
+      orgId,
       status: 'published',
       parentId: answered.id,
       body: 'answered!',
@@ -228,9 +240,9 @@ describe('GET /feed', () => {
   });
 
   it('all: answered_updates is an empty array on every row', async () => {
-    const author = await insertUser(ctx.db);
+    const author = await insertUser(ctx.db, { orgId });
     const token = await mintTestJwt({ sub: author.supabaseAuthId, email: author.email });
-    await insertPost(ctx.db, { authorId: author.id, status: 'published' });
+    await insertPost(ctx.db, { authorId: author.id, orgId, status: 'published' });
     const res = await request(ctx.app)
       .get('/feed?filter=all')
       .set('Authorization', `Bearer ${token}`);
@@ -238,9 +250,9 @@ describe('GET /feed', () => {
   });
 
   it('answered: does not embed archived or hidden update posts', async () => {
-    const author = await insertUser(ctx.db);
+    const author = await insertUser(ctx.db, { orgId });
     const token = await mintTestJwt({ sub: author.supabaseAuthId, email: author.email });
-    const answered = await insertPost(ctx.db, { authorId: author.id, status: 'published' });
+    const answered = await insertPost(ctx.db, { authorId: author.id, orgId, status: 'published' });
     await ctx.db
       .updateTable('posts')
       .set({ is_answered_prayer: true })
@@ -249,6 +261,7 @@ describe('GET /feed', () => {
     // Archived answered update — should be excluded from answered_updates embed
     const archivedUpdate = await insertPost(ctx.db, {
       authorId: author.id,
+      orgId,
       status: 'archived',
       parentId: answered.id,
       body: 'archived update body',
@@ -272,8 +285,10 @@ describe('GET /feed', () => {
 
 describe('GET /feed/snapshot', () => {
   let ctx: TestApp;
+  let orgId: string;
   beforeAll(async () => {
     ctx = await createTestApp();
+    orgId = ctx.orgId;
   });
   afterAll(async () => {
     await ctx.close();
@@ -281,11 +296,12 @@ describe('GET /feed/snapshot', () => {
   afterEach(async () => {
     clearSnapshotCache();
     await ctx.db.deleteFrom('posts').execute();
+    await ctx.db.deleteFrom('user_orgs').execute();
     await ctx.db.deleteFrom('users').execute();
   });
 
   it('returns zero-uuid when no published posts exist', async () => {
-    const user = await insertUser(ctx.db);
+    const user = await insertUser(ctx.db, { orgId });
     const token = await mintTestJwt({ sub: user.supabaseAuthId, email: user.email });
     const res = await request(ctx.app)
       .get('/feed/snapshot')
@@ -295,10 +311,10 @@ describe('GET /feed/snapshot', () => {
   });
 
   it('returns the max published post id', async () => {
-    const user = await insertUser(ctx.db);
+    const user = await insertUser(ctx.db, { orgId });
     const token = await mintTestJwt({ sub: user.supabaseAuthId, email: user.email });
-    await insertPost(ctx.db, { authorId: user.id, status: 'draft' });
-    const published = await insertPost(ctx.db, { authorId: user.id, status: 'published' });
+    await insertPost(ctx.db, { authorId: user.id, orgId, status: 'draft' });
+    const published = await insertPost(ctx.db, { authorId: user.id, orgId, status: 'published' });
     const res = await request(ctx.app)
       .get('/feed/snapshot')
       .set('Authorization', `Bearer ${token}`);
@@ -309,8 +325,10 @@ describe('GET /feed/snapshot', () => {
 
 describe('GET /feed — M5 prayed flag', () => {
   let db: Kysely<Database>;
-  beforeAll(() => {
+  let orgId: string;
+  beforeAll(async () => {
     db = initDb(process.env.TEST_DATABASE_URL!);
+    orgId = await getLakesideOrgId(db);
   });
   afterAll(async () => {
     await db.destroy();
@@ -319,17 +337,18 @@ describe('GET /feed — M5 prayed flag', () => {
     clearSnapshotCache();
     await db.deleteFrom('prayers').execute();
     await db.deleteFrom('posts').execute();
+    await db.deleteFrom('user_orgs').execute();
     await db.deleteFrom('users').execute();
   });
 
   it('feed rows include prayed:true when caller prayed the post', async () => {
-    const author = await insertUser(db);
-    const caller = await insertUser(db);
-    const p1 = await insertPost(db, { authorId: author.id, status: 'published' });
-    const p2 = await insertPost(db, { authorId: author.id, status: 'published' });
+    const author = await insertUser(db, { orgId });
+    const caller = await insertUser(db, { orgId });
+    const p1 = await insertPost(db, { authorId: author.id, orgId, status: 'published' });
+    const p2 = await insertPost(db, { authorId: author.id, orgId, status: 'published' });
     await db
       .insertInto('prayers')
-      .values({ id: newId(), post_id: p1.id, user_id: caller.id })
+      .values({ id: newId(), org_id: orgId, post_id: p1.id, user_id: caller.id })
       .execute();
 
     const ctx = await createTestApp();

@@ -20,6 +20,7 @@ export function meDraftRouter(deps: { db: Kysely<Database> }): Router {
       if (!req.user) throw new UnauthorizedError();
       const draft = await getOwnDraft(deps.db, {
         userId: req.user.id,
+        orgId: req.user.orgId,
         callerRole: req.user.role,
       });
       res.json({ draft });
@@ -35,6 +36,7 @@ export function meDraftRouter(deps: { db: Kysely<Database> }): Router {
       if (!parsed.success) throw new ValidationError(parsed.error.message);
       const draft = await upsertOwnDraft(deps.db, {
         userId: req.user.id,
+        orgId: req.user.orgId,
         callerRole: req.user.role,
         input: {
           body: parsed.data.body,
@@ -53,6 +55,7 @@ export function meDraftRouter(deps: { db: Kysely<Database> }): Router {
       if (!req.user) throw new UnauthorizedError();
       const post = await publishOwnDraft(deps.db, {
         userId: req.user.id,
+        orgId: req.user.orgId,
         callerRole: req.user.role,
       });
       res.status(200).json({ post });

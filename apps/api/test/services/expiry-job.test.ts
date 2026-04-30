@@ -5,12 +5,14 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { initDb } from '../../src/db/index.js';
 import { createLogger } from '../../src/lib/logger.js';
 import { sweepExpired } from '../../src/services/expiry-job.js';
-import { insertPost, insertUser } from '../helpers/seed.js';
+import { insertOrg, insertPost, insertUser } from '../helpers/seed.js';
 
 describe('sweepExpired', () => {
   let db: Kysely<Database>;
-  beforeAll(() => {
+  let orgId: string;
+  beforeAll(async () => {
     db = initDb(process.env.TEST_DATABASE_URL!);
+    orgId = await insertOrg(db, { slug: 'lakeside-svc-expiry' });
   });
   afterAll(async () => {
     await db.destroy();
@@ -18,25 +20,29 @@ describe('sweepExpired', () => {
   afterEach(async () => {
     await db.deleteFrom('events').execute();
     await db.deleteFrom('posts').execute();
+    await db.deleteFrom('user_orgs').execute();
     await db.deleteFrom('users').execute();
   });
 
   it('archives only expired+published posts', async () => {
-    const user = await insertUser(db);
+    const user = await insertUser(db, { orgId });
     const past = new Date(Date.now() - 60_000);
     const future = new Date(Date.now() + 24 * 3600_000);
     const expiredPub = await insertPost(db, {
       authorId: user.id,
+      orgId,
       status: 'published',
       expiresAt: past,
     });
     const freshPub = await insertPost(db, {
       authorId: user.id,
+      orgId,
       status: 'published',
       expiresAt: future,
     });
     const expiredDraft = await insertPost(db, {
       authorId: user.id,
+      orgId,
       status: 'draft',
       expiresAt: past,
     });
@@ -52,9 +58,9 @@ describe('sweepExpired', () => {
   });
 
   it('is idempotent on repeat runs', async () => {
-    const user = await insertUser(db);
+    const user = await insertUser(db, { orgId });
     const past = new Date(Date.now() - 60_000);
-    await insertPost(db, { authorId: user.id, status: 'published', expiresAt: past });
+    await insertPost(db, { authorId: user.id, orgId, status: 'published', expiresAt: past });
     const n1 = await sweepExpired(db, { logger: createLogger('silent') });
     const n2 = await sweepExpired(db, { logger: createLogger('silent') });
     expect(n1).toBe(1);
@@ -62,10 +68,10 @@ describe('sweepExpired', () => {
   });
 
   it('archives matching rows without writing any events', async () => {
-    const user = await insertUser(db);
+    const user = await insertUser(db, { orgId });
     const past = new Date(Date.now() - 60_000);
-    await insertPost(db, { authorId: user.id, status: 'published', expiresAt: past });
-    await insertPost(db, { authorId: user.id, status: 'published', expiresAt: past });
+    await insertPost(db, { authorId: user.id, orgId, status: 'published', expiresAt: past });
+    await insertPost(db, { authorId: user.id, orgId, status: 'published', expiresAt: past });
     await sweepExpired(db, { logger: createLogger('silent') });
     const archived = await db
       .selectFrom('posts')

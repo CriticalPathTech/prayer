@@ -9,9 +9,11 @@ import { createTestApp, type TestApp } from '../helpers/supertest.js';
 
 describe('GET /me', () => {
   let ctx: TestApp;
+  let orgId: string;
 
   beforeAll(async () => {
     ctx = await createTestApp();
+    orgId = ctx.orgId;
   });
 
   afterAll(async () => {
@@ -19,6 +21,7 @@ describe('GET /me', () => {
   });
 
   afterEach(async () => {
+    await ctx.db.deleteFrom('user_orgs').execute();
     await ctx.db.deleteFrom('users').execute();
   });
 
@@ -27,39 +30,24 @@ describe('GET /me', () => {
     expect(res.status).toBe(401);
   });
 
-  it('returns 401 onboarding_required for a supabase-authed user with no users row', async () => {
+  it('returns 403 for a supabase-authed user with no org membership', async () => {
     const token = await mintTestJwt({ sub: newId(), email: 'orphan@example.com' });
     const res = await request(ctx.app).get('/me').set('Authorization', `Bearer ${token}`);
-    expect(res.status).toBe(401);
-    expect(res.body.error.code).toBe('ONBOARDING_REQUIRED');
+    expect(res.status).toBe(403);
+    expect(res.body.error.code).toBe('FORBIDDEN');
   });
 
   it('returns 200 with user DTO for a supabase-authed user with a users row', async () => {
-    const id = newId();
-    const authId = newId();
-    await ctx.db
-      .insertInto('users')
-      .values({
-        id,
-        supabase_auth_id: authId,
-        email: 'ok@example.com',
-        display_name: 'ok',
-      })
-      .execute();
-    const token = await mintTestJwt({ sub: authId, email: 'ok@example.com' });
+    const user = await insertUser(ctx.db, { orgId, email: 'ok@example.com', displayName: 'ok' });
+    const token = await mintTestJwt({ sub: user.supabaseAuthId, email: user.email });
     const res = await request(ctx.app).get('/me').set('Authorization', `Bearer ${token}`);
     expect(res.status).toBe(200);
-    expect(res.body.id).toBe(id);
+    expect(res.body.id).toBe(user.id);
   });
 
   it('includes avatar_url (null when unset) on the DTO', async () => {
-    const id = newId();
-    const authId = newId();
-    await ctx.db
-      .insertInto('users')
-      .values({ id, supabase_auth_id: authId, email: 'a@e.com', display_name: 'A' })
-      .execute();
-    const jwt = await mintTestJwt({ sub: authId, email: 'a@e.com' });
+    const user = await insertUser(ctx.db, { orgId, email: 'a@e.com', displayName: 'A' });
+    const jwt = await mintTestJwt({ sub: user.supabaseAuthId, email: user.email });
     const res = await request(ctx.app).get('/me').set('Authorization', `Bearer ${jwt}`);
     expect(res.status).toBe(200);
     expect(res.body.avatarUrl).toBeNull();
@@ -68,9 +56,11 @@ describe('GET /me', () => {
 
 describe('GET /me/invites', () => {
   let ctx: TestApp;
+  let orgId: string;
 
   beforeAll(async () => {
     ctx = await createTestApp();
+    orgId = ctx.orgId;
   });
 
   afterAll(async () => {
@@ -80,11 +70,12 @@ describe('GET /me/invites', () => {
   afterEach(async () => {
     await ctx.db.deleteFrom('invitations').execute();
     await ctx.db.deleteFrom('invite_codes').execute();
+    await ctx.db.deleteFrom('user_orgs').execute();
     await ctx.db.deleteFrom('users').execute();
   });
 
   it('returns empty active/retired for caller with no codes', async () => {
-    const user = await insertUser(ctx.db);
+    const user = await insertUser(ctx.db, { orgId });
     const jwt = await mintTestJwt({ sub: user.supabaseAuthId, email: user.email });
     const res = await request(ctx.app).get('/me/invites').set('Authorization', `Bearer ${jwt}`);
     expect(res.status).toBe(200);
@@ -92,17 +83,18 @@ describe('GET /me/invites', () => {
   });
 
   it('partitions codes by is_active and includes redemptions', async () => {
-    const user = await insertUser(ctx.db);
-    const active = await mintInviteCode(ctx.db, { ownerId: user.id, seatCap: 3 });
-    const retired = await mintInviteCode(ctx.db, { ownerId: user.id, seatCap: 2 });
-    await retireInviteCode(ctx.db, { codeId: retired.id });
+    const user = await insertUser(ctx.db, { orgId });
+    const active = await mintInviteCode(ctx.db, { ownerId: user.id, orgId, seatCap: 3 });
+    const retired = await mintInviteCode(ctx.db, { ownerId: user.id, orgId, seatCap: 2 });
+    await retireInviteCode(ctx.db, { codeId: retired.id, orgId });
 
     // Redeem one seat against the active code.
-    const invitee = await insertUser(ctx.db, { email: 'invitee@test.local' });
+    const invitee = await insertUser(ctx.db, { orgId, email: 'invitee@test.local' });
     await ctx.db
       .insertInto('invitations')
       .values({
         id: newId(),
+        org_id: orgId,
         invite_code_id: active.id,
         invitor_id: user.id,
         invitee_id: invitee.id,
@@ -123,9 +115,11 @@ describe('GET /me/invites', () => {
 
 describe('PATCH /me', () => {
   let ctx: TestApp;
+  let orgId: string;
 
   beforeAll(async () => {
     ctx = await createTestApp();
+    orgId = ctx.orgId;
   });
 
   afterAll(async () => {
@@ -133,17 +127,13 @@ describe('PATCH /me', () => {
   });
 
   afterEach(async () => {
+    await ctx.db.deleteFrom('user_orgs').execute();
     await ctx.db.deleteFrom('users').execute();
   });
 
   it('updates display_name and returns the new DTO', async () => {
-    const id = newId();
-    const authId = newId();
-    await ctx.db
-      .insertInto('users')
-      .values({ id, supabase_auth_id: authId, email: 'a@e.com', display_name: 'Old' })
-      .execute();
-    const jwt = await mintTestJwt({ sub: authId, email: 'a@e.com' });
+    const user = await insertUser(ctx.db, { orgId, email: 'a@e.com', displayName: 'Old' });
+    const jwt = await mintTestJwt({ sub: user.supabaseAuthId, email: user.email });
     const res = await request(ctx.app)
       .patch('/me')
       .set('Authorization', `Bearer ${jwt}`)
@@ -153,13 +143,8 @@ describe('PATCH /me', () => {
   });
 
   it('sanitizes HTML characters', async () => {
-    const id = newId();
-    const authId = newId();
-    await ctx.db
-      .insertInto('users')
-      .values({ id, supabase_auth_id: authId, email: 'b@e.com', display_name: 'Old' })
-      .execute();
-    const jwt = await mintTestJwt({ sub: authId, email: 'b@e.com' });
+    const user = await insertUser(ctx.db, { orgId, email: 'b@e.com', displayName: 'Old' });
+    const jwt = await mintTestJwt({ sub: user.supabaseAuthId, email: user.email });
     const res = await request(ctx.app)
       .patch('/me')
       .set('Authorization', `Bearer ${jwt}`)
@@ -170,26 +155,16 @@ describe('PATCH /me', () => {
   });
 
   it('400 VALIDATION_ERROR when body is missing display_name', async () => {
-    const id = newId();
-    const authId = newId();
-    await ctx.db
-      .insertInto('users')
-      .values({ id, supabase_auth_id: authId, email: 'c@e.com', display_name: 'Old' })
-      .execute();
-    const jwt = await mintTestJwt({ sub: authId, email: 'c@e.com' });
+    const user = await insertUser(ctx.db, { orgId, email: 'c@e.com', displayName: 'Old' });
+    const jwt = await mintTestJwt({ sub: user.supabaseAuthId, email: user.email });
     const res = await request(ctx.app).patch('/me').set('Authorization', `Bearer ${jwt}`).send({});
     expect(res.status).toBe(400);
     expect(res.body.error.code).toBe('VALIDATION_ERROR');
   });
 
   it('400 VALIDATION_ERROR when sanitize strips everything', async () => {
-    const id = newId();
-    const authId = newId();
-    await ctx.db
-      .insertInto('users')
-      .values({ id, supabase_auth_id: authId, email: 'd@e.com', display_name: 'Old' })
-      .execute();
-    const jwt = await mintTestJwt({ sub: authId, email: 'd@e.com' });
+    const user = await insertUser(ctx.db, { orgId, email: 'd@e.com', displayName: 'Old' });
+    const jwt = await mintTestJwt({ sub: user.supabaseAuthId, email: user.email });
     const res = await request(ctx.app)
       .patch('/me')
       .set('Authorization', `Bearer ${jwt}`)
@@ -210,9 +185,11 @@ const TINY_PNG_BASE64 =
 
 describe('POST /me/avatar', () => {
   let ctx: TestApp;
+  let orgId: string;
 
   beforeAll(async () => {
     ctx = await createTestApp();
+    orgId = ctx.orgId;
   });
 
   afterAll(async () => {
@@ -220,11 +197,12 @@ describe('POST /me/avatar', () => {
   });
 
   afterEach(async () => {
+    await ctx.db.deleteFrom('user_orgs').execute();
     await ctx.db.deleteFrom('users').execute();
   });
 
   it('uploads avatar and returns DTO with public avatar_url', async () => {
-    const user = await insertUser(ctx.db);
+    const user = await insertUser(ctx.db, { orgId });
     const jwt = await mintTestJwt({ sub: user.supabaseAuthId, email: user.email });
     const res = await request(ctx.app)
       .post('/me/avatar')
@@ -239,7 +217,7 @@ describe('POST /me/avatar', () => {
   });
 
   it('400 VALIDATION_ERROR on empty body', async () => {
-    const user = await insertUser(ctx.db);
+    const user = await insertUser(ctx.db, { orgId });
     const jwt = await mintTestJwt({ sub: user.supabaseAuthId, email: user.email });
     const res = await request(ctx.app)
       .post('/me/avatar')
@@ -250,7 +228,7 @@ describe('POST /me/avatar', () => {
   });
 
   it('400 VALIDATION_ERROR on unsupported MIME (gif)', async () => {
-    const user = await insertUser(ctx.db);
+    const user = await insertUser(ctx.db, { orgId });
     const jwt = await mintTestJwt({ sub: user.supabaseAuthId, email: user.email });
     const res = await request(ctx.app)
       .post('/me/avatar')
@@ -261,7 +239,7 @@ describe('POST /me/avatar', () => {
   });
 
   it('413 PAYLOAD_TOO_LARGE when decoded bytes exceed 2MB', async () => {
-    const user = await insertUser(ctx.db);
+    const user = await insertUser(ctx.db, { orgId });
     const jwt = await mintTestJwt({ sub: user.supabaseAuthId, email: user.email });
     const big = Buffer.alloc(2 * 1024 * 1024 + 1, 0).toString('base64');
     const res = await request(ctx.app)
@@ -280,7 +258,7 @@ describe('POST /me/avatar', () => {
   });
 
   it('413 PAYLOAD_TOO_LARGE when raw body exceeds 3MB limit', async () => {
-    const user = await insertUser(ctx.db);
+    const user = await insertUser(ctx.db, { orgId });
     const jwt = await mintTestJwt({ sub: user.supabaseAuthId, email: user.email });
     // Raw body > 3MB → body-parser rejects before our decoded-size check.
     // Use a buffer that base64-encodes to > 3MB.
@@ -296,9 +274,11 @@ describe('POST /me/avatar', () => {
 
 describe('DELETE /me/avatar', () => {
   let ctx: TestApp;
+  let orgId: string;
 
   beforeAll(async () => {
     ctx = await createTestApp();
+    orgId = ctx.orgId;
   });
 
   afterAll(async () => {
@@ -306,11 +286,12 @@ describe('DELETE /me/avatar', () => {
   });
 
   afterEach(async () => {
+    await ctx.db.deleteFrom('user_orgs').execute();
     await ctx.db.deleteFrom('users').execute();
   });
 
   it('clears avatar_url and returns DTO with avatar_url: null', async () => {
-    const user = await insertUser(ctx.db);
+    const user = await insertUser(ctx.db, { orgId });
     await ctx.db
       .updateTable('users')
       .set({ avatar_url: 'https://example.supabase.co/storage/v1/object/public/avatars/x.webp' })

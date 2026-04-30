@@ -25,6 +25,7 @@ export function notificationsRouter(deps: { db: Kysely<Database> }): Router {
       const parsed = zListQuery.safeParse(req.query);
       if (!parsed.success) throw new ValidationError(parsed.error.message);
       const out = await listNotifications(deps.db, {
+        orgId: req.user.orgId,
         callerId: req.user.id,
         ...(parsed.data.unread === 'true' ? { unread: true } : {}),
         ...(parsed.data.cursor !== undefined ? { cursor: parsed.data.cursor } : {}),
@@ -40,7 +41,10 @@ export function notificationsRouter(deps: { db: Kysely<Database> }): Router {
   router.post('/notifications/read-all', async (req, res, next) => {
     try {
       if (!req.user) throw new UnauthorizedError();
-      const out = await markAllNotificationsRead(deps.db, { callerId: req.user.id });
+      const out = await markAllNotificationsRead(deps.db, {
+        orgId: req.user.orgId,
+        callerId: req.user.id,
+      });
       res.json(out);
     } catch (err) {
       next(err);
@@ -51,6 +55,7 @@ export function notificationsRouter(deps: { db: Kysely<Database> }): Router {
     try {
       if (!req.user) throw new UnauthorizedError();
       const out = await markNotificationRead(deps.db, {
+        orgId: req.user.orgId,
         callerId: req.user.id,
         id: req.params.id!,
       });

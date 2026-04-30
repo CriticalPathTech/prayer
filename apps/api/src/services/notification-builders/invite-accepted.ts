@@ -16,6 +16,7 @@ export const inviteAcceptedBuilder: EventHandler = async (event, trx) => {
     .insertInto('notifications')
     .values({
       id: newId(),
+      org_id: event.org_id,
       user_id: event.actor_id,
       type: 'invite.accepted',
       payload: {

@@ -7,8 +7,10 @@ import { createTestApp, type TestApp } from '../helpers/supertest.js';
 
 describe('anonymity masking', () => {
   let ctx: TestApp;
+  let orgId: string;
   beforeAll(async () => {
     ctx = await createTestApp();
+    orgId = ctx.orgId;
   });
   afterAll(async () => {
     await ctx.close();
@@ -16,19 +18,22 @@ describe('anonymity masking', () => {
   afterEach(async () => {
     await ctx.db.deleteFrom('events').execute();
     await ctx.db.deleteFrom('posts').execute();
+    await ctx.db.deleteFrom('user_orgs').execute();
     await ctx.db.deleteFrom('users').execute();
   });
 
   it('member sees masked anonymous parent + update', async () => {
-    const author = await insertUser(ctx.db);
-    const member = await insertUser(ctx.db);
+    const author = await insertUser(ctx.db, { orgId });
+    const member = await insertUser(ctx.db, { orgId });
     const parent = await insertPost(ctx.db, {
       authorId: author.id,
+      orgId,
       status: 'published',
       isAnonymous: true,
     });
     await insertPost(ctx.db, {
       authorId: author.id,
+      orgId,
       status: 'published',
       parentId: parent.id,
       isAnonymous: true,
@@ -46,15 +51,17 @@ describe('anonymity masking', () => {
   });
 
   it('super_user sees real author on anonymous post + update', async () => {
-    const author = await insertUser(ctx.db);
-    const admin = await insertUser(ctx.db, { role: 'super_user' });
+    const author = await insertUser(ctx.db, { orgId });
+    const admin = await insertUser(ctx.db, { orgId, role: 'super_user' });
     const parent = await insertPost(ctx.db, {
       authorId: author.id,
+      orgId,
       status: 'published',
       isAnonymous: true,
     });
     await insertPost(ctx.db, {
       authorId: author.id,
+      orgId,
       status: 'published',
       parentId: parent.id,
       isAnonymous: true,

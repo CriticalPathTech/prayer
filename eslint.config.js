@@ -15,6 +15,8 @@ export default [
       '**/*.tsbuildinfo',
       '.worktrees/**',
       'pnpm-lock.yaml',
+      // JS/CJS migrations are plain CommonJS files — not subject to ESM/TS lint rules
+      'packages/db/migrations/*.cjs',
     ],
   },
   js.configs.recommended,

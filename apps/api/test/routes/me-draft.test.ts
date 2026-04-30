@@ -7,8 +7,10 @@ import { createTestApp, type TestApp } from '../helpers/supertest.js';
 
 describe('/me/draft', () => {
   let ctx: TestApp;
+  let orgId: string;
   beforeAll(async () => {
     ctx = await createTestApp();
+    orgId = ctx.orgId;
   });
   afterAll(async () => {
     await ctx.close();
@@ -16,6 +18,7 @@ describe('/me/draft', () => {
   afterEach(async () => {
     await ctx.db.deleteFrom('events').execute();
     await ctx.db.deleteFrom('posts').execute();
+    await ctx.db.deleteFrom('user_orgs').execute();
     await ctx.db.deleteFrom('users').execute();
   });
 
@@ -26,7 +29,7 @@ describe('/me/draft', () => {
     });
 
     it('returns { draft: null } when user has no draft', async () => {
-      const user = await insertUser(ctx.db);
+      const user = await insertUser(ctx.db, { orgId });
       const token = await mintTestJwt({ sub: user.supabaseAuthId, email: user.email });
       const res = await request(ctx.app).get('/me/draft').set('Authorization', `Bearer ${token}`);
       expect(res.status).toBe(200);
@@ -34,7 +37,7 @@ describe('/me/draft', () => {
     });
 
     it('returns the existing draft after PUT', async () => {
-      const user = await insertUser(ctx.db);
+      const user = await insertUser(ctx.db, { orgId });
       const token = await mintTestJwt({ sub: user.supabaseAuthId, email: user.email });
       await request(ctx.app)
         .put('/me/draft')
@@ -51,8 +54,8 @@ describe('/me/draft', () => {
     });
 
     it('ignores drafts belonging to other users', async () => {
-      const a = await insertUser(ctx.db);
-      const b = await insertUser(ctx.db, { email: `${Date.now()}b@e.com` });
+      const a = await insertUser(ctx.db, { orgId });
+      const b = await insertUser(ctx.db, { orgId, email: `${Date.now()}b@e.com` });
       const aToken = await mintTestJwt({ sub: a.supabaseAuthId, email: a.email });
       const bToken = await mintTestJwt({ sub: b.supabaseAuthId, email: b.email });
       await request(ctx.app)
@@ -72,7 +75,7 @@ describe('/me/draft', () => {
     });
 
     it('creates a draft on first PUT', async () => {
-      const user = await insertUser(ctx.db);
+      const user = await insertUser(ctx.db, { orgId });
       const token = await mintTestJwt({ sub: user.supabaseAuthId, email: user.email });
       const res = await request(ctx.app)
         .put('/me/draft')
@@ -93,7 +96,7 @@ describe('/me/draft', () => {
     });
 
     it('updates the same row on subsequent PUTs (upsert)', async () => {
-      const user = await insertUser(ctx.db);
+      const user = await insertUser(ctx.db, { orgId });
       const token = await mintTestJwt({ sub: user.supabaseAuthId, email: user.email });
 
       const first = await request(ctx.app)
@@ -120,7 +123,7 @@ describe('/me/draft', () => {
     });
 
     it('allows body to be empty string (typing start state)', async () => {
-      const user = await insertUser(ctx.db);
+      const user = await insertUser(ctx.db, { orgId });
       const token = await mintTestJwt({ sub: user.supabaseAuthId, email: user.email });
       const res = await request(ctx.app)
         .put('/me/draft')
@@ -131,7 +134,7 @@ describe('/me/draft', () => {
     });
 
     it('rejects body > 10KB', async () => {
-      const user = await insertUser(ctx.db);
+      const user = await insertUser(ctx.db, { orgId });
       const token = await mintTestJwt({ sub: user.supabaseAuthId, email: user.email });
       const res = await request(ctx.app)
         .put('/me/draft')
@@ -141,7 +144,7 @@ describe('/me/draft', () => {
     });
 
     it('rejects expires_at out of range', async () => {
-      const user = await insertUser(ctx.db);
+      const user = await insertUser(ctx.db, { orgId });
       const token = await mintTestJwt({ sub: user.supabaseAuthId, email: user.email });
       const farPast = new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString();
       const res = await request(ctx.app)
@@ -159,7 +162,7 @@ describe('/me/draft', () => {
     });
 
     it('publishes the draft and clears it from /me/draft', async () => {
-      const user = await insertUser(ctx.db);
+      const user = await insertUser(ctx.db, { orgId });
       const token = await mintTestJwt({ sub: user.supabaseAuthId, email: user.email });
       await request(ctx.app)
         .put('/me/draft')
@@ -179,7 +182,7 @@ describe('/me/draft', () => {
     });
 
     it('404 when there is no draft', async () => {
-      const user = await insertUser(ctx.db);
+      const user = await insertUser(ctx.db, { orgId });
       const token = await mintTestJwt({ sub: user.supabaseAuthId, email: user.email });
       const res = await request(ctx.app)
         .post('/me/draft/publish')
@@ -188,7 +191,7 @@ describe('/me/draft', () => {
     });
 
     it('400 when the draft body is empty/whitespace', async () => {
-      const user = await insertUser(ctx.db);
+      const user = await insertUser(ctx.db, { orgId });
       const token = await mintTestJwt({ sub: user.supabaseAuthId, email: user.email });
       await request(ctx.app)
         .put('/me/draft')
@@ -201,7 +204,7 @@ describe('/me/draft', () => {
     });
 
     it('after publish, a fresh PUT creates a new draft (the previous slot is empty)', async () => {
-      const user = await insertUser(ctx.db);
+      const user = await insertUser(ctx.db, { orgId });
       const token = await mintTestJwt({ sub: user.supabaseAuthId, email: user.email });
       await request(ctx.app)
         .put('/me/draft')
@@ -231,7 +234,7 @@ describe('/me/draft', () => {
       // — fresh UUIDv7 (so feed-by-id-desc puts it on top) and fresh
       // created_at (so "X ago" displays the publish time, not the draft
       // moment). publishOwnDraft achieves this by DELETE + INSERT in one trx.
-      const user = await insertUser(ctx.db);
+      const user = await insertUser(ctx.db, { orgId });
       const token = await mintTestJwt({ sub: user.supabaseAuthId, email: user.email });
 
       // Create a draft with PUT /me/draft. Capture the draft's id + created_at

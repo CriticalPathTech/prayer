@@ -6,18 +6,33 @@ export type ReactionTargetType = 'post' | 'comment';
 
 type Timestamp = ColumnType<Date, Date | string | undefined, Date | string>;
 
+export interface OrgsTable {
+  id: string;
+  slug: string;
+  display_name: string;
+  status: Generated<string>;
+  created_at: Generated<Timestamp>;
+}
+
+export interface UserOrgsTable {
+  user_id: string;
+  org_id: string;
+  role: Generated<UserRole>;
+  joined_at: Generated<Timestamp>;
+}
+
 export interface UsersTable {
   id: string;
   supabase_auth_id: string;
   email: string;
   display_name: string;
   avatar_url: string | null;
-  role: Generated<UserRole>;
   created_at: Generated<Timestamp>;
 }
 
 export interface PostsTable {
   id: string;
+  org_id: string;
   parent_id: string | null;
   author_id: string;
   status: Generated<PostStatus>;
@@ -34,6 +49,7 @@ export interface PostsTable {
 
 export interface CommentsTable {
   id: string;
+  org_id: string;
   post_id: string;
   author_id: string;
   participant_id: string;
@@ -47,6 +63,7 @@ export interface CommentsTable {
 
 export interface ReactionsTable {
   id: string;
+  org_id: string;
   target_type: ReactionTargetType;
   target_id: string;
   author_id: string;
@@ -56,6 +73,7 @@ export interface ReactionsTable {
 
 export interface PrayersTable {
   id: string;
+  org_id: string;
   post_id: string;
   user_id: string;
   created_at: Generated<Timestamp>;
@@ -63,6 +81,7 @@ export interface PrayersTable {
 
 export interface FlagsTable {
   id: string;
+  org_id: string;
   target_type: ReactionTargetType;
   target_id: string;
   flagger_id: string;
@@ -75,6 +94,7 @@ export interface FlagsTable {
 
 export interface InvitationsTable {
   id: string;
+  org_id: string;
   invite_code_id: string;
   invitor_id: string;
   invitee_id: string;
@@ -83,6 +103,7 @@ export interface InvitationsTable {
 
 export interface InviteCodesTable {
   id: string;
+  org_id: string;
   owner_id: string;
   code: string;
   seat_cap: number;
@@ -93,6 +114,7 @@ export interface InviteCodesTable {
 
 export interface EventsTable {
   id: string;
+  org_id: string;
   type: string;
   post_id: string | null;
   actor_id: string | null;
@@ -103,6 +125,7 @@ export interface EventsTable {
 
 export interface NotificationsTable {
   id: string;
+  org_id: string;
   user_id: string;
   type: string;
   payload: unknown;
@@ -111,6 +134,8 @@ export interface NotificationsTable {
 }
 
 export interface Database {
+  orgs: OrgsTable;
+  user_orgs: UserOrgsTable;
   users: UsersTable;
   posts: PostsTable;
   comments: CommentsTable;

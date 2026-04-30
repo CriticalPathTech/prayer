@@ -14,6 +14,12 @@ declare global {
         displayName: string;
         avatarUrl: string | null;
         role: UserRole;
+        orgId: string;
+      };
+      org?: {
+        id: string;
+        slug: string;
+        displayName: string;
       };
     }
   }

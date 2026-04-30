@@ -11,13 +11,15 @@ import {
   writeModerationEvent,
   writeInvitationEvent,
 } from '../../src/services/events.js';
-import { insertPost, insertUser } from '../helpers/seed.js';
+import { insertOrg, insertPost, insertUser } from '../helpers/seed.js';
 
 describe('writePostEvent', () => {
   let db: Kysely<Database>;
+  let orgId: string;
 
-  beforeAll(() => {
+  beforeAll(async () => {
     db = initDb(process.env.TEST_DATABASE_URL!);
+    orgId = await insertOrg(db, { slug: 'lakeside-svc-events-post' });
   });
   afterAll(async () => {
     await db.destroy();
@@ -25,16 +27,18 @@ describe('writePostEvent', () => {
   afterEach(async () => {
     await db.deleteFrom('events').execute();
     await db.deleteFrom('posts').execute();
+    await db.deleteFrom('user_orgs').execute();
     await db.deleteFrom('users').execute();
   });
 
   it('inserts a post.update_created event with payload', async () => {
-    const user = await insertUser(db);
-    const post = await insertPost(db, { authorId: user.id, status: 'published' });
+    const user = await insertUser(db, { orgId });
+    const post = await insertPost(db, { authorId: user.id, orgId, status: 'published' });
 
     await db.transaction().execute(async (trx) => {
       await writePostEvent(trx, {
         kind: 'post.update_created',
+        orgId,
         postId: post.id,
         actorId: user.id,
         payload: { parent_id: post.id, is_answered_prayer: false },
@@ -55,8 +59,10 @@ describe('writePostEvent', () => {
 
 describe('writeReactionEvent', () => {
   let db: Kysely<Database>;
-  beforeAll(() => {
+  let orgId: string;
+  beforeAll(async () => {
     db = initDb(process.env.TEST_DATABASE_URL!);
+    orgId = await insertOrg(db, { slug: 'lakeside-svc-events-reaction' });
   });
   afterAll(async () => {
     await db.destroy();
@@ -64,15 +70,17 @@ describe('writeReactionEvent', () => {
   afterEach(async () => {
     await db.deleteFrom('events').execute();
     await db.deleteFrom('posts').execute();
+    await db.deleteFrom('user_orgs').execute();
     await db.deleteFrom('users').execute();
   });
 
   it('writes a reaction.added event with target_type + emoji payload', async () => {
-    const user = await insertUser(db);
-    const post = await insertPost(db, { authorId: user.id, status: 'published' });
+    const user = await insertUser(db, { orgId });
+    const post = await insertPost(db, { authorId: user.id, orgId, status: 'published' });
     await db.transaction().execute(async (trx) => {
       await writeReactionEvent(trx, {
         kind: 'reaction.added',
+        orgId,
         postId: post.id,
         actorId: user.id,
         targetType: 'post',
@@ -93,8 +101,10 @@ describe('writeReactionEvent', () => {
 
 describe('writePrayerEvent', () => {
   let db: Kysely<Database>;
-  beforeAll(() => {
+  let orgId: string;
+  beforeAll(async () => {
     db = initDb(process.env.TEST_DATABASE_URL!);
+    orgId = await insertOrg(db, { slug: 'lakeside-svc-events-prayer' });
   });
   afterAll(async () => {
     await db.destroy();
@@ -102,15 +112,17 @@ describe('writePrayerEvent', () => {
   afterEach(async () => {
     await db.deleteFrom('events').execute();
     await db.deleteFrom('posts').execute();
+    await db.deleteFrom('user_orgs').execute();
     await db.deleteFrom('users').execute();
   });
 
   it('writes a prayer.added event with post_id payload', async () => {
-    const user = await insertUser(db);
-    const post = await insertPost(db, { authorId: user.id, status: 'published' });
+    const user = await insertUser(db, { orgId });
+    const post = await insertPost(db, { authorId: user.id, orgId, status: 'published' });
     await db.transaction().execute(async (trx) => {
       await writePrayerEvent(trx, {
         kind: 'prayer.added',
+        orgId,
         postId: post.id,
         actorId: user.id,
       });
@@ -128,8 +140,10 @@ describe('writePrayerEvent', () => {
 
 describe('writeFlagEvent', () => {
   let db: Kysely<Database>;
-  beforeAll(() => {
+  let orgId: string;
+  beforeAll(async () => {
     db = initDb(process.env.TEST_DATABASE_URL!);
+    orgId = await insertOrg(db, { slug: 'lakeside-svc-events-flag' });
   });
   afterAll(async () => {
     await db.destroy();
@@ -137,15 +151,17 @@ describe('writeFlagEvent', () => {
   afterEach(async () => {
     await db.deleteFrom('events').execute();
     await db.deleteFrom('posts').execute();
+    await db.deleteFrom('user_orgs').execute();
     await db.deleteFrom('users').execute();
   });
 
   it('writes a flag.created event with payload', async () => {
-    const user = await insertUser(db);
-    const post = await insertPost(db, { authorId: user.id, status: 'published' });
+    const user = await insertUser(db, { orgId });
+    const post = await insertPost(db, { authorId: user.id, orgId, status: 'published' });
     await db.transaction().execute(async (trx) => {
       await writeFlagEvent(trx, {
         kind: 'flag.created',
+        orgId,
         postId: post.id,
         actorId: user.id,
         flagId: '019da000-0000-7000-8000-000000000000',
@@ -171,8 +187,10 @@ describe('writeFlagEvent', () => {
 
 describe('writeModerationEvent', () => {
   let db: Kysely<Database>;
-  beforeAll(() => {
+  let orgId: string;
+  beforeAll(async () => {
     db = initDb(process.env.TEST_DATABASE_URL!);
+    orgId = await insertOrg(db, { slug: 'lakeside-svc-events-moderation' });
   });
   afterAll(async () => {
     await db.destroy();
@@ -180,15 +198,17 @@ describe('writeModerationEvent', () => {
   afterEach(async () => {
     await db.deleteFrom('events').execute();
     await db.deleteFrom('posts').execute();
+    await db.deleteFrom('user_orgs').execute();
     await db.deleteFrom('users').execute();
   });
 
   it('writes a moderator.hide event with source=auto and null actor', async () => {
-    const user = await insertUser(db);
-    const post = await insertPost(db, { authorId: user.id, status: 'published' });
+    const user = await insertUser(db, { orgId });
+    const post = await insertPost(db, { authorId: user.id, orgId, status: 'published' });
     await db.transaction().execute(async (trx) => {
       await writeModerationEvent(trx, {
         kind: 'moderator.hide',
+        orgId,
         postId: post.id,
         actorId: null,
         targetType: 'post',
@@ -207,23 +227,27 @@ describe('writeModerationEvent', () => {
 
 describe('writeInvitationEvent', () => {
   let db: Kysely<Database>;
-  beforeAll(() => {
+  let orgId: string;
+  beforeAll(async () => {
     db = initDb(process.env.TEST_DATABASE_URL!);
+    orgId = await insertOrg(db, { slug: 'lakeside-svc-events-invitation' });
   });
   afterAll(async () => {
     await db.destroy();
   });
   afterEach(async () => {
     await db.deleteFrom('events').execute();
+    await db.deleteFrom('user_orgs').execute();
     await db.deleteFrom('users').execute();
   });
 
   it('writes an invite.accepted event with null post_id and invitor as actor', async () => {
-    const invitor = await insertUser(db);
-    const invitee = await insertUser(db);
+    const invitor = await insertUser(db, { orgId });
+    const invitee = await insertUser(db, { orgId });
     await db.transaction().execute(async (trx) => {
       await writeInvitationEvent(trx, {
         kind: 'invite.accepted',
+        orgId,
         actorId: invitor.id,
         invitationId: '019da000-0000-7000-8000-000000000000',
         inviteeId: invitee.id,

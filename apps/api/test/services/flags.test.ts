@@ -5,12 +5,14 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { initDb } from '../../src/db/index.js';
 import { ForbiddenError, NotFoundError } from '../../src/middleware/error.js';
 import { createFlag, dismissFlags } from '../../src/services/flags.js';
-import { insertComment, insertPost, insertUser } from '../helpers/seed.js';
+import { insertComment, insertOrg, insertPost, insertUser } from '../helpers/seed.js';
 
 describe('createFlag', () => {
   let db: Kysely<Database>;
-  beforeAll(() => {
+  let orgId: string;
+  beforeAll(async () => {
     db = initDb(process.env.TEST_DATABASE_URL!);
+    orgId = await insertOrg(db, { slug: 'lakeside-svc-flags-create' });
   });
   afterAll(async () => {
     await db.destroy();
@@ -20,16 +22,18 @@ describe('createFlag', () => {
     await db.deleteFrom('flags').execute();
     await db.deleteFrom('comments').execute();
     await db.deleteFrom('posts').execute();
+    await db.deleteFrom('user_orgs').execute();
     await db.deleteFrom('users').execute();
   });
 
   it('inserts a flag row + emits flag.created + returns flag_count', async () => {
-    const author = await insertUser(db);
-    const flagger = await insertUser(db);
-    const post = await insertPost(db, { authorId: author.id, status: 'published' });
+    const author = await insertUser(db, { orgId });
+    const flagger = await insertUser(db, { orgId });
+    const post = await insertPost(db, { authorId: author.id, orgId, status: 'published' });
 
     const out = await createFlag(db, {
       callerId: flagger.id,
+      orgId,
       targetType: 'post',
       postId: post.id,
       targetId: post.id,
@@ -46,11 +50,12 @@ describe('createFlag', () => {
   });
 
   it('rejects self-flag with SELF_FLAG error code', async () => {
-    const author = await insertUser(db);
-    const post = await insertPost(db, { authorId: author.id, status: 'published' });
+    const author = await insertUser(db, { orgId });
+    const post = await insertPost(db, { authorId: author.id, orgId, status: 'published' });
     await expect(
       createFlag(db, {
         callerId: author.id,
+        orgId,
         targetType: 'post',
         postId: post.id,
         targetId: post.id,
@@ -60,11 +65,12 @@ describe('createFlag', () => {
   });
 
   it('409 on double-flag while open (ALREADY_FLAGGED)', async () => {
-    const author = await insertUser(db);
-    const flagger = await insertUser(db);
-    const post = await insertPost(db, { authorId: author.id, status: 'published' });
+    const author = await insertUser(db, { orgId });
+    const flagger = await insertUser(db, { orgId });
+    const post = await insertPost(db, { authorId: author.id, orgId, status: 'published' });
     await createFlag(db, {
       callerId: flagger.id,
+      orgId,
       targetType: 'post',
       postId: post.id,
       targetId: post.id,
@@ -73,6 +79,7 @@ describe('createFlag', () => {
     await expect(
       createFlag(db, {
         callerId: flagger.id,
+        orgId,
         targetType: 'post',
         postId: post.id,
         targetId: post.id,
@@ -82,13 +89,14 @@ describe('createFlag', () => {
   });
 
   it('allows re-flag after dismissal', async () => {
-    const author = await insertUser(db);
-    const flagger = await insertUser(db);
-    const mod = await insertUser(db, { role: 'moderator' });
-    const post = await insertPost(db, { authorId: author.id, status: 'published' });
+    const author = await insertUser(db, { orgId });
+    const flagger = await insertUser(db, { orgId });
+    const mod = await insertUser(db, { orgId, role: 'moderator' });
+    const post = await insertPost(db, { authorId: author.id, orgId, status: 'published' });
 
     await createFlag(db, {
       callerId: flagger.id,
+      orgId,
       targetType: 'post',
       postId: post.id,
       targetId: post.id,
@@ -97,12 +105,14 @@ describe('createFlag', () => {
     await dismissFlags(db, {
       callerId: mod.id,
       callerRole: 'moderator',
+      orgId,
       targetType: 'post',
       postId: post.id,
       targetId: post.id,
     });
     const out = await createFlag(db, {
       callerId: flagger.id,
+      orgId,
       targetType: 'post',
       postId: post.id,
       targetId: post.id,
@@ -118,11 +128,12 @@ describe('createFlag', () => {
   });
 
   it('hidden target → no-op (no flag row, no event)', async () => {
-    const author = await insertUser(db);
-    const flagger = await insertUser(db);
-    const post = await insertPost(db, { authorId: author.id, status: 'hidden' });
+    const author = await insertUser(db, { orgId });
+    const flagger = await insertUser(db, { orgId });
+    const post = await insertPost(db, { authorId: author.id, orgId, status: 'hidden' });
     const out = await createFlag(db, {
       callerId: flagger.id,
+      orgId,
       targetType: 'post',
       postId: post.id,
       targetId: post.id,
@@ -134,10 +145,11 @@ describe('createFlag', () => {
   });
 
   it('404 on missing target', async () => {
-    const flagger = await insertUser(db);
+    const flagger = await insertUser(db, { orgId });
     await expect(
       createFlag(db, {
         callerId: flagger.id,
+        orgId,
         targetType: 'post',
         postId: '019da000-0000-7000-8000-000000000000',
         targetId: '019da000-0000-7000-8000-000000000000',
@@ -147,18 +159,20 @@ describe('createFlag', () => {
   });
 
   it('404 on comment with mismatched postId', async () => {
-    const author = await insertUser(db);
-    const flagger = await insertUser(db);
-    const post = await insertPost(db, { authorId: author.id, status: 'published' });
-    const otherPost = await insertPost(db, { authorId: author.id, status: 'published' });
+    const author = await insertUser(db, { orgId });
+    const flagger = await insertUser(db, { orgId });
+    const post = await insertPost(db, { authorId: author.id, orgId, status: 'published' });
+    const otherPost = await insertPost(db, { authorId: author.id, orgId, status: 'published' });
     const comment = await insertComment(db, {
       postId: post.id,
       authorId: author.id,
+      orgId,
       participantId: author.id,
     });
     await expect(
       createFlag(db, {
         callerId: flagger.id,
+        orgId,
         targetType: 'comment',
         postId: otherPost.id,
         targetId: comment.id,
@@ -170,8 +184,10 @@ describe('createFlag', () => {
 
 describe('dismissFlags', () => {
   let db: Kysely<Database>;
-  beforeAll(() => {
+  let orgId: string;
+  beforeAll(async () => {
     db = initDb(process.env.TEST_DATABASE_URL!);
+    orgId = await insertOrg(db, { slug: 'lakeside-svc-flags-dismiss' });
   });
   afterAll(async () => {
     await db.destroy();
@@ -180,17 +196,19 @@ describe('dismissFlags', () => {
     await db.deleteFrom('events').execute();
     await db.deleteFrom('flags').execute();
     await db.deleteFrom('posts').execute();
+    await db.deleteFrom('user_orgs').execute();
     await db.deleteFrom('users').execute();
   });
 
   it('marks all open flags resolved and emits one flag.resolved per row', async () => {
-    const author = await insertUser(db);
-    const f1 = await insertUser(db);
-    const f2 = await insertUser(db);
-    const mod = await insertUser(db, { role: 'moderator' });
-    const post = await insertPost(db, { authorId: author.id, status: 'published' });
+    const author = await insertUser(db, { orgId });
+    const f1 = await insertUser(db, { orgId });
+    const f2 = await insertUser(db, { orgId });
+    const mod = await insertUser(db, { orgId, role: 'moderator' });
+    const post = await insertPost(db, { authorId: author.id, orgId, status: 'published' });
     await createFlag(db, {
       callerId: f1.id,
+      orgId,
       targetType: 'post',
       postId: post.id,
       targetId: post.id,
@@ -198,6 +216,7 @@ describe('dismissFlags', () => {
     });
     await createFlag(db, {
       callerId: f2.id,
+      orgId,
       targetType: 'post',
       postId: post.id,
       targetId: post.id,
@@ -207,6 +226,7 @@ describe('dismissFlags', () => {
     const out = await dismissFlags(db, {
       callerId: mod.id,
       callerRole: 'moderator',
+      orgId,
       targetType: 'post',
       postId: post.id,
       targetId: post.id,
@@ -227,13 +247,14 @@ describe('dismissFlags', () => {
   });
 
   it('forbids a non-moderator caller', async () => {
-    const mem = await insertUser(db);
-    const author = await insertUser(db);
-    const post = await insertPost(db, { authorId: author.id, status: 'published' });
+    const mem = await insertUser(db, { orgId });
+    const author = await insertUser(db, { orgId });
+    const post = await insertPost(db, { authorId: author.id, orgId, status: 'published' });
     await expect(
       dismissFlags(db, {
         callerId: mem.id,
         callerRole: 'member',
+        orgId,
         targetType: 'post',
         postId: post.id,
         targetId: post.id,

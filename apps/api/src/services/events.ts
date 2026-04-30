@@ -28,6 +28,7 @@ export type EventPayload = Record<string, unknown>;
 
 export interface WriteEventInput {
   kind: EventKind;
+  orgId: string;
   postId: string;
   actorId: string;
   payload: EventPayload;
@@ -42,6 +43,7 @@ export async function writePostEvent(
     .insertInto('events')
     .values({
       id: newId(),
+      org_id: input.orgId,
       type: input.kind,
       post_id: input.postId,
       actor_id: input.actorId,
@@ -55,6 +57,7 @@ export const writeCommentEvent = writePostEvent;
 
 export interface WriteReactionEventInput {
   kind: ReactionEventKind;
+  orgId: string;
   postId: string;
   actorId: string;
   targetType: 'post' | 'comment';
@@ -70,6 +73,7 @@ export async function writeReactionEvent(
     .insertInto('events')
     .values({
       id: newId(),
+      org_id: input.orgId,
       type: input.kind,
       post_id: input.postId,
       actor_id: input.actorId,
@@ -84,6 +88,7 @@ export async function writeReactionEvent(
 
 export interface WritePrayerEventInput {
   kind: PrayerEventKind;
+  orgId: string;
   postId: string;
   actorId: string;
 }
@@ -96,6 +101,7 @@ export async function writePrayerEvent(
     .insertInto('events')
     .values({
       id: newId(),
+      org_id: input.orgId,
       type: input.kind,
       post_id: input.postId,
       actor_id: input.actorId,
@@ -106,6 +112,7 @@ export async function writePrayerEvent(
 
 export interface WriteFlagEventInput {
   kind: FlagEventKind;
+  orgId: string;
   postId: string;
   actorId: string;
   flagId: string;
@@ -123,6 +130,7 @@ export async function writeFlagEvent(
     .insertInto('events')
     .values({
       id: newId(),
+      org_id: input.orgId,
       type: input.kind,
       post_id: input.postId,
       actor_id: input.actorId,
@@ -139,6 +147,7 @@ export async function writeFlagEvent(
 
 export interface WriteModerationEventInput {
   kind: ModerationEventKind;
+  orgId: string;
   postId: string;
   actorId: string | null;
   targetType: 'post' | 'comment';
@@ -155,6 +164,7 @@ export async function writeModerationEvent(
     .insertInto('events')
     .values({
       id: newId(),
+      org_id: input.orgId,
       type: input.kind,
       post_id: input.postId,
       actor_id: input.actorId,
@@ -170,6 +180,7 @@ export async function writeModerationEvent(
 
 export interface WriteInviteAcceptedEventInput {
   kind: 'invite.accepted';
+  orgId: string;
   actorId: string;
   invitationId: string;
   inviteeId: string;
@@ -178,6 +189,7 @@ export interface WriteInviteAcceptedEventInput {
 
 export interface WriteInvitationRedeemedEventInput {
   kind: 'invitation.redeemed';
+  orgId: string;
   actorId: string;
   invitationId: string;
   invitorId: string;
@@ -212,6 +224,7 @@ export async function writeInvitationEvent(
     .insertInto('events')
     .values({
       id: newId(),
+      org_id: input.orgId,
       type: input.kind,
       post_id: null,
       actor_id: input.actorId,

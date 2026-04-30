@@ -7,18 +7,19 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { initDb } from '../../src/db/index.js';
 import { commentCreatedBuilder } from '../../src/services/notification-builders/comment-created.js';
 import { mintTestJwt } from '../helpers/jwt.js';
-import { insertPost, insertUser } from '../helpers/seed.js';
+import { getLakesideOrgId, insertPost, insertUser } from '../helpers/seed.js';
 import { createTestApp, type TestApp } from '../helpers/supertest.js';
 
 async function insertNotification(
   ctx: TestApp,
-  input: { userId: string; type?: string; readAt?: Date | null },
+  input: { userId: string; orgId: string; type?: string; readAt?: Date | null },
 ): Promise<{ id: string }> {
   const id = newId();
   await ctx.db
     .insertInto('notifications')
     .values({
       id,
+      org_id: input.orgId,
       user_id: input.userId,
       type: input.type ?? 'comment.created',
       payload: { preview: 'hi' } as never,
@@ -30,23 +31,26 @@ async function insertNotification(
 
 describe('GET /notifications', () => {
   let ctx: TestApp;
+  let orgId: string;
   beforeAll(async () => {
     ctx = await createTestApp();
+    orgId = ctx.orgId;
   });
   afterAll(async () => {
     await ctx.close();
   });
   afterEach(async () => {
     await ctx.db.deleteFrom('notifications').execute();
+    await ctx.db.deleteFrom('user_orgs').execute();
     await ctx.db.deleteFrom('users').execute();
   });
 
   it("returns the caller's rows + unread_count envelope", async () => {
-    const caller = await insertUser(ctx.db);
-    const other = await insertUser(ctx.db);
-    await insertNotification(ctx, { userId: caller.id });
-    await insertNotification(ctx, { userId: caller.id, readAt: new Date() });
-    await insertNotification(ctx, { userId: other.id });
+    const caller = await insertUser(ctx.db, { orgId });
+    const other = await insertUser(ctx.db, { orgId });
+    await insertNotification(ctx, { userId: caller.id, orgId });
+    await insertNotification(ctx, { userId: caller.id, orgId, readAt: new Date() });
+    await insertNotification(ctx, { userId: other.id, orgId });
 
     const token = await mintTestJwt({ sub: caller.supabaseAuthId, email: caller.email });
     const res = await request(ctx.app)
@@ -58,9 +62,9 @@ describe('GET /notifications', () => {
   });
 
   it('unread=true filters and still returns total unread_count', async () => {
-    const caller = await insertUser(ctx.db);
-    await insertNotification(ctx, { userId: caller.id });
-    await insertNotification(ctx, { userId: caller.id, readAt: new Date() });
+    const caller = await insertUser(ctx.db, { orgId });
+    await insertNotification(ctx, { userId: caller.id, orgId });
+    await insertNotification(ctx, { userId: caller.id, orgId, readAt: new Date() });
     const token = await mintTestJwt({ sub: caller.supabaseAuthId, email: caller.email });
     const res = await request(ctx.app)
       .get('/notifications?unread=true')
@@ -70,8 +74,8 @@ describe('GET /notifications', () => {
   });
 
   it('cursor pagination stays stable over 25 rows', async () => {
-    const caller = await insertUser(ctx.db);
-    for (let i = 0; i < 25; i++) await insertNotification(ctx, { userId: caller.id });
+    const caller = await insertUser(ctx.db, { orgId });
+    for (let i = 0; i < 25; i++) await insertNotification(ctx, { userId: caller.id, orgId });
     const token = await mintTestJwt({ sub: caller.supabaseAuthId, email: caller.email });
     const a = await request(ctx.app)
       .get('/notifications?limit=10')
@@ -89,20 +93,23 @@ describe('GET /notifications', () => {
 
 describe('POST /notifications/:id/read', () => {
   let ctx: TestApp;
+  let orgId: string;
   beforeAll(async () => {
     ctx = await createTestApp();
+    orgId = ctx.orgId;
   });
   afterAll(async () => {
     await ctx.close();
   });
   afterEach(async () => {
     await ctx.db.deleteFrom('notifications').execute();
+    await ctx.db.deleteFrom('user_orgs').execute();
     await ctx.db.deleteFrom('users').execute();
   });
 
   it('is idempotent — two calls both return 200', async () => {
-    const caller = await insertUser(ctx.db);
-    const n = await insertNotification(ctx, { userId: caller.id });
+    const caller = await insertUser(ctx.db, { orgId });
+    const n = await insertNotification(ctx, { userId: caller.id, orgId });
     const token = await mintTestJwt({ sub: caller.supabaseAuthId, email: caller.email });
     const a = await request(ctx.app)
       .post(`/notifications/${n.id}/read`)
@@ -116,9 +123,9 @@ describe('POST /notifications/:id/read', () => {
   });
 
   it('returns 404 when the id belongs to another user', async () => {
-    const alice = await insertUser(ctx.db);
-    const bob = await insertUser(ctx.db);
-    const n = await insertNotification(ctx, { userId: alice.id });
+    const alice = await insertUser(ctx.db, { orgId });
+    const bob = await insertUser(ctx.db, { orgId });
+    const n = await insertNotification(ctx, { userId: alice.id, orgId });
     const token = await mintTestJwt({ sub: bob.supabaseAuthId, email: bob.email });
     const res = await request(ctx.app)
       .post(`/notifications/${n.id}/read`)
@@ -129,22 +136,25 @@ describe('POST /notifications/:id/read', () => {
 
 describe('POST /notifications/read-all', () => {
   let ctx: TestApp;
+  let orgId: string;
   beforeAll(async () => {
     ctx = await createTestApp();
+    orgId = ctx.orgId;
   });
   afterAll(async () => {
     await ctx.close();
   });
   afterEach(async () => {
     await ctx.db.deleteFrom('notifications').execute();
+    await ctx.db.deleteFrom('user_orgs').execute();
     await ctx.db.deleteFrom('users').execute();
   });
 
   it('flips all unread and returns the count', async () => {
-    const caller = await insertUser(ctx.db);
-    await insertNotification(ctx, { userId: caller.id });
-    await insertNotification(ctx, { userId: caller.id });
-    await insertNotification(ctx, { userId: caller.id, readAt: new Date() });
+    const caller = await insertUser(ctx.db, { orgId });
+    await insertNotification(ctx, { userId: caller.id, orgId });
+    await insertNotification(ctx, { userId: caller.id, orgId });
+    await insertNotification(ctx, { userId: caller.id, orgId, readAt: new Date() });
     const token = await mintTestJwt({ sub: caller.supabaseAuthId, email: caller.email });
     const res = await request(ctx.app)
       .post('/notifications/read-all')
@@ -157,9 +167,11 @@ describe('POST /notifications/read-all', () => {
 describe('end-to-end: comment creates notification', () => {
   let db: Kysely<Database>;
   let ctx: TestApp;
+  let orgId: string;
   beforeAll(async () => {
     db = initDb(process.env.TEST_DATABASE_URL!);
     ctx = await createTestApp();
+    orgId = await getLakesideOrgId(db);
   });
   afterAll(async () => {
     await ctx.close();
@@ -170,16 +182,17 @@ describe('end-to-end: comment creates notification', () => {
     await db.deleteFrom('comments').execute();
     await db.deleteFrom('events').execute();
     await db.deleteFrom('posts').execute();
+    await db.deleteFrom('user_orgs').execute();
     await db.deleteFrom('users').execute();
   });
 
   it('non-author comment fires the builder and writes one notification row', async () => {
     // 1. Create two users
-    const author = await insertUser(db);
-    const commenter = await insertUser(db);
+    const author = await insertUser(db, { orgId });
+    const commenter = await insertUser(db, { orgId });
 
     // 2. Create a published post owned by author
-    const post = await insertPost(db, { authorId: author.id, status: 'published' });
+    const post = await insertPost(db, { authorId: author.id, orgId, status: 'published' });
 
     // 3. Mint a JWT for commenter and POST the comment via supertest
     const token = await mintTestJwt({ sub: commenter.supabaseAuthId, email: commenter.email });
@@ -192,7 +205,7 @@ describe('end-to-end: comment creates notification', () => {
     // 4. Look up the events row just created (type='comment.created')
     const event = await db
       .selectFrom('events')
-      .select(['id', 'type', 'post_id', 'actor_id', 'payload'])
+      .select(['id', 'org_id', 'type', 'post_id', 'actor_id', 'payload'])
       .where('type', '=', 'comment.created')
       .executeTakeFirstOrThrow();
 
@@ -201,6 +214,7 @@ describe('end-to-end: comment creates notification', () => {
       await commentCreatedBuilder(
         {
           id: event.id,
+          org_id: event.org_id,
           type: event.type,
           post_id: event.post_id,
           actor_id: event.actor_id,

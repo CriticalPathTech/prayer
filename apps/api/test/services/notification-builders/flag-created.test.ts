@@ -5,12 +5,14 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
 import { initDb } from '../../../src/db/index.js';
 import { flagCreatedBuilder } from '../../../src/services/notification-builders/flag-created.js';
-import { insertPost, insertUser } from '../../helpers/seed.js';
+import { insertOrg, insertPost, insertUser } from '../../helpers/seed.js';
 
 describe('flagCreatedBuilder', () => {
   let db: Kysely<Database>;
-  beforeAll(() => {
+  let orgId: string;
+  beforeAll(async () => {
     db = initDb(process.env.TEST_DATABASE_URL!);
+    orgId = await insertOrg(db, { slug: 'lakeside-nb-flag-created' });
   });
   afterAll(async () => {
     await db.destroy();
@@ -18,17 +20,19 @@ describe('flagCreatedBuilder', () => {
   afterEach(async () => {
     await db.deleteFrom('notifications').execute();
     await db.deleteFrom('posts').execute();
+    await db.deleteFrom('user_orgs').execute();
     await db.deleteFrom('users').execute();
   });
 
   it('fans out one notification per moderator+super_user, excluding the flagger', async () => {
-    const author = await insertUser(db);
-    const flagger = await insertUser(db, { role: 'moderator' });
-    const mod2 = await insertUser(db, { role: 'moderator' });
-    const su = await insertUser(db, { role: 'super_user' });
-    await insertUser(db); // a member — should not be notified
+    const author = await insertUser(db, { orgId });
+    const flagger = await insertUser(db, { orgId, role: 'moderator' });
+    const mod2 = await insertUser(db, { orgId, role: 'moderator' });
+    const su = await insertUser(db, { orgId, role: 'super_user' });
+    await insertUser(db, { orgId }); // a member — should not be notified
     const post = await insertPost(db, {
       authorId: author.id,
+      orgId,
       body: 'hello world',
       status: 'published',
     });
@@ -37,6 +41,7 @@ describe('flagCreatedBuilder', () => {
       await flagCreatedBuilder(
         {
           id: newId(),
+          org_id: orgId,
           type: 'flag.created',
           post_id: post.id,
           actor_id: flagger.id,
@@ -63,15 +68,21 @@ describe('flagCreatedBuilder', () => {
   });
 
   it('truncates preview to 80 chars', async () => {
-    const author = await insertUser(db);
-    const flagger = await insertUser(db);
-    const mod = await insertUser(db, { role: 'moderator' });
+    const author = await insertUser(db, { orgId });
+    const flagger = await insertUser(db, { orgId });
+    const mod = await insertUser(db, { orgId, role: 'moderator' });
     const longBody = 'x'.repeat(150);
-    const post = await insertPost(db, { authorId: author.id, body: longBody, status: 'published' });
+    const post = await insertPost(db, {
+      authorId: author.id,
+      orgId,
+      body: longBody,
+      status: 'published',
+    });
     await db.transaction().execute(async (trx) => {
       await flagCreatedBuilder(
         {
           id: newId(),
+          org_id: orgId,
           type: 'flag.created',
           post_id: post.id,
           actor_id: flagger.id,

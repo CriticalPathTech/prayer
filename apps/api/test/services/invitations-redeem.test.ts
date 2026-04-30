@@ -5,11 +5,12 @@ import { afterAll, afterEach, beforeAll, describe, it, expect } from 'vitest';
 import { redeemInvitation } from '../../src/services/invitations.js';
 import { mintInviteCode } from '../../src/services/invite-codes.js';
 import { mintTestJwt } from '../helpers/jwt.js';
+import { insertOrg } from '../helpers/seed.js';
 import { createTestApp, type TestApp } from '../helpers/supertest.js';
 
 const db = createDb(process.env.DATABASE_URL!);
 
-async function insertUser(displayName: string) {
+async function insertBareUser(displayName: string) {
   const id = newId();
   await db
     .insertInto('users')
@@ -23,17 +24,28 @@ async function insertUser(displayName: string) {
   return id;
 }
 
-afterEach(async () => {
-  await db.deleteFrom('invitations').execute();
-  await db.deleteFrom('invite_codes').execute();
-  await db.deleteFrom('events').execute();
-  await db.deleteFrom('users').execute();
-});
-
 describe('redeemInvitation', () => {
+  let orgId: string;
+
+  beforeAll(async () => {
+    orgId = await insertOrg(db, { slug: `redeem-svc-${newId().slice(0, 8)}` });
+  });
+
+  afterEach(async () => {
+    await db.deleteFrom('invitations').execute();
+    await db.deleteFrom('invite_codes').execute();
+    await db.deleteFrom('events').execute();
+    await db.deleteFrom('user_orgs').execute();
+    await db.deleteFrom('users').execute();
+  });
+
+  afterAll(async () => {
+    await db.deleteFrom('orgs').where('id', '=', orgId).execute();
+  });
+
   it('creates user row + invitation + new initial code in one transaction', async () => {
-    const owner = await insertUser('Ben');
-    const code = await mintInviteCode(db, { ownerId: owner, seatCap: 3 });
+    const owner = await insertBareUser('Ben');
+    const code = await mintInviteCode(db, { ownerId: owner, orgId, seatCap: 3 });
 
     const out = await redeemInvitation(db, {
       supabaseAuthId: newId(),
@@ -70,11 +82,20 @@ describe('redeemInvitation', () => {
       .where('type', '=', 'invitation.redeemed')
       .executeTakeFirstOrThrow();
     expect(ev).toBeDefined();
+
+    // New member gets a user_orgs row in the org
+    const uo = await db
+      .selectFrom('user_orgs')
+      .selectAll()
+      .where('user_id', '=', out.user.id)
+      .where('org_id', '=', orgId)
+      .executeTakeFirstOrThrow();
+    expect(uo.role).toBe('member');
   });
 
   it('throws CodeFullError when seats_remaining = 0', async () => {
-    const owner = await insertUser('Ben');
-    const code = await mintInviteCode(db, { ownerId: owner, seatCap: 1 });
+    const owner = await insertBareUser('Ben');
+    const code = await mintInviteCode(db, { ownerId: owner, orgId, seatCap: 1 });
     await db
       .updateTable('invite_codes')
       .set({ seats_remaining: 0 })
@@ -87,8 +108,8 @@ describe('redeemInvitation', () => {
   });
 
   it('throws CodeInactiveError when is_active = false', async () => {
-    const owner = await insertUser('Ben');
-    const code = await mintInviteCode(db, { ownerId: owner, seatCap: 3 });
+    const owner = await insertBareUser('Ben');
+    const code = await mintInviteCode(db, { ownerId: owner, orgId, seatCap: 3 });
     await db
       .updateTable('invite_codes')
       .set({ is_active: false })
@@ -107,8 +128,8 @@ describe('redeemInvitation', () => {
   });
 
   it('is idempotent when same user re-clicks the email link (no new row, returns existing user)', async () => {
-    const owner = await insertUser('Ben');
-    const code = await mintInviteCode(db, { ownerId: owner, seatCap: 3 });
+    const owner = await insertBareUser('Ben');
+    const code = await mintInviteCode(db, { ownerId: owner, orgId, seatCap: 3 });
     const authId = newId();
     const first = await redeemInvitation(db, {
       supabaseAuthId: authId,
@@ -137,10 +158,10 @@ describe('redeemInvitation', () => {
   });
 
   it('throws AlreadyRedeemedError if the same user redeems a different code', async () => {
-    const owner1 = await insertUser('Ben');
-    const owner2 = await insertUser('Cara');
-    const code1 = await mintInviteCode(db, { ownerId: owner1, seatCap: 3 });
-    const code2 = await mintInviteCode(db, { ownerId: owner2, seatCap: 3 });
+    const owner1 = await insertBareUser('Ben');
+    const owner2 = await insertBareUser('Cara');
+    const code1 = await mintInviteCode(db, { ownerId: owner1, orgId, seatCap: 3 });
+    const code2 = await mintInviteCode(db, { ownerId: owner2, orgId, seatCap: 3 });
     const authId = newId();
 
     await redeemInvitation(db, {
@@ -154,8 +175,8 @@ describe('redeemInvitation', () => {
   });
 
   it('two concurrent redeems of the last-seat code: one wins, one fails', async () => {
-    const owner = await insertUser('Ben');
-    const code = await mintInviteCode(db, { ownerId: owner, seatCap: 1 });
+    const owner = await insertBareUser('Ben');
+    const code = await mintInviteCode(db, { ownerId: owner, orgId, seatCap: 1 });
     const r1 = redeemInvitation(db, {
       supabaseAuthId: newId(),
       email: 'a@example.com',
@@ -184,17 +205,21 @@ describe('redeemInvitation', () => {
 
 describe('POST /invitations/redeem (HTTP)', () => {
   let ctx: TestApp;
+  let orgId: string;
 
   beforeAll(async () => {
     ctx = await createTestApp();
+    orgId = await insertOrg(ctx.db, { slug: `redeem-http-${newId().slice(0, 8)}` });
   });
   afterAll(async () => {
+    await ctx.db.deleteFrom('orgs').where('id', '=', orgId).execute();
     await ctx.close();
   });
   afterEach(async () => {
     await ctx.db.deleteFrom('invitations').execute();
     await ctx.db.deleteFrom('invite_codes').execute();
     await ctx.db.deleteFrom('events').execute();
+    await ctx.db.deleteFrom('user_orgs').execute();
     await ctx.db.deleteFrom('users').execute();
   });
 
@@ -214,7 +239,7 @@ describe('POST /invitations/redeem (HTTP)', () => {
 
   it('200 for a valid code with seats', async () => {
     const ownerId = await insertOwner('Ben');
-    const code = await mintInviteCode(ctx.db, { ownerId, seatCap: 3 });
+    const code = await mintInviteCode(ctx.db, { ownerId, orgId, seatCap: 3 });
     const jwt = await mintTestJwt({ sub: newId(), email: 'alice@example.com' });
     const res = await request(ctx.app)
       .post('/invitations/redeem')
@@ -226,7 +251,7 @@ describe('POST /invitations/redeem (HTTP)', () => {
 
   it('409 code_full', async () => {
     const ownerId = await insertOwner('Ben');
-    const code = await mintInviteCode(ctx.db, { ownerId, seatCap: 1 });
+    const code = await mintInviteCode(ctx.db, { ownerId, orgId, seatCap: 1 });
     await ctx.db
       .updateTable('invite_codes')
       .set({ seats_remaining: 0 })

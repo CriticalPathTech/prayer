@@ -26,6 +26,7 @@ export function modInviteCodesRouter(deps: { db: Kysely<Database> }): Router {
       if (!parsed.success) throw new ValidationError(parsed.error.message);
       const out = await mintInviteCode(deps.db, {
         ownerId: parsed.data.owner_id,
+        orgId: req.user!.orgId,
         seatCap: parsed.data.seat_cap,
       });
       res.json({ ...out, is_active: true, created_at: new Date().toISOString() });
@@ -36,7 +37,7 @@ export function modInviteCodesRouter(deps: { db: Kysely<Database> }): Router {
 
   router.post('/mod/invite-codes/:id/retire', async (req, res, next) => {
     try {
-      await retireInviteCode(deps.db, { codeId: req.params.id! });
+      await retireInviteCode(deps.db, { codeId: req.params.id!, orgId: req.user!.orgId });
       res.json({ is_active: false });
     } catch (err) {
       next(err);
@@ -47,7 +48,10 @@ export function modInviteCodesRouter(deps: { db: Kysely<Database> }): Router {
     try {
       const parsed = zList.safeParse(req.query);
       if (!parsed.success) throw new ValidationError(parsed.error.message);
-      const out = await listInviteCodesForOwner(deps.db, { ownerId: parsed.data.owner_id });
+      const out = await listInviteCodesForOwner(deps.db, {
+        ownerId: parsed.data.owner_id,
+        orgId: req.user!.orgId,
+      });
       res.json(out);
     } catch (err) {
       next(err);
@@ -61,9 +65,13 @@ export function modInviteCodesRouter(deps: { db: Kysely<Database> }): Router {
       const q = parsed.data.q.toLowerCase();
       const rows = await deps.db
         .selectFrom('users')
-        .select(['id', 'display_name', 'email'])
-        .where((eb) => eb.or([eb('display_name', 'ilike', `${q}%`), eb('email', 'ilike', `${q}%`)]))
-        .orderBy('display_name')
+        .innerJoin('user_orgs as uo', 'uo.user_id', 'users.id')
+        .select(['users.id', 'users.display_name', 'users.email'])
+        .where('uo.org_id', '=', req.user!.orgId)
+        .where((eb) =>
+          eb.or([eb('users.display_name', 'ilike', `${q}%`), eb('users.email', 'ilike', `${q}%`)]),
+        )
+        .orderBy('users.display_name')
         .limit(10)
         .execute();
       res.json(rows);

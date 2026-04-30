@@ -10,6 +10,7 @@ import type { JwtVerifier } from './lib/jwt.js';
 import { createStorageClient, type StorageClient } from './lib/storage.js';
 import { requireAuth, requireMember, requireModerator, requireSession } from './middleware/auth.js';
 import { errorHandler } from './middleware/error.js';
+import { orgContext } from './middleware/org-context.js';
 import { buildOriginCheck } from './middleware/origin-check.js';
 import {
   ACCEPT_SCOPE,
@@ -37,6 +38,7 @@ import { commentCreatedBuilder } from './services/notification-builders/comment-
 import { flagCreatedBuilder } from './services/notification-builders/flag-created.js';
 import { inviteAcceptedBuilder } from './services/notification-builders/invite-accepted.js';
 import { moderatorHideBuilder } from './services/notification-builders/moderator-hide.js';
+import { createOrgResolver } from './services/orgs.js';
 import { prayerCountRecomputer } from './services/prayer-consumer.js';
 import { reactionCountRecomputer } from './services/reaction-consumer.js';
 
@@ -118,6 +120,10 @@ export function buildApp(deps: AppDependencies): Express {
 
   app.use(healthRouter({ db: deps.db, gitSha: deps.gitSha, startedAt }));
   app.use(publicInviteCodesRouter({ db: deps.db }));
+
+  const orgResolver = createOrgResolver(deps.db);
+  app.use(orgContext({ db: deps.db, resolver: orgResolver }));
+
   app.use(
     requireSession({ jwtVerifier: deps.jwtVerifier }),
     invitationsRedeemRouter({ db: deps.db }),

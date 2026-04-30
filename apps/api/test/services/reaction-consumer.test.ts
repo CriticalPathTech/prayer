@@ -5,12 +5,14 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
 import { initDb } from '../../src/db/index.js';
 import { reactionCountRecomputer } from '../../src/services/reaction-consumer.js';
-import { insertComment, insertPost, insertUser } from '../helpers/seed.js';
+import { insertComment, insertOrg, insertPost, insertUser } from '../helpers/seed.js';
 
 describe('reactionCountRecomputer', () => {
   let db: Kysely<Database>;
-  beforeAll(() => {
+  let orgId: string;
+  beforeAll(async () => {
     db = initDb(process.env.TEST_DATABASE_URL!);
+    orgId = await insertOrg(db, { slug: 'lakeside-svc-reaction-consumer' });
   });
   afterAll(async () => {
     await db.destroy();
@@ -20,18 +22,33 @@ describe('reactionCountRecomputer', () => {
     await db.deleteFrom('reactions').execute();
     await db.deleteFrom('comments').execute();
     await db.deleteFrom('posts').execute();
+    await db.deleteFrom('user_orgs').execute();
     await db.deleteFrom('users').execute();
   });
 
   it('recomputes posts.reaction_count via COUNT(*) on post target', async () => {
-    const u1 = await insertUser(db);
-    const u2 = await insertUser(db);
-    const post = await insertPost(db, { authorId: u1.id, status: 'published' });
+    const u1 = await insertUser(db, { orgId });
+    const u2 = await insertUser(db, { orgId });
+    const post = await insertPost(db, { authorId: u1.id, orgId, status: 'published' });
     await db
       .insertInto('reactions')
       .values([
-        { id: newId(), target_type: 'post', target_id: post.id, author_id: u1.id, emoji: '🙏' },
-        { id: newId(), target_type: 'post', target_id: post.id, author_id: u2.id, emoji: '❤️' },
+        {
+          id: newId(),
+          org_id: orgId,
+          target_type: 'post',
+          target_id: post.id,
+          author_id: u1.id,
+          emoji: '🙏',
+        },
+        {
+          id: newId(),
+          org_id: orgId,
+          target_type: 'post',
+          target_id: post.id,
+          author_id: u2.id,
+          emoji: '❤️',
+        },
       ])
       .execute();
 
@@ -39,6 +56,7 @@ describe('reactionCountRecomputer', () => {
       await reactionCountRecomputer(
         {
           id: newId(),
+          org_id: orgId,
           type: 'reaction.added',
           post_id: post.id,
           actor_id: u1.id,
@@ -57,17 +75,19 @@ describe('reactionCountRecomputer', () => {
   });
 
   it('recomputes comments.reaction_count and does NOT touch posts.reaction_count', async () => {
-    const u1 = await insertUser(db);
-    const post = await insertPost(db, { authorId: u1.id, status: 'published' });
+    const u1 = await insertUser(db, { orgId });
+    const post = await insertPost(db, { authorId: u1.id, orgId, status: 'published' });
     const comment = await insertComment(db, {
       postId: post.id,
       authorId: u1.id,
+      orgId,
       participantId: u1.id,
     });
     await db
       .insertInto('reactions')
       .values({
         id: newId(),
+        org_id: orgId,
         target_type: 'comment',
         target_id: comment.id,
         author_id: u1.id,
@@ -79,6 +99,7 @@ describe('reactionCountRecomputer', () => {
       await reactionCountRecomputer(
         {
           id: newId(),
+          org_id: orgId,
           type: 'reaction.added',
           post_id: post.id,
           actor_id: u1.id,
@@ -103,12 +124,13 @@ describe('reactionCountRecomputer', () => {
   });
 
   it('is idempotent — running twice leaves count correct', async () => {
-    const u1 = await insertUser(db);
-    const post = await insertPost(db, { authorId: u1.id, status: 'published' });
+    const u1 = await insertUser(db, { orgId });
+    const post = await insertPost(db, { authorId: u1.id, orgId, status: 'published' });
     await db
       .insertInto('reactions')
       .values({
         id: newId(),
+        org_id: orgId,
         target_type: 'post',
         target_id: post.id,
         author_id: u1.id,
@@ -121,6 +143,7 @@ describe('reactionCountRecomputer', () => {
         await reactionCountRecomputer(
           {
             id: newId(),
+            org_id: orgId,
             type: 'reaction.added',
             post_id: post.id,
             actor_id: u1.id,

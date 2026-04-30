@@ -38,10 +38,12 @@ export const flagCreatedBuilder: EventHandler = async (event, trx) => {
   const flaggerId = event.actor_id;
 
   const moderators = await trx
-    .selectFrom('users')
-    .select('id')
-    .where('role', 'in', ['moderator', 'super_user'] as const)
-    .where('id', '!=', flaggerId)
+    .selectFrom('user_orgs as uo')
+    .innerJoin('users as u', 'u.id', 'uo.user_id')
+    .where('uo.org_id', '=', event.org_id)
+    .where('uo.role', 'in', ['moderator', 'super_user'] as const)
+    .$if(flaggerId !== null, (qb) => qb.where('u.id', '!=', flaggerId!))
+    .select('u.id')
     .execute();
   if (moderators.length === 0) return;
 
@@ -51,6 +53,7 @@ export const flagCreatedBuilder: EventHandler = async (event, trx) => {
       .insertInto('notifications')
       .values({
         id: newId(),
+        org_id: event.org_id,
         user_id: mod.id,
         type: 'flag.created',
         payload: {

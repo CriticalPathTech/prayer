@@ -5,12 +5,14 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { initDb } from '../../src/db/index.js';
 import { ForbiddenError, ValidationError } from '../../src/middleware/error.js';
 import { toggleReaction } from '../../src/services/reactions.js';
-import { insertComment, insertPost, insertUser } from '../helpers/seed.js';
+import { insertComment, insertOrg, insertPost, insertUser } from '../helpers/seed.js';
 
 describe('toggleReaction: post target', () => {
   let db: Kysely<Database>;
-  beforeAll(() => {
+  let orgId: string;
+  beforeAll(async () => {
     db = initDb(process.env.TEST_DATABASE_URL!);
+    orgId = await insertOrg(db, { slug: 'lakeside-svc-reactions-post' });
   });
   afterAll(async () => {
     await db.destroy();
@@ -20,17 +22,19 @@ describe('toggleReaction: post target', () => {
     await db.deleteFrom('reactions').execute();
     await db.deleteFrom('comments').execute();
     await db.deleteFrom('posts').execute();
+    await db.deleteFrom('user_orgs').execute();
     await db.deleteFrom('users').execute();
   });
 
   it('adds on first toggle, removes on second (idempotent round-trip)', async () => {
-    const author = await insertUser(db);
-    const reactor = await insertUser(db);
-    const post = await insertPost(db, { authorId: author.id, status: 'published' });
+    const author = await insertUser(db, { orgId });
+    const reactor = await insertUser(db, { orgId });
+    const post = await insertPost(db, { authorId: author.id, orgId, status: 'published' });
 
     const first = await toggleReaction(db, {
       callerId: reactor.id,
       callerRole: 'member',
+      orgId,
       targetType: 'post',
       postId: post.id,
       targetId: post.id,
@@ -41,6 +45,7 @@ describe('toggleReaction: post target', () => {
     const second = await toggleReaction(db, {
       callerId: reactor.id,
       callerRole: 'member',
+      orgId,
       targetType: 'post',
       postId: post.id,
       targetId: post.id,
@@ -53,12 +58,13 @@ describe('toggleReaction: post target', () => {
   });
 
   it('rejects unknown emoji with ValidationError', async () => {
-    const author = await insertUser(db);
-    const post = await insertPost(db, { authorId: author.id, status: 'published' });
+    const author = await insertUser(db, { orgId });
+    const post = await insertPost(db, { authorId: author.id, orgId, status: 'published' });
     await expect(
       toggleReaction(db, {
         callerId: author.id,
         callerRole: 'member',
+        orgId,
         targetType: 'post',
         postId: post.id,
         targetId: post.id,
@@ -68,11 +74,12 @@ describe('toggleReaction: post target', () => {
   });
 
   it('emits a reaction.added event on add', async () => {
-    const author = await insertUser(db);
-    const post = await insertPost(db, { authorId: author.id, status: 'published' });
+    const author = await insertUser(db, { orgId });
+    const post = await insertPost(db, { authorId: author.id, orgId, status: 'published' });
     await toggleReaction(db, {
       callerId: author.id,
       callerRole: 'member',
+      orgId,
       targetType: 'post',
       postId: post.id,
       targetId: post.id,
@@ -86,8 +93,10 @@ describe('toggleReaction: post target', () => {
 
 describe('toggleReaction: comment target', () => {
   let db: Kysely<Database>;
-  beforeAll(() => {
+  let orgId: string;
+  beforeAll(async () => {
     db = initDb(process.env.TEST_DATABASE_URL!);
+    orgId = await insertOrg(db, { slug: 'lakeside-svc-reactions-comment' });
   });
   afterAll(async () => {
     await db.destroy();
@@ -97,23 +106,26 @@ describe('toggleReaction: comment target', () => {
     await db.deleteFrom('reactions').execute();
     await db.deleteFrom('comments').execute();
     await db.deleteFrom('posts').execute();
+    await db.deleteFrom('user_orgs').execute();
     await db.deleteFrom('users').execute();
   });
 
   it('forbids comment reaction from non-participant non-moderator', async () => {
-    const postAuthor = await insertUser(db);
-    const participant = await insertUser(db);
-    const stranger = await insertUser(db);
-    const post = await insertPost(db, { authorId: postAuthor.id, status: 'published' });
+    const postAuthor = await insertUser(db, { orgId });
+    const participant = await insertUser(db, { orgId });
+    const stranger = await insertUser(db, { orgId });
+    const post = await insertPost(db, { authorId: postAuthor.id, orgId, status: 'published' });
     const comment = await insertComment(db, {
       postId: post.id,
       authorId: participant.id,
+      orgId,
       participantId: participant.id,
     });
     await expect(
       toggleReaction(db, {
         callerId: stranger.id,
         callerRole: 'member',
+        orgId,
         targetType: 'comment',
         postId: post.id,
         targetId: comment.id,
@@ -123,18 +135,20 @@ describe('toggleReaction: comment target', () => {
   });
 
   it('allows moderator to react on any comment', async () => {
-    const postAuthor = await insertUser(db);
-    const participant = await insertUser(db);
-    const mod = await insertUser(db, { role: 'moderator' });
-    const post = await insertPost(db, { authorId: postAuthor.id, status: 'published' });
+    const postAuthor = await insertUser(db, { orgId });
+    const participant = await insertUser(db, { orgId });
+    const mod = await insertUser(db, { orgId, role: 'moderator' });
+    const post = await insertPost(db, { authorId: postAuthor.id, orgId, status: 'published' });
     const comment = await insertComment(db, {
       postId: post.id,
       authorId: participant.id,
+      orgId,
       participantId: participant.id,
     });
     const out = await toggleReaction(db, {
       callerId: mod.id,
       callerRole: 'moderator',
+      orgId,
       targetType: 'comment',
       postId: post.id,
       targetId: comment.id,
@@ -144,16 +158,18 @@ describe('toggleReaction: comment target', () => {
   });
 
   it('emits event with post_id = parent post id even for comment target', async () => {
-    const postAuthor = await insertUser(db);
-    const post = await insertPost(db, { authorId: postAuthor.id, status: 'published' });
+    const postAuthor = await insertUser(db, { orgId });
+    const post = await insertPost(db, { authorId: postAuthor.id, orgId, status: 'published' });
     const comment = await insertComment(db, {
       postId: post.id,
       authorId: postAuthor.id,
+      orgId,
       participantId: postAuthor.id,
     });
     await toggleReaction(db, {
       callerId: postAuthor.id,
       callerRole: 'member',
+      orgId,
       targetType: 'comment',
       postId: post.id,
       targetId: comment.id,

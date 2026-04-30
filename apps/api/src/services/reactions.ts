@@ -11,6 +11,7 @@ import { writeReactionEvent } from './events.js';
 export interface ToggleReactionInput {
   callerId: string;
   callerRole: UserRole;
+  orgId: string;
   targetType: ReactionTargetType;
   postId: string; // parent post id (always, even for comment target)
   targetId: string;
@@ -34,6 +35,7 @@ export async function toggleReaction(
       .selectFrom('posts')
       .select(['id', 'author_id', 'status'])
       .where('id', '=', input.postId)
+      .where('org_id', '=', input.orgId)
       .executeTakeFirst();
     if (!post || post.status !== 'published') throw new NotFoundError('Post not found');
 
@@ -42,6 +44,7 @@ export async function toggleReaction(
         .selectFrom('comments')
         .select(['id', 'author_id', 'participant_id', 'post_id'])
         .where('id', '=', input.targetId)
+        .where('org_id', '=', input.orgId)
         .executeTakeFirst();
       if (!comment || comment.post_id !== input.postId) {
         throw new NotFoundError('Comment not found');
@@ -69,6 +72,7 @@ export async function toggleReaction(
       await trx.deleteFrom('reactions').where('id', '=', existing.id).execute();
       await writeReactionEvent(trx, {
         kind: 'reaction.removed',
+        orgId: input.orgId,
         postId: input.postId,
         actorId: input.callerId,
         targetType: input.targetType,
@@ -80,6 +84,7 @@ export async function toggleReaction(
         .insertInto('reactions')
         .values({
           id: newId(),
+          org_id: input.orgId,
           target_type: input.targetType,
           target_id: input.targetId,
           author_id: input.callerId,
@@ -88,6 +93,7 @@ export async function toggleReaction(
         .execute();
       await writeReactionEvent(trx, {
         kind: 'reaction.added',
+        orgId: input.orgId,
         postId: input.postId,
         actorId: input.callerId,
         targetType: input.targetType,
@@ -104,6 +110,7 @@ export async function toggleReaction(
         .selectFrom('posts')
         .select('reaction_count')
         .where('id', '=', input.targetId)
+        .where('org_id', '=', input.orgId)
         .executeTakeFirstOrThrow();
       reactionCount = row.reaction_count;
     } else {
@@ -111,6 +118,7 @@ export async function toggleReaction(
         .selectFrom('comments')
         .select('reaction_count')
         .where('id', '=', input.targetId)
+        .where('org_id', '=', input.orgId)
         .executeTakeFirstOrThrow();
       reactionCount = row.reaction_count;
     }

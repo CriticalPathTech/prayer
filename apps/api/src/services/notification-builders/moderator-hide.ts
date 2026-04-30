@@ -10,6 +10,7 @@ interface ModerationPayload {
 
 export const moderatorHideBuilder: EventHandler = async (event, trx) => {
   const payload = event.payload as ModerationPayload;
+  const orgId = event.org_id;
   let authorId: string | null = null;
   let postId: string | null = null;
 
@@ -18,6 +19,7 @@ export const moderatorHideBuilder: EventHandler = async (event, trx) => {
       .selectFrom('posts')
       .select(['author_id', 'id'])
       .where('id', '=', payload.target_id)
+      .where('org_id', '=', orgId)
       .executeTakeFirst();
     if (!row) return;
     authorId = row.author_id;
@@ -27,6 +29,7 @@ export const moderatorHideBuilder: EventHandler = async (event, trx) => {
       .selectFrom('comments')
       .select(['author_id', 'post_id'])
       .where('id', '=', payload.target_id)
+      .where('org_id', '=', orgId)
       .executeTakeFirst();
     if (!row) return;
     authorId = row.author_id;
@@ -37,6 +40,7 @@ export const moderatorHideBuilder: EventHandler = async (event, trx) => {
     .insertInto('notifications')
     .values({
       id: newId(),
+      org_id: orgId,
       user_id: authorId,
       type: 'moderator.hide',
       payload: {

@@ -32,6 +32,7 @@ export function postsRouter(deps: { db: Kysely<Database> }): Router {
       if (!parsed.success) throw new ValidationError(parsed.error.message);
       const post = await createPost(deps.db, {
         authorId: req.user.id,
+        orgId: req.user.orgId,
         callerRole: req.user.role,
         body: parsed.data.body,
         ...(parsed.data.expires_at !== undefined && { expiresAt: parsed.data.expires_at }),
@@ -48,6 +49,7 @@ export function postsRouter(deps: { db: Kysely<Database> }): Router {
       if (!req.user) throw new UnauthorizedError();
       const posts = await listArchive(deps.db, {
         authorId: req.user.id,
+        orgId: req.user.orgId,
         callerRole: req.user.role,
       });
       res.json({ posts });
@@ -61,6 +63,7 @@ export function postsRouter(deps: { db: Kysely<Database> }): Router {
       if (!req.user) throw new UnauthorizedError();
       const post = await publishPost(deps.db, {
         postId: req.params.id!,
+        orgId: req.user.orgId,
         callerId: req.user.id,
         callerRole: req.user.role,
       });
@@ -75,6 +78,7 @@ export function postsRouter(deps: { db: Kysely<Database> }): Router {
       if (!req.user) throw new UnauthorizedError();
       const data = await getPostWithUpdates(deps.db, {
         postId: req.params.id!,
+        orgId: req.user.orgId,
         callerId: req.user.id,
         callerRole: req.user.role,
       });
@@ -91,6 +95,7 @@ export function postsRouter(deps: { db: Kysely<Database> }): Router {
       if (!parsed.success) throw new ValidationError(parsed.error.message);
       const post = await editPost(deps.db, {
         postId: req.params.id!,
+        orgId: req.user.orgId,
         callerId: req.user.id,
         callerRole: req.user.role,
         ...(parsed.data.body !== undefined ? { body: parsed.data.body } : {}),
@@ -107,6 +112,7 @@ export function postsRouter(deps: { db: Kysely<Database> }): Router {
       if (!req.user) throw new UnauthorizedError();
       await archivePost(deps.db, {
         postId: req.params.id!,
+        orgId: req.user.orgId,
         callerId: req.user.id,
         reason: 'author',
       });
@@ -123,6 +129,7 @@ export function postsRouter(deps: { db: Kysely<Database> }): Router {
       if (!parsed.success) throw new ValidationError(parsed.error.message);
       const update = await createUpdate(deps.db, {
         parentId: req.params.id!,
+        orgId: req.user.orgId,
         callerId: req.user.id,
         callerRole: req.user.role,
         body: parsed.data.body,
@@ -144,6 +151,7 @@ export function postsRouter(deps: { db: Kysely<Database> }): Router {
       const update = await editUpdate(deps.db, {
         parentId: req.params.id!,
         updateId: req.params.uid!,
+        orgId: req.user.orgId,
         callerId: req.user.id,
         callerRole: req.user.role,
         ...(parsed.data.body !== undefined ? { body: parsed.data.body } : {}),
@@ -164,6 +172,7 @@ export function postsRouter(deps: { db: Kysely<Database> }): Router {
       if (!parsed.success) throw new ValidationError(parsed.error.message);
       const out = await createFlag(deps.db, {
         callerId: req.user.id,
+        orgId: req.user.orgId,
         targetType: 'post',
         postId: req.params.postId!,
         targetId: req.params.postId!,
@@ -184,6 +193,7 @@ export function postsRouter(deps: { db: Kysely<Database> }): Router {
       const out = await toggleReaction(deps.db, {
         callerId: req.user.id,
         callerRole: req.user.role,
+        orgId: req.user.orgId,
         targetType: 'post',
         postId: req.params.postId!,
         targetId: req.params.postId!,
@@ -200,6 +210,7 @@ export function postsRouter(deps: { db: Kysely<Database> }): Router {
       if (!req.user) throw new UnauthorizedError();
       const out = await togglePrayer(deps.db, {
         callerId: req.user.id,
+        orgId: req.user.orgId,
         postId: req.params.postId!,
       });
       res.json(out);

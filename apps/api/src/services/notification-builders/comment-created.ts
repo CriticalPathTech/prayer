@@ -18,6 +18,7 @@ export const commentCreatedBuilder: EventHandler = async (event, trx) => {
     .insertInto('notifications')
     .values({
       id: newId(),
+      org_id: event.org_id,
       user_id: payload.post_author_id,
       type: 'comment.created',
       payload: {

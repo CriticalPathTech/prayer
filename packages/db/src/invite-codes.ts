@@ -23,9 +23,15 @@ export interface MintedCode {
   seats_remaining: number;
 }
 
+export interface MintInviteCodeArgs {
+  ownerId: string;
+  orgId: string;
+  seatCap: number;
+}
+
 export async function mintInviteCode(
   db: Kysely<Database> | Transaction<Database>,
-  input: { ownerId: string; seatCap: number },
+  input: MintInviteCodeArgs,
 ): Promise<MintedCode> {
   for (let attempt = 0; attempt < MAX_GENERATE_ATTEMPTS; attempt++) {
     const id = newId();
@@ -35,6 +41,7 @@ export async function mintInviteCode(
         .insertInto('invite_codes')
         .values({
           id,
+          org_id: input.orgId,
           owner_id: input.ownerId,
           code,
           seat_cap: input.seatCap,

@@ -22,6 +22,7 @@ export function moderationRouter(deps: { db: Kysely<Database> }): Router {
       const out = await hideTarget(deps.db, {
         callerId: req.user.id,
         callerRole: req.user.role,
+        orgId: req.user.orgId,
         targetType: 'post',
         targetId: req.params.id!,
       });
@@ -37,6 +38,7 @@ export function moderationRouter(deps: { db: Kysely<Database> }): Router {
       const out = await unhideTarget(deps.db, {
         callerId: req.user.id,
         callerRole: req.user.role,
+        orgId: req.user.orgId,
         targetType: 'post',
         targetId: req.params.id!,
       });
@@ -52,6 +54,7 @@ export function moderationRouter(deps: { db: Kysely<Database> }): Router {
       const out = await dismissFlags(deps.db, {
         callerId: req.user.id,
         callerRole: req.user.role,
+        orgId: req.user.orgId,
         targetType: 'post',
         postId: req.params.id!,
         targetId: req.params.id!,
@@ -68,6 +71,7 @@ export function moderationRouter(deps: { db: Kysely<Database> }): Router {
       const out = await hideTarget(deps.db, {
         callerId: req.user.id,
         callerRole: req.user.role,
+        orgId: req.user.orgId,
         targetType: 'comment',
         targetId: req.params.id!,
       });
@@ -83,6 +87,7 @@ export function moderationRouter(deps: { db: Kysely<Database> }): Router {
       const out = await unhideTarget(deps.db, {
         callerId: req.user.id,
         callerRole: req.user.role,
+        orgId: req.user.orgId,
         targetType: 'comment',
         targetId: req.params.id!,
       });
@@ -103,6 +108,7 @@ export function moderationRouter(deps: { db: Kysely<Database> }): Router {
       const out = await dismissFlags(deps.db, {
         callerId: req.user.id,
         callerRole: req.user.role,
+        orgId: req.user.orgId,
         targetType: 'comment',
         postId: comment?.post_id ?? req.params.id!,
         targetId: req.params.id!,
@@ -120,6 +126,7 @@ export function moderationRouter(deps: { db: Kysely<Database> }): Router {
       if (!parsed.success) throw new ValidationError(parsed.error.message);
       const out = await listModQueue(deps.db, {
         callerRole: req.user.role,
+        orgId: req.user.orgId,
         ...(parsed.data.status !== undefined ? { status: parsed.data.status } : {}),
         ...(parsed.data.cursor !== undefined ? { cursor: parsed.data.cursor } : {}),
         limit: parsed.data.limit,

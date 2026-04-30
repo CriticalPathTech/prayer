@@ -6,7 +6,16 @@ import { updateDisplayName } from '../../src/services/users.js';
 
 const db = createDb(process.env.DATABASE_URL!);
 
-async function insertUser(name: string): Promise<string> {
+async function insertOrg(): Promise<string> {
+  const id = newId();
+  await db
+    .insertInto('orgs')
+    .values({ id, slug: `org-${id.replace(/-/g, '')}`, display_name: 'Test Org' })
+    .execute();
+  return id;
+}
+
+async function insertUser(name: string, orgId: string): Promise<string> {
   const id = newId();
   await db
     .insertInto('users')
@@ -17,19 +26,25 @@ async function insertUser(name: string): Promise<string> {
       display_name: name,
     })
     .execute();
+  await db.insertInto('user_orgs').values({ user_id: id, org_id: orgId, role: 'member' }).execute();
   return id;
 }
 
 afterEach(async () => {
   await db.deleteFrom('invitations').execute();
   await db.deleteFrom('invite_codes').execute();
+  await db.deleteFrom('user_orgs').execute();
   await db.deleteFrom('users').execute();
+  // Preserve the 'lakeside' fixture org seeded by global-setup (needed by orgContext
+  // in concurrently-running route tests). Only clean up test-local orgs.
+  await db.deleteFrom('orgs').where('slug', '!=', 'lakeside').execute();
 });
 
 describe('updateDisplayName', () => {
   it('updates the row and returns the new DTO', async () => {
-    const id = await insertUser('Old');
-    const out = await updateDisplayName(db, { userId: id, input: 'Ben K.' });
+    const orgId = await insertOrg();
+    const id = await insertUser('Old', orgId);
+    const out = await updateDisplayName(db, { userId: id, orgId, input: 'Ben K.' });
     expect(out.display_name).toBe('Ben K.');
     const row = await db
       .selectFrom('users')
@@ -40,28 +55,32 @@ describe('updateDisplayName', () => {
   });
 
   it('strips HTML-meaningful characters via sanitizeDisplayName', async () => {
-    const id = await insertUser('Old');
-    const out = await updateDisplayName(db, { userId: id, input: '<script>Ben</script>' });
+    const orgId = await insertOrg();
+    const id = await insertUser('Old', orgId);
+    const out = await updateDisplayName(db, { userId: id, orgId, input: '<script>Ben</script>' });
     expect(out.display_name).toBe('scriptBenscript');
   });
 
   it('caps at 60 characters', async () => {
-    const id = await insertUser('Old');
+    const orgId = await insertOrg();
+    const id = await insertUser('Old', orgId);
     const input = 'a'.repeat(120);
-    const out = await updateDisplayName(db, { userId: id, input });
+    const out = await updateDisplayName(db, { userId: id, orgId, input });
     expect(out.display_name).toHaveLength(60);
   });
 
   it('throws ValidationError when the sanitized result is empty', async () => {
-    const id = await insertUser('Old');
-    await expect(updateDisplayName(db, { userId: id, input: '<>' })).rejects.toBeInstanceOf(
+    const orgId = await insertOrg();
+    const id = await insertUser('Old', orgId);
+    await expect(updateDisplayName(db, { userId: id, orgId, input: '<>' })).rejects.toBeInstanceOf(
       ValidationError,
     );
   });
 
   it('throws ValidationError when input is the empty string', async () => {
-    const id = await insertUser('Old');
-    await expect(updateDisplayName(db, { userId: id, input: '' })).rejects.toBeInstanceOf(
+    const orgId = await insertOrg();
+    const id = await insertUser('Old', orgId);
+    await expect(updateDisplayName(db, { userId: id, orgId, input: '' })).rejects.toBeInstanceOf(
       ValidationError,
     );
   });

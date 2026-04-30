@@ -12,6 +12,7 @@ import {
   upsertAppUser,
 } from '../src/bootstrap.js';
 import { createDb } from '../src/client.js';
+import { newId } from '../src/ids.js';
 
 function fakeAuthId(n: number): string {
   return `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
@@ -119,7 +120,6 @@ describe('isFreshInstall', () => {
           supabase_auth_id: '00000000-0000-0000-0000-000000000001',
           email: 'existing@test.local',
           display_name: 'existing',
-          role: 'member',
         })
         .execute();
       const fresh = await isFreshInstall(db);
@@ -134,11 +134,18 @@ describe('upsertAppUser', () => {
   it('inserts a row on first call, returns the same id on second', async () => {
     const db = createDb(process.env.TEST_DATABASE_URL!);
     try {
+      await db.deleteFrom('user_orgs').execute();
       await db.deleteFrom('users').execute();
+      await db.deleteFrom('orgs').execute();
+      const orgId = newId();
+      await db
+        .insertInto('orgs')
+        .values({ id: orgId, slug: 'test', display_name: 'Test' })
+        .execute();
       const supabaseId = '00000000-0000-0000-0000-000000000010';
       const userA = BOOTSTRAP_USERS[0]!;
-      const id1 = await upsertAppUser(db, supabaseId, userA);
-      const id2 = await upsertAppUser(db, supabaseId, userA);
+      const id1 = await upsertAppUser(db, supabaseId, userA, orgId);
+      const id2 = await upsertAppUser(db, supabaseId, userA, orgId);
       expect(id1).toBe(id2);
       const count = await db
         .selectFrom('users')
@@ -177,11 +184,18 @@ describe('mintInviteCodeIfMissing', () => {
     const db = createDb(process.env.TEST_DATABASE_URL!);
     try {
       await db.deleteFrom('invite_codes').execute();
+      await db.deleteFrom('user_orgs').execute();
       await db.deleteFrom('users').execute();
+      await db.deleteFrom('orgs').execute();
+      const orgId = newId();
+      await db
+        .insertInto('orgs')
+        .values({ id: orgId, slug: 'test-invite', display_name: 'Test Invite' })
+        .execute();
       const supabaseId = '00000000-0000-0000-0000-000000000020';
-      const userId = await upsertAppUser(db, supabaseId, BOOTSTRAP_USERS[0]!);
-      const created1 = await mintInviteCodeIfMissing(db, userId);
-      const created2 = await mintInviteCodeIfMissing(db, userId);
+      const userId = await upsertAppUser(db, supabaseId, BOOTSTRAP_USERS[0]!, orgId);
+      const created1 = await mintInviteCodeIfMissing(db, userId, orgId);
+      const created2 = await mintInviteCodeIfMissing(db, userId, orgId);
       expect(created1).toBe(true);
       expect(created2).toBe(false);
       const count = await db
@@ -201,7 +215,8 @@ describe('seedPosts', () => {
     const db = createDb(process.env.TEST_DATABASE_URL!);
     try {
       await db.deleteFrom('posts').execute();
-      const created = await seedPosts(db, ['ignored'], false);
+      const orgId = newId();
+      const created = await seedPosts(db, ['ignored'], orgId, false);
       expect(created).toEqual([]);
       const count = await db
         .selectFrom('posts')
@@ -217,14 +232,21 @@ describe('seedPosts', () => {
     const db = createDb(process.env.TEST_DATABASE_URL!);
     try {
       await db.deleteFrom('posts').execute();
+      await db.deleteFrom('user_orgs').execute();
       await db.deleteFrom('users').execute();
+      await db.deleteFrom('orgs').execute();
+      const orgId = newId();
+      await db
+        .insertInto('orgs')
+        .values({ id: orgId, slug: 'test-posts', display_name: 'Test Posts' })
+        .execute();
       // Need 5 real user rows for the FK
       const userIds: string[] = [];
       for (const [i, u] of BOOTSTRAP_USERS.entries()) {
-        const id = await upsertAppUser(db, `00000000-0000-0000-0000-00000000000${i + 1}`, u);
+        const id = await upsertAppUser(db, `00000000-0000-0000-0000-00000000000${i + 1}`, u, orgId);
         userIds.push(id);
       }
-      const created = await seedPosts(db, userIds, true);
+      const created = await seedPosts(db, userIds, orgId, true);
       expect(created).toHaveLength(10);
     } finally {
       await db.destroy();
@@ -237,7 +259,8 @@ describe('seedComments', () => {
     const db = createDb(process.env.TEST_DATABASE_URL!);
     try {
       await db.deleteFrom('comments').execute();
-      const created = await seedComments(db, ['ignored'], ['post1'], false);
+      const orgId = newId();
+      const created = await seedComments(db, ['ignored'], ['post1'], orgId, false);
       expect(created).toBe(0);
     } finally {
       await db.destroy();
@@ -249,13 +272,22 @@ describe('seedComments', () => {
     try {
       await db.deleteFrom('comments').execute();
       await db.deleteFrom('posts').execute();
+      await db.deleteFrom('user_orgs').execute();
       await db.deleteFrom('users').execute();
+      await db.deleteFrom('orgs').execute();
+      const orgId = newId();
+      await db
+        .insertInto('orgs')
+        .values({ id: orgId, slug: 'test-comments', display_name: 'Test Comments' })
+        .execute();
       const userIds: string[] = [];
       for (const [i, u] of BOOTSTRAP_USERS.entries()) {
-        userIds.push(await upsertAppUser(db, `00000000-0000-0000-0000-00000000000${i + 1}`, u));
+        userIds.push(
+          await upsertAppUser(db, `00000000-0000-0000-0000-00000000000${i + 1}`, u, orgId),
+        );
       }
-      const postIds = await seedPosts(db, userIds, true);
-      const created = await seedComments(db, userIds, postIds, true);
+      const postIds = await seedPosts(db, userIds, orgId, true);
+      const created = await seedComments(db, userIds, postIds, orgId, true);
       expect(created).toBe(BOOTSTRAP_COMMENTS.length);
     } finally {
       await db.destroy();
@@ -271,7 +303,9 @@ describe('bootstrap end-to-end', () => {
       await db.deleteFrom('comments').execute();
       await db.deleteFrom('posts').execute();
       await db.deleteFrom('invite_codes').execute();
+      await db.deleteFrom('user_orgs').execute();
       await db.deleteFrom('users').execute();
+      await db.deleteFrom('orgs').execute();
 
       const state = { users: [] as Array<{ id: string; email: string }> };
       const supabase = fakeSupabase(state);
@@ -294,7 +328,9 @@ describe('bootstrap end-to-end', () => {
       await db.deleteFrom('comments').execute();
       await db.deleteFrom('posts').execute();
       await db.deleteFrom('invite_codes').execute();
+      await db.deleteFrom('user_orgs').execute();
       await db.deleteFrom('users').execute();
+      await db.deleteFrom('orgs').execute();
 
       const state = { users: [] as Array<{ id: string; email: string }> };
       const supabase = fakeSupabase(state);
