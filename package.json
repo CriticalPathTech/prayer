@@ -21,7 +21,8 @@
     "db:down": "docker compose down",
     "db:migrate": "pnpm --filter @prayer/db migrate:up",
     "db:migrate:test": "pnpm --filter @prayer/db migrate:up:test",
-    "bootstrap": "pnpm --filter @prayer/db bootstrap"
+    "bootstrap": "pnpm --filter @prayer/db bootstrap",
+    "admin:create-org": "pnpm --filter @prayer/db admin:create-org"
   },
   "devDependencies": {
     "@eslint/js": "^9",

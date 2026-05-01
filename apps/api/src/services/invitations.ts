@@ -58,22 +58,35 @@ export async function redeemInvitation(
         .where('supabase_auth_id', '=', input.supabaseAuthId)
         .executeTakeFirstOrThrow());
 
-    // 2. If the caller is already-redeemed, bail. Detect by existence of any
-    //    invitations row for them. Idempotent only if they're re-redeeming the
-    //    same code; otherwise it's an attempt to jump codes.
+    // 2. Look up the code's org so we can both (a) scope the duplicate-redemption
+    //    check by org and (b) decide where the new user_orgs membership lives.
+    //    Without this scope, an existing member of org A would hit
+    //    AlreadyRedeemedError when trying to redeem a code for org B.
+    const codeRow = await trx
+      .selectFrom('invite_codes')
+      .where('code', '=', code)
+      .select(['org_id', 'is_active', 'seats_remaining'])
+      .executeTakeFirst();
+    if (!codeRow) throw new CodeNotFoundError();
+    if (!codeRow.is_active) throw new CodeInactiveError();
+
+    // 3. Has this user already redeemed an invite for THIS org? Cross-org
+    //    redemptions are allowed — a user can be a member of N orgs via N
+    //    redemptions. Same-org dup is still blocked.
     const existing = await trx
       .selectFrom('invitations')
       .innerJoin('invite_codes as ic', 'ic.id', 'invitations.invite_code_id')
-      .select(['invitations.id', 'invitations.invite_code_id', 'ic.code as ic_code', 'ic.org_id'])
+      .select(['invitations.id', 'ic.code as ic_code'])
       .where('invitee_id', '=', user.id)
+      .where('invitations.org_id', '=', codeRow.org_id)
       .executeTakeFirst();
     if (existing) {
       if (existing.ic_code === code) {
-        // Idempotent re-redeem: look up role from user_orgs for this org
+        // Idempotent re-redeem of the same code, same org — return success.
         const uo = await trx
           .selectFrom('user_orgs as uo')
           .where('uo.user_id', '=', user.id)
-          .where('uo.org_id', '=', existing.org_id)
+          .where('uo.org_id', '=', codeRow.org_id)
           .select('role')
           .executeTakeFirst();
         return {
@@ -86,35 +99,27 @@ export async function redeemInvitation(
           },
         };
       }
+      // Different code for the same org → still an "already redeemed" attempt.
       throw new AlreadyRedeemedError();
     }
 
-    // 3. Atomic seat decrement. Returns nothing if code missing / full / inactive.
-    //    Also fetch org_id so all subsequent writes are scoped to the correct org.
+    // 4. Atomic seat decrement. We already validated is_active above, so the
+    //    only remaining failure is "no seats left."
     const claimed = await trx
       .updateTable('invite_codes')
       .set((eb) => ({ seats_remaining: eb('seats_remaining', '-', 1) }))
       .where('code', '=', code)
       .where('seats_remaining', '>', 0)
       .where('is_active', '=', true)
-      .returning(['id', 'owner_id', 'org_id'])
+      .returning(['id', 'owner_id'])
       .executeTakeFirst();
-
     if (!claimed) {
-      // Classify: is it missing, full, or inactive?
-      const row = await trx
-        .selectFrom('invite_codes')
-        .select(['seats_remaining', 'is_active'])
-        .where('code', '=', code)
-        .executeTakeFirst();
-      if (!row) throw new CodeNotFoundError();
-      if (!row.is_active) throw new CodeInactiveError();
       throw new CodeFullError();
     }
 
-    const orgId = claimed.org_id;
+    const orgId = codeRow.org_id;
 
-    // 4. Ensure the new member has a user_orgs row for this org.
+    // 5. Ensure the new member has a user_orgs row for this org.
     //    ON CONFLICT DO NOTHING is safe: if the row already exists (e.g. re-redeem
     //    of a different code path) the role is preserved.
     await trx
@@ -123,7 +128,7 @@ export async function redeemInvitation(
       .onConflict((oc) => oc.columns(['user_id', 'org_id']).doNothing())
       .execute();
 
-    // 5. Ledger row — scoped to the org
+    // 6. Ledger row — scoped to the org
     const invitationId = newId();
     await trx
       .insertInto('invitations')
@@ -136,10 +141,10 @@ export async function redeemInvitation(
       })
       .execute();
 
-    // 6. Mint the new member's own initial code, scoped to the same org
+    // 7. Mint the new member's own initial code, scoped to the same org
     await mintInviteCode(trx, { ownerId: user.id, orgId, seatCap: 3 });
 
-    // 7. Outbox event
+    // 8. Outbox event
     await writeInvitationEvent(trx, {
       kind: 'invitation.redeemed',
       orgId,

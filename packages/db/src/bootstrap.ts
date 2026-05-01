@@ -8,6 +8,7 @@ import { BOOTSTRAP_COMMENTS, BOOTSTRAP_POSTS } from './bootstrap-data.js';
 import { createDb, type Db } from './client.js';
 import { newId } from './ids.js';
 import { mintInviteCode } from './invite-codes.js';
+import { generatePassword } from './passwords.js';
 import type { UserRole } from './schema.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -54,48 +55,30 @@ export async function createOrReuseSupabaseUser(
   return existing.id;
 }
 
-export interface BootstrapUser {
+// Spec for placeholder users seeded by bootstrap. Email is slug-prefixed
+// so two churches in the same DB don't collide. Display names stay
+// slug-agnostic so a future "rename placeholder users" tool doesn't
+// reveal the church the placeholder originally belonged to.
+export interface BootstrapUserSpec {
   email: string;
-  password: string;
   displayName: string;
   role: UserRole;
 }
 
-export const BOOTSTRAP_USERS: BootstrapUser[] = [
-  {
-    email: 'superuser@prays.online',
-    password: 'prayer-dev-local',
-    displayName: 'Super User',
-    role: 'super_user',
-  },
-  {
-    email: 'mod1@prays.online',
-    password: 'prayer-dev-local',
-    displayName: 'Moderator One',
-    role: 'moderator',
-  },
-  {
-    email: 'mod2@prays.online',
-    password: 'prayer-dev-local',
-    displayName: 'Moderator Two',
-    role: 'moderator',
-  },
-  {
-    email: 'mem1@prays.online',
-    password: 'prayer-dev-local',
-    displayName: 'Member One',
-    role: 'member',
-  },
-  {
-    email: 'mem2@prays.online',
-    password: 'prayer-dev-local',
-    displayName: 'Member Two',
-    role: 'member',
-  },
-];
+// Emails are slug-derived so two churches in the same DB don't collide.
+// Display names stay slug-agnostic so a future "rename placeholder users"
+// tool doesn't reveal the church the placeholder originally belonged to.
+export function bootstrapUsersForSlug(slug: string): BootstrapUserSpec[] {
+  return [
+    { email: `${slug}su@prays.online`, displayName: 'Super User', role: 'super_user' },
+    { email: `${slug}mod1@prays.online`, displayName: 'Moderator One', role: 'moderator' },
+    { email: `${slug}mod2@prays.online`, displayName: 'Moderator Two', role: 'moderator' },
+    { email: `${slug}mem1@prays.online`, displayName: 'Member One', role: 'member' },
+    { email: `${slug}mem2@prays.online`, displayName: 'Member Two', role: 'member' },
+  ];
+}
 
 export interface BootstrapOptions {
-  name: string;
   slug: string;
   skipSeed: boolean;
 }
@@ -105,17 +88,32 @@ export interface BootstrapDeps {
   supabase: SupabaseClient;
 }
 
+export interface BootstrapCredential {
+  role: UserRole;
+  email: string;
+  /** Either the freshly-generated password (for newly-created users in cloud
+   * mode), the literal "prayer-dev-local" (local mode), or the marker string
+   * "(reused — password unchanged)" for users that already existed. */
+  passwordOrNote: string;
+}
+
 export interface BootstrapResult {
   usersCreated: number;
   usersReused: number;
   postsCreated: number;
   commentsCreated: number;
+  credentials: BootstrapCredential[];
 }
 
-export async function isFreshInstall(db: Db): Promise<boolean> {
+// Per-org freshness check: an org is "fresh" if it has no posts yet. Posts
+// are a better signal than users because the same Supabase identity can
+// belong to many orgs; in a multi-tenant DB the global users table is never
+// empty after the first org is bootstrapped.
+export async function isFreshOrg(db: Db, orgId: string): Promise<boolean> {
   const row = await db
-    .selectFrom('users')
+    .selectFrom('posts')
     .select(({ fn }) => fn.count<number>('id').as('count'))
+    .where('org_id', '=', orgId)
     .executeTakeFirstOrThrow();
   return Number(row.count) === 0;
 }
@@ -144,7 +142,7 @@ export async function findOrCreateOrg(
 export async function upsertAppUser(
   db: Db,
   supabaseAuthId: string,
-  user: BootstrapUser,
+  user: BootstrapUserSpec,
   orgId: string,
 ): Promise<string> {
   const result = await db
@@ -273,14 +271,12 @@ export async function seedComments(
 
 function parseArgs(argv: string[]): BootstrapOptions {
   const opts: BootstrapOptions = {
-    name: 'Hope',
     slug: 'hope',
     skipSeed: false,
   };
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
-    if (arg === '--name') opts.name = argv[++i] ?? opts.name;
-    else if (arg === '--slug') opts.slug = argv[++i] ?? opts.slug;
+    if (arg === '--slug') opts.slug = argv[++i] ?? opts.slug;
     else if (arg === '--skip-seed') opts.skipSeed = true;
   }
   return opts;
@@ -288,18 +284,26 @@ function parseArgs(argv: string[]): BootstrapOptions {
 
 function printSummary(result: BootstrapResult, opts: BootstrapOptions): void {
   console.log('');
-  console.log(`Bootstrap complete for org "${opts.slug}" (${opts.name}).`);
+  // display name = slug; super_user can rename later via UI.
+  console.log(`Bootstrap complete for org "${opts.slug}".`);
   console.log(`  users created:  ${result.usersCreated}`);
   console.log(`  users reused:   ${result.usersReused}`);
   console.log(`  posts created:  ${result.postsCreated}`);
   console.log(`  comments:       ${result.commentsCreated}`);
   console.log('');
-  console.log('Sign in at: http://localhost:5173');
-  console.log('Default password (all users): prayer-dev-local');
-  console.log('');
-  for (const u of BOOTSTRAP_USERS) {
-    console.log(`  ${u.role.padEnd(10)} ${u.email}`);
+  console.log('  ' + '─'.repeat(58));
+  console.log('  Initial credentials — hand these to the church admin');
+  console.log('  out-of-band (do NOT email or paste in chat).');
+  console.log('  ' + '─'.repeat(58));
+  for (const cred of result.credentials) {
+    const role = cred.role.padEnd(11);
+    const email = cred.email.padEnd(38);
+    console.log(`  ${role} ${email} ${cred.passwordOrNote}`);
   }
+  console.log('  ' + '─'.repeat(58));
+  console.log('');
+  console.log(`  Tell the admin to log in at https://${opts.slug}.prays.online/`);
+  console.log('');
 }
 
 export async function bootstrap(
@@ -308,34 +312,62 @@ export async function bootstrap(
 ): Promise<BootstrapResult> {
   const { db, supabase } = deps;
 
-  const { id: orgId } = await findOrCreateOrg(db, opts.slug, opts.name);
+  // bootstrap no longer provisions orgs; admin:create-org owns that.
+  const orgRow = await db
+    .selectFrom('orgs')
+    .where('slug', '=', opts.slug)
+    .select('id')
+    .executeTakeFirst();
+  if (!orgRow) {
+    throw new Error(
+      `bootstrap: org "${opts.slug}" not found. Run \`pnpm admin:create-org --slug ${opts.slug}\` first, then re-run bootstrap.`,
+    );
+  }
+  const orgId = orgRow.id;
 
-  const fresh = await isFreshInstall(db);
+  const fresh = await isFreshOrg(db, orgId);
   const seedContent = fresh && !opts.skipSeed;
 
   let usersCreated = 0;
   let usersReused = 0;
   const userIds: string[] = [];
 
-  for (const u of BOOTSTRAP_USERS) {
+  const users = bootstrapUsersForSlug(opts.slug);
+  const isCloud = process.env.BOOTSTRAP_ALLOW_REMOTE === '1';
+  const credentials: BootstrapCredential[] = [];
+
+  for (const u of users) {
     const beforeUserCount = await db
       .selectFrom('users')
       .select(({ fn }) => fn.count<number>('id').as('count'))
       .where('email', '=', u.email)
       .executeTakeFirstOrThrow();
+    const isNewUser = Number(beforeUserCount.count) === 0;
 
+    // Only generate a password for users we're CREATING. Reused users keep
+    // whatever password Supabase already has — we can't recover it.
+    const password = isNewUser ? (isCloud ? generatePassword() : 'prayer-dev-local') : null;
+
+    // createOrReuseSupabaseUser ignores the password when Supabase already
+    // has the email (createUser returns 422, we look up the existing id).
+    // The placeholder is only ever sent for the createUser attempt, never
+    // persisted in the reused path.
     const supabaseId = await createOrReuseSupabaseUser(supabase, {
       email: u.email,
-      password: u.password,
+      password: password ?? 'unused-existing-account-password-ignored',
     });
+
     const userId = await upsertAppUser(db, supabaseId, u, orgId);
     userIds.push(userId);
 
-    if (Number(beforeUserCount.count) === 0) {
-      usersCreated += 1;
-    } else {
-      usersReused += 1;
-    }
+    if (isNewUser) usersCreated += 1;
+    else usersReused += 1;
+
+    credentials.push({
+      role: u.role,
+      email: u.email,
+      passwordOrNote: isNewUser ? password! : '(reused — password unchanged)',
+    });
 
     await mintInviteCodeIfMissing(db, userId, orgId);
   }
@@ -348,6 +380,7 @@ export async function bootstrap(
     usersReused,
     postsCreated: postIds.length,
     commentsCreated,
+    credentials,
   };
 }
 

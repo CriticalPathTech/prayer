@@ -729,4 +729,69 @@ describe('cross-org isolation', () => {
       expect(res.status).toBe(404);
     });
   });
+
+  // -------------------------------------------------------------------------
+  // multi-org member (M4)
+  // A single Supabase identity can belong to N orgs. Verify per-org data
+  // isolation and per-org role still work correctly when the user has
+  // memberships in multiple orgs. Same JWT against different hosts → different
+  // role and different feed.
+  // -------------------------------------------------------------------------
+
+  describe('multi-org member', () => {
+    let multiUser: TestUser;
+    let multiTok: string;
+
+    beforeAll(async () => {
+      // Same identity, member of orgA AND moderator of orgB. We use insertUser
+      // for orgA (it creates the user + one user_orgs row), then a raw INSERT
+      // for the orgB user_orgs row.
+      multiUser = await insertUser(app.db, { email: 'multi@iso.com', orgId: orgA });
+      await app.db
+        .insertInto('user_orgs')
+        .values({ user_id: multiUser.id, org_id: orgB, role: 'moderator' })
+        .execute();
+      multiTok = await mintTestJwt({ sub: multiUser.supabaseAuthId, email: multiUser.email });
+    });
+
+    it('GET /me returns member role at orgA host', async () => {
+      const res = await request(app.app)
+        .get('/me')
+        .set('Host', 'lakeside.prays.online')
+        .set('Authorization', `Bearer ${multiTok}`);
+      expect(res.status).toBe(200);
+      expect(res.body.role).toBe('member');
+    });
+
+    it('GET /me returns moderator role at orgB host', async () => {
+      const res = await request(app.app)
+        .get('/me')
+        .set('Host', 'cross-org-iso-b.prays.online')
+        .set('Authorization', `Bearer ${multiTok}`);
+      expect(res.status).toBe(200);
+      expect(res.body.role).toBe('moderator');
+    });
+
+    it('GET /feed at orgA host shows orgA posts and not orgB posts', async () => {
+      const res = await request(app.app)
+        .get('/feed?filter=all')
+        .set('Host', 'lakeside.prays.online')
+        .set('Authorization', `Bearer ${multiTok}`);
+      expect(res.status).toBe(200);
+      const ids = (res.body.posts ?? []).map((p: { id: string }) => p.id);
+      expect(ids).toContain(postIdA);
+      expect(ids).not.toContain(postIdB);
+    });
+
+    it('GET /feed at orgB host shows orgB posts and not orgA posts', async () => {
+      const res = await request(app.app)
+        .get('/feed?filter=all')
+        .set('Host', 'cross-org-iso-b.prays.online')
+        .set('Authorization', `Bearer ${multiTok}`);
+      expect(res.status).toBe(200);
+      const ids = (res.body.posts ?? []).map((p: { id: string }) => p.id);
+      expect(ids).toContain(postIdB);
+      expect(ids).not.toContain(postIdA);
+    });
+  });
 });

@@ -2,10 +2,15 @@ import { createDb, newId } from '@prayer/db';
 import request from 'supertest';
 import { afterAll, afterEach, beforeAll, describe, it, expect } from 'vitest';
 
+import {
+  AlreadyRedeemedError,
+  CodeInactiveError,
+  CodeNotFoundError,
+} from '../../src/middleware/error.js';
 import { redeemInvitation } from '../../src/services/invitations.js';
 import { mintInviteCode } from '../../src/services/invite-codes.js';
 import { mintTestJwt } from '../helpers/jwt.js';
-import { insertOrg } from '../helpers/seed.js';
+import { insertOrg, insertUser } from '../helpers/seed.js';
 import { createTestApp, type TestApp } from '../helpers/supertest.js';
 
 const db = createDb(process.env.DATABASE_URL!);
@@ -200,6 +205,150 @@ describe('redeemInvitation', () => {
       .where('id', '=', code.id)
       .executeTakeFirstOrThrow();
     expect(cRow.seats_remaining).toBe(0);
+  });
+});
+
+describe('redeemInvitation — multi-org', () => {
+  let orgA: string;
+  let orgB: string;
+
+  beforeAll(async () => {
+    orgA = await insertOrg(db, { slug: `multi-a-${newId().slice(0, 8)}` });
+    orgB = await insertOrg(db, { slug: `multi-b-${newId().slice(0, 8)}` });
+  });
+
+  afterEach(async () => {
+    await db.deleteFrom('invitations').execute();
+    await db.deleteFrom('invite_codes').execute();
+    await db.deleteFrom('events').execute();
+    await db.deleteFrom('user_orgs').execute();
+    await db.deleteFrom('users').execute();
+  });
+
+  afterAll(async () => {
+    await db.deleteFrom('orgs').where('id', 'in', [orgA, orgB]).execute();
+  });
+
+  it('existing user from org A can redeem a code for org B', async () => {
+    const ownerA = await insertUser(db, { email: 'owner-a@multi.com', orgId: orgA });
+    const ownerB = await insertUser(db, { email: 'owner-b@multi.com', orgId: orgB });
+    const userA = await insertUser(db, { email: 'joiner@multi.com', orgId: orgA });
+
+    // userA redeems orgA code first (sets up the prior-redemption row)
+    const codeA = await mintInviteCode(db, { ownerId: ownerA.id, orgId: orgA, seatCap: 5 });
+    await redeemInvitation(db, {
+      supabaseAuthId: userA.supabaseAuthId,
+      email: userA.email,
+      code: codeA.code,
+    });
+
+    // Now redeem an orgB code with the SAME user — should succeed (the bug fix)
+    const codeB = await mintInviteCode(db, { ownerId: ownerB.id, orgId: orgB, seatCap: 5 });
+    const result = await redeemInvitation(db, {
+      supabaseAuthId: userA.supabaseAuthId,
+      email: userA.email,
+      code: codeB.code,
+    });
+    expect(result.user.id).toBe(userA.id);
+
+    // Verify user_orgs has rows for both orgs
+    const memberships = await db
+      .selectFrom('user_orgs')
+      .where('user_id', '=', userA.id)
+      .select('org_id')
+      .execute();
+    const orgIds = memberships.map((m) => m.org_id).sort();
+    expect(orgIds).toEqual([orgA, orgB].sort());
+
+    // Verify invitations table has 2 rows (one per org)
+    const invites = await db
+      .selectFrom('invitations')
+      .where('invitee_id', '=', userA.id)
+      .select('org_id')
+      .execute();
+    expect(invites).toHaveLength(2);
+  });
+
+  it('rejects a different code for the same org with AlreadyRedeemedError', async () => {
+    const owner = await insertUser(db, { email: 'owner-dup@multi.com', orgId: orgA });
+    const userA = await insertUser(db, { email: 'joiner-dup@multi.com', orgId: orgA });
+
+    const code1 = await mintInviteCode(db, { ownerId: owner.id, orgId: orgA, seatCap: 5 });
+    const code2 = await mintInviteCode(db, { ownerId: owner.id, orgId: orgA, seatCap: 5 });
+
+    await redeemInvitation(db, {
+      supabaseAuthId: userA.supabaseAuthId,
+      email: userA.email,
+      code: code1.code,
+    });
+
+    await expect(
+      redeemInvitation(db, {
+        supabaseAuthId: userA.supabaseAuthId,
+        email: userA.email,
+        code: code2.code,
+      }),
+    ).rejects.toBeInstanceOf(AlreadyRedeemedError);
+  });
+
+  it('rejects a code for org A when user is already in orgs A and B (still blocks dup-A)', async () => {
+    const ownerA = await insertUser(db, { email: 'owner-tri-a@multi.com', orgId: orgA });
+    const ownerB = await insertUser(db, { email: 'owner-tri-b@multi.com', orgId: orgB });
+    const userA = await insertUser(db, { email: 'joiner-tri@multi.com', orgId: orgA });
+
+    const codeA1 = await mintInviteCode(db, { ownerId: ownerA.id, orgId: orgA, seatCap: 5 });
+    await redeemInvitation(db, {
+      supabaseAuthId: userA.supabaseAuthId,
+      email: userA.email,
+      code: codeA1.code,
+    });
+
+    const codeB = await mintInviteCode(db, { ownerId: ownerB.id, orgId: orgB, seatCap: 5 });
+    await redeemInvitation(db, {
+      supabaseAuthId: userA.supabaseAuthId,
+      email: userA.email,
+      code: codeB.code,
+    });
+
+    // Now try to redeem ANOTHER code for orgA — should fail
+    const codeA2 = await mintInviteCode(db, { ownerId: ownerA.id, orgId: orgA, seatCap: 5 });
+    await expect(
+      redeemInvitation(db, {
+        supabaseAuthId: userA.supabaseAuthId,
+        email: userA.email,
+        code: codeA2.code,
+      }),
+    ).rejects.toBeInstanceOf(AlreadyRedeemedError);
+  });
+
+  it('CodeNotFoundError fires before any other validation', async () => {
+    await expect(
+      redeemInvitation(db, {
+        supabaseAuthId: newId(),
+        email: 'never@multi.com',
+        code: 'doesnotexistcode',
+      }),
+    ).rejects.toBeInstanceOf(CodeNotFoundError);
+  });
+
+  it('CodeInactiveError fires before the dup check', async () => {
+    const owner = await insertUser(db, { email: 'owner-inactive@multi.com', orgId: orgA });
+    const userA = await insertUser(db, { email: 'joiner-inactive@multi.com', orgId: orgA });
+
+    const code = await mintInviteCode(db, { ownerId: owner.id, orgId: orgA, seatCap: 5 });
+    await db
+      .updateTable('invite_codes')
+      .set({ is_active: false })
+      .where('id', '=', code.id)
+      .execute();
+
+    await expect(
+      redeemInvitation(db, {
+        supabaseAuthId: userA.supabaseAuthId,
+        email: userA.email,
+        code: code.code,
+      }),
+    ).rejects.toBeInstanceOf(CodeInactiveError);
   });
 });
 

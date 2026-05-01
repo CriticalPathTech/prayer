@@ -73,7 +73,7 @@ export const BOOTSTRAP_POSTS: BootstrapPost[] = [
   },
   {
     authorIndex: 3,
-    body: 'My friend lost her father this week. Asking for prayer for her and her three kids.',
+    body: 'Our team is leading youth camp next weekend. Praying for great weather, full hearts, and zero lost campers.',
     status: 'published',
     isAnonymous: false,
     expiresInDays: 30,
@@ -97,5 +97,9 @@ export const BOOTSTRAP_COMMENTS: BootstrapComment[] = [
   { postIndex: 1, authorIndex: 4, body: 'Will you let us know how the surgery goes?' },
   { postIndex: 2, authorIndex: 1, body: 'Praying — let us know how it went.' },
   { postIndex: 5, authorIndex: 2, body: 'Praising God with you.' },
-  { postIndex: 8, authorIndex: 0, body: 'So sorry to hear. Praying for your friend and her kids.' },
+  {
+    postIndex: 8,
+    authorIndex: 0,
+    body: 'Praying for your team — those weekends shape kids for years.',
+  },
 ];

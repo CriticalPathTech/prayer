@@ -3,9 +3,10 @@ import { describe, expect, it, vi } from 'vitest';
 import { BOOTSTRAP_COMMENTS, BOOTSTRAP_POSTS } from '../src/bootstrap-data.js';
 import {
   bootstrap,
-  BOOTSTRAP_USERS,
+  bootstrapUsersForSlug,
   createOrReuseSupabaseUser,
-  isFreshInstall,
+  findOrCreateOrg,
+  isFreshOrg,
   mintInviteCodeIfMissing,
   seedComments,
   seedPosts,
@@ -49,24 +50,38 @@ describe('bootstrap', () => {
   });
 });
 
-describe('BOOTSTRAP_USERS', () => {
-  it('has five users matching the spec defaults', () => {
-    expect(BOOTSTRAP_USERS).toHaveLength(5);
-    expect(BOOTSTRAP_USERS.map((u) => u.email)).toEqual([
-      'superuser@prays.online',
-      'mod1@prays.online',
-      'mod2@prays.online',
-      'mem1@prays.online',
-      'mem2@prays.online',
+describe('bootstrapUsersForSlug', () => {
+  it('returns 5 users with slug-prefixed emails and the spec roles', () => {
+    const users = bootstrapUsersForSlug('waymakerstage');
+    expect(users).toHaveLength(5);
+    expect(users.map((u) => u.email)).toEqual([
+      'waymakerstagesu@prays.online',
+      'waymakerstagemod1@prays.online',
+      'waymakerstagemod2@prays.online',
+      'waymakerstagemem1@prays.online',
+      'waymakerstagemem2@prays.online',
     ]);
-    expect(BOOTSTRAP_USERS.map((u) => u.role)).toEqual([
+    expect(users.map((u) => u.role)).toEqual([
       'super_user',
       'moderator',
       'moderator',
       'member',
       'member',
     ]);
-    BOOTSTRAP_USERS.forEach((u) => expect(u.password).toBe('prayer-dev-local'));
+    expect(users.map((u) => u.displayName)).toEqual([
+      'Super User',
+      'Moderator One',
+      'Moderator Two',
+      'Member One',
+      'Member Two',
+    ]);
+  });
+
+  it('different slug → different emails', () => {
+    const a = bootstrapUsersForSlug('alpha');
+    const b = bootstrapUsersForSlug('beta');
+    expect(a[0]!.email).toBe('alphasu@prays.online');
+    expect(b[0]!.email).toBe('betasu@prays.online');
   });
 });
 
@@ -97,34 +112,122 @@ describe('createOrReuseSupabaseUser', () => {
   });
 });
 
-describe('isFreshInstall', () => {
-  it('returns true when users table is empty', async () => {
+describe('isFreshOrg', () => {
+  it('returns true when the org has no posts', async () => {
     const db = createDb(process.env.TEST_DATABASE_URL!);
     try {
+      await db.deleteFrom('comments').execute();
+      await db.deleteFrom('posts').execute();
+      await db.deleteFrom('user_orgs').execute();
       await db.deleteFrom('users').execute();
-      const fresh = await isFreshInstall(db);
-      expect(fresh).toBe(true);
+      await db.deleteFrom('orgs').execute();
+      const orgId = newId();
+      await db
+        .insertInto('orgs')
+        .values({ id: orgId, slug: 'fresh-org-empty', display_name: 'fresh-org-empty' })
+        .execute();
+      expect(await isFreshOrg(db, orgId)).toBe(true);
     } finally {
       await db.destroy();
     }
   });
 
-  it('returns false when users table has rows', async () => {
+  it('returns false when the org has at least one post', async () => {
     const db = createDb(process.env.TEST_DATABASE_URL!);
     try {
+      await db.deleteFrom('comments').execute();
+      await db.deleteFrom('posts').execute();
+      await db.deleteFrom('user_orgs').execute();
       await db.deleteFrom('users').execute();
+      await db.deleteFrom('orgs').execute();
+      const orgId = newId();
+      await db
+        .insertInto('orgs')
+        .values({ id: orgId, slug: 'fresh-org-with-post', display_name: 'fresh-org-with-post' })
+        .execute();
+      const userId = newId();
       await db
         .insertInto('users')
         .values({
-          id: '01900000-0000-7000-8000-000000000001',
-          supabase_auth_id: '00000000-0000-0000-0000-000000000001',
-          email: 'existing@test.local',
-          display_name: 'existing',
+          id: userId,
+          supabase_auth_id: newId(),
+          email: 'author@test.local',
+          display_name: 'author',
         })
         .execute();
-      const fresh = await isFreshInstall(db);
-      expect(fresh).toBe(false);
+      const future = new Date(Date.now() + 24 * 60 * 60 * 1000);
+      await db
+        .insertInto('posts')
+        .values({
+          id: newId(),
+          org_id: orgId,
+          parent_id: null,
+          author_id: userId,
+          body: 'a post exists',
+          status: 'published',
+          is_anonymous: false,
+          expires_at: future,
+          edit_deadline: future,
+        })
+        .execute();
+      expect(await isFreshOrg(db, orgId)).toBe(false);
     } finally {
+      // Clean up the posts we inserted so downstream tests can delete users
+      // without tripping posts.author_id FK.
+      await db.deleteFrom('posts').execute();
+      await db.destroy();
+    }
+  });
+
+  it('is independent across orgs — sibling org with posts does not flip another org to non-fresh', async () => {
+    const db = createDb(process.env.TEST_DATABASE_URL!);
+    try {
+      await db.deleteFrom('comments').execute();
+      await db.deleteFrom('posts').execute();
+      await db.deleteFrom('user_orgs').execute();
+      await db.deleteFrom('users').execute();
+      await db.deleteFrom('orgs').execute();
+
+      const orgWithPosts = newId();
+      const orgEmpty = newId();
+      await db
+        .insertInto('orgs')
+        .values([
+          { id: orgWithPosts, slug: 'sibling-with-posts', display_name: 'sibling-with-posts' },
+          { id: orgEmpty, slug: 'sibling-empty', display_name: 'sibling-empty' },
+        ])
+        .execute();
+
+      const userId = newId();
+      await db
+        .insertInto('users')
+        .values({
+          id: userId,
+          supabase_auth_id: newId(),
+          email: 'sibling-author@test.local',
+          display_name: 'sibling-author',
+        })
+        .execute();
+      const future = new Date(Date.now() + 24 * 60 * 60 * 1000);
+      await db
+        .insertInto('posts')
+        .values({
+          id: newId(),
+          org_id: orgWithPosts,
+          parent_id: null,
+          author_id: userId,
+          body: 'sibling has content',
+          status: 'published',
+          is_anonymous: false,
+          expires_at: future,
+          edit_deadline: future,
+        })
+        .execute();
+
+      expect(await isFreshOrg(db, orgWithPosts)).toBe(false);
+      expect(await isFreshOrg(db, orgEmpty)).toBe(true);
+    } finally {
+      await db.deleteFrom('posts').execute();
       await db.destroy();
     }
   });
@@ -143,7 +246,7 @@ describe('upsertAppUser', () => {
         .values({ id: orgId, slug: 'test', display_name: 'Test' })
         .execute();
       const supabaseId = '00000000-0000-0000-0000-000000000010';
-      const userA = BOOTSTRAP_USERS[0]!;
+      const userA = bootstrapUsersForSlug('fixture')[0]!;
       const id1 = await upsertAppUser(db, supabaseId, userA, orgId);
       const id2 = await upsertAppUser(db, supabaseId, userA, orgId);
       expect(id1).toBe(id2);
@@ -193,7 +296,12 @@ describe('mintInviteCodeIfMissing', () => {
         .values({ id: orgId, slug: 'test-invite', display_name: 'Test Invite' })
         .execute();
       const supabaseId = '00000000-0000-0000-0000-000000000020';
-      const userId = await upsertAppUser(db, supabaseId, BOOTSTRAP_USERS[0]!, orgId);
+      const userId = await upsertAppUser(
+        db,
+        supabaseId,
+        bootstrapUsersForSlug('fixture')[0]!,
+        orgId,
+      );
       const created1 = await mintInviteCodeIfMissing(db, userId, orgId);
       const created2 = await mintInviteCodeIfMissing(db, userId, orgId);
       expect(created1).toBe(true);
@@ -242,7 +350,7 @@ describe('seedPosts', () => {
         .execute();
       // Need 5 real user rows for the FK
       const userIds: string[] = [];
-      for (const [i, u] of BOOTSTRAP_USERS.entries()) {
+      for (const [i, u] of bootstrapUsersForSlug('fixture').entries()) {
         const id = await upsertAppUser(db, `00000000-0000-0000-0000-00000000000${i + 1}`, u, orgId);
         userIds.push(id);
       }
@@ -281,7 +389,7 @@ describe('seedComments', () => {
         .values({ id: orgId, slug: 'test-comments', display_name: 'Test Comments' })
         .execute();
       const userIds: string[] = [];
-      for (const [i, u] of BOOTSTRAP_USERS.entries()) {
+      for (const [i, u] of bootstrapUsersForSlug('fixture').entries()) {
         userIds.push(
           await upsertAppUser(db, `00000000-0000-0000-0000-00000000000${i + 1}`, u, orgId),
         );
@@ -307,12 +415,11 @@ describe('bootstrap end-to-end', () => {
       await db.deleteFrom('users').execute();
       await db.deleteFrom('orgs').execute();
 
+      await findOrCreateOrg(db, 'default', 'default');
+
       const state = { users: [] as Array<{ id: string; email: string }> };
       const supabase = fakeSupabase(state);
-      const result = await bootstrap(
-        { db, supabase },
-        { name: 'Default Church', slug: 'default', skipSeed: false },
-      );
+      const result = await bootstrap({ db, supabase }, { slug: 'default', skipSeed: false });
       expect(result.usersCreated).toBe(5);
       expect(result.usersReused).toBe(0);
       expect(result.postsCreated).toBe(10);
@@ -332,20 +439,141 @@ describe('bootstrap end-to-end', () => {
       await db.deleteFrom('users').execute();
       await db.deleteFrom('orgs').execute();
 
+      await findOrCreateOrg(db, 'default', 'default');
+
       const state = { users: [] as Array<{ id: string; email: string }> };
       const supabase = fakeSupabase(state);
-      await bootstrap(
-        { db, supabase },
-        { name: 'Default Church', slug: 'default', skipSeed: false },
-      );
-      const result = await bootstrap(
-        { db, supabase },
-        { name: 'Default Church', slug: 'default', skipSeed: false },
-      );
+      await bootstrap({ db, supabase }, { slug: 'default', skipSeed: false });
+      const result = await bootstrap({ db, supabase }, { slug: 'default', skipSeed: false });
       expect(result.usersCreated).toBe(0);
       expect(result.usersReused).toBe(5);
       expect(result.postsCreated).toBe(0);
       expect(result.commentsCreated).toBe(0);
+    } finally {
+      await db.destroy();
+    }
+  });
+
+  it('fails with a clear error if the org does not exist', async () => {
+    const db = createDb(process.env.TEST_DATABASE_URL!);
+    try {
+      // Don't pre-create the org
+      await db.deleteFrom('comments').execute();
+      await db.deleteFrom('posts').execute();
+      await db.deleteFrom('invite_codes').execute();
+      await db.deleteFrom('user_orgs').execute();
+      await db.deleteFrom('users').execute();
+      await db.deleteFrom('orgs').execute();
+
+      const state = { users: [] as Array<{ id: string; email: string }> };
+      const supabase = fakeSupabase(state);
+      await expect(
+        bootstrap({ db, supabase }, { slug: 'never-created', skipSeed: true }),
+      ).rejects.toThrow(/admin:create-org/);
+    } finally {
+      await db.destroy();
+    }
+  });
+
+  it('seeds 5 users with slug-prefixed emails', async () => {
+    const db = createDb(process.env.TEST_DATABASE_URL!);
+    try {
+      await db.deleteFrom('comments').execute();
+      await db.deleteFrom('posts').execute();
+      await db.deleteFrom('invite_codes').execute();
+      await db.deleteFrom('user_orgs').execute();
+      await db.deleteFrom('users').execute();
+      await db.deleteFrom('orgs').execute();
+
+      await findOrCreateOrg(db, 'fixture-slug', 'fixture-slug');
+      const state = { users: [] as Array<{ id: string; email: string }> };
+      const supabase = fakeSupabase(state);
+      await bootstrap({ db, supabase }, { slug: 'fixture-slug', skipSeed: true });
+      const emails = await db.selectFrom('users').select('email').orderBy('email').execute();
+      expect(emails.map((r) => r.email)).toEqual([
+        'fixture-slugmem1@prays.online',
+        'fixture-slugmem2@prays.online',
+        'fixture-slugmod1@prays.online',
+        'fixture-slugmod2@prays.online',
+        'fixture-slugsu@prays.online',
+      ]);
+    } finally {
+      await db.destroy();
+    }
+  });
+
+  it('generates random passwords for new users when BOOTSTRAP_ALLOW_REMOTE=1', async () => {
+    const db = createDb(process.env.TEST_DATABASE_URL!);
+    process.env.BOOTSTRAP_ALLOW_REMOTE = '1';
+    try {
+      await db.deleteFrom('comments').execute();
+      await db.deleteFrom('posts').execute();
+      await db.deleteFrom('invite_codes').execute();
+      await db.deleteFrom('user_orgs').execute();
+      await db.deleteFrom('users').execute();
+      await db.deleteFrom('orgs').execute();
+
+      await findOrCreateOrg(db, 'pw-test-cloud', 'pw-test-cloud');
+      const state = { users: [] as Array<{ id: string; email: string }> };
+      const supabase = fakeSupabase(state);
+      const result = await bootstrap({ db, supabase }, { slug: 'pw-test-cloud', skipSeed: true });
+      expect(result.credentials).toHaveLength(5);
+      for (const cred of result.credentials) {
+        expect(cred.email).toMatch(/^pw-test-cloud(su|mod[12]|mem[12])@prays\.online$/);
+        expect(cred.passwordOrNote).toMatch(/^[a-zA-Z0-9]{20}$/);
+        expect(cred.passwordOrNote).not.toBe('prayer-dev-local');
+      }
+      const passwords = result.credentials.map((c) => c.passwordOrNote);
+      expect(new Set(passwords).size).toBe(5);
+    } finally {
+      delete process.env.BOOTSTRAP_ALLOW_REMOTE;
+      await db.destroy();
+    }
+  });
+
+  it('uses prayer-dev-local for all users when BOOTSTRAP_ALLOW_REMOTE is unset', async () => {
+    const db = createDb(process.env.TEST_DATABASE_URL!);
+    delete process.env.BOOTSTRAP_ALLOW_REMOTE;
+    try {
+      await db.deleteFrom('comments').execute();
+      await db.deleteFrom('posts').execute();
+      await db.deleteFrom('invite_codes').execute();
+      await db.deleteFrom('user_orgs').execute();
+      await db.deleteFrom('users').execute();
+      await db.deleteFrom('orgs').execute();
+
+      await findOrCreateOrg(db, 'pw-test-local', 'pw-test-local');
+      const state = { users: [] as Array<{ id: string; email: string }> };
+      const supabase = fakeSupabase(state);
+      const result = await bootstrap({ db, supabase }, { slug: 'pw-test-local', skipSeed: true });
+      for (const cred of result.credentials) {
+        expect(cred.passwordOrNote).toBe('prayer-dev-local');
+      }
+    } finally {
+      await db.destroy();
+    }
+  });
+
+  it('marks reused users as (reused) instead of leaking a fresh password', async () => {
+    const db = createDb(process.env.TEST_DATABASE_URL!);
+    try {
+      await db.deleteFrom('comments').execute();
+      await db.deleteFrom('posts').execute();
+      await db.deleteFrom('invite_codes').execute();
+      await db.deleteFrom('user_orgs').execute();
+      await db.deleteFrom('users').execute();
+      await db.deleteFrom('orgs').execute();
+
+      await findOrCreateOrg(db, 'pw-test-reuse', 'pw-test-reuse');
+      const state = { users: [] as Array<{ id: string; email: string }> };
+      const supabase = fakeSupabase(state);
+      await bootstrap({ db, supabase }, { slug: 'pw-test-reuse', skipSeed: true });
+      const second = await bootstrap({ db, supabase }, { slug: 'pw-test-reuse', skipSeed: true });
+      expect(second.usersCreated).toBe(0);
+      expect(second.usersReused).toBe(5);
+      for (const cred of second.credentials) {
+        expect(cred.passwordOrNote).toBe('(reused — password unchanged)');
+      }
     } finally {
       await db.destroy();
     }

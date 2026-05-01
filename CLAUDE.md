@@ -27,7 +27,8 @@ docs/             self-hosting.md (internal product docs live in the private pra
 pnpm install
 pnpm db:up              # legacy — starts only Postgres. Prefer `docker compose up -d postgres gotrue` (see Dev modes / Known rough edges)
 pnpm db:migrate         # apply migrations
-pnpm bootstrap          # 5 dev users, 10 posts, 6 comments. Refuses non-localhost AUTH_URL/DATABASE_URL by default; set BOOTSTRAP_ALLOW_REMOTE=1 only for legitimate cloud-tenant onboarding.
+pnpm admin:create-org --slug <slug>   # Create empty orgs row. Run once per new church before bootstrap. Idempotent.
+pnpm bootstrap --slug <slug>          # Seed 5 placeholder users (e.g. <slug>su@prays.online), 10 posts, 6 comments INTO an existing org. Random per-user passwords for cloud (printed at end of run); hardcoded prayer-dev-local for local dev. Refuses non-localhost DATABASE_URL by default; set BOOTSTRAP_ALLOW_REMOTE=1 for cloud-tenant onboarding.
 pnpm dev                # api :3001 + web :5173
 pnpm dev:remote         # web only, proxied to a remote API (set PROD_API_URL=https://… first)
 pnpm test               # all workspaces
@@ -65,6 +66,7 @@ pnpm --filter @prayer/db --filter @prayer/shared build      # project-ref artifa
 - **Kysely columns:** Read-only generated columns use `ColumnType<T, never, never>`. DB defaults use `Generated<T>`.
 - **Tests isolate via schema reset:** `apps/api/test/global-setup.ts` drops + recreates `public` and reruns all migrations before the suite. `packages/db/test/global-setup.ts` does the same for db-package tests — add new integration tests directly without per-file `beforeAll` setup.
 - **Bootstrap / seed scripts bypass the service layer.** `packages/db/src/bootstrap.ts` and `apps/api/test/helpers/seed.ts` write directly via Kysely. Service-layer functions write to the `events` outbox in the same transaction, which would trigger notification builders, count recomputers, and feed-snapshot updates for fixture data. Don't "fix" the direct-insert pattern by routing through services.
+- **Bootstrap user emails are slug-derived.** `pnpm bootstrap --slug X` creates `Xsu@prays.online`, `Xmod1@prays.online`, `Xmod2@prays.online`, `Xmem1@prays.online`, `Xmem2@prays.online`. Two churches in the same DB never collide on email. Display names stay slug-agnostic (`Super User`, `Moderator One`, etc.) so a future "rename placeholder users" tool doesn't reveal the church the placeholder originally belonged to.
 - **Roles:** `member` | `moderator` | `super_user`. API routes gate with `requireAuth` + `requireMember/Moderator/SuperUser`.
 - **Events outbox:** Every post mutation writes a row to `events` in the **same transaction** as the data write (via `writePostEvent` in `apps/api/src/services/events.ts`). Consumed by `services/event-worker.ts` (LISTEN/NOTIFY) which dispatches notification builders, count recomputers, flag-auto-hide, and the feed snapshot holder.
 - **Feed reactions:** `GET /feed` batch-fetches the per-emoji reaction map for each page of posts (one extra query, same pattern as the `prayed` flag). Each `FeedPost` includes `reactions: Record<string, {count, mine}>` — don't assume it's only on the post-detail endpoint.
