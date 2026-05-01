@@ -8,7 +8,13 @@ import { pinoHttp } from 'pino-http';
 
 import type { JwtVerifier } from './lib/jwt.js';
 import { createStorageClient, type StorageClient } from './lib/storage.js';
-import { requireAuth, requireMember, requireModerator, requireSession } from './middleware/auth.js';
+import {
+  requireAuth,
+  requireMember,
+  requireModerator,
+  requireSession,
+  requireSuperUser,
+} from './middleware/auth.js';
 import { errorHandler } from './middleware/error.js';
 import { orgContext } from './middleware/org-context.js';
 import { buildOriginCheck } from './middleware/origin-check.js';
@@ -20,6 +26,7 @@ import {
   WRITE_SCOPE,
   buildLimiter,
 } from './middleware/rate-limit.js';
+import { adminChurchRouter } from './routes/admin-church.js';
 import { commentsRouter } from './routes/comments.js';
 import { feedRouter } from './routes/feed.js';
 import { healthRouter } from './routes/health.js';
@@ -137,6 +144,7 @@ export function buildApp(deps: AppDependencies): Express {
   app.use(auth, notificationsRouter({ db: deps.db }));
   app.use(auth, requireModerator(), moderationRouter({ db: deps.db }));
   app.use(auth, requireModerator(), modInviteCodesRouter({ db: deps.db }));
+  app.use(auth, requireSuperUser(), adminChurchRouter({ db: deps.db }));
 
   const expirySweeper = createExpirySweeper({ db: deps.db, logger: deps.logger });
   if (process.env.NODE_ENV !== 'test') expirySweeper.start();

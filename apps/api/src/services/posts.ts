@@ -14,6 +14,7 @@ import {
 
 import { writePostEvent } from './events.js';
 import { fetchHideInfo } from './hide-info.js';
+import { fetchMemberSet } from './membership-set.js';
 
 export interface PostRow {
   id: string;
@@ -68,6 +69,10 @@ export interface PostDto {
   hidden_by: HiddenByRef | null;
   /** Only populated for moderator/super_user callers on hidden posts. */
   hidden_source: HideSource | null;
+  /** True when the author has been removed from this org. Computed via a
+   * batch lookup against user_orgs (see services/membership-set.ts). When
+   * the caller doesn't pass a memberSet, defaults to false. */
+  is_former_member: boolean;
   is_tombstone?: boolean;
 }
 
@@ -94,10 +99,18 @@ export interface PostWithUpdatesResponse {
   prayer: PrayerSummary;
 }
 
-export function toPostDto(row: PostRow, caller: Caller, callerId?: string): PostDto {
+export function toPostDto(
+  row: PostRow,
+  caller: Caller,
+  callerId?: string,
+  formerMemberSet?: Set<string>,
+): PostDto {
   const isPrivileged = isPrivilegedRole(caller.role);
   const isAuthor = callerId !== undefined && callerId === row.author_id;
   const hidden = row.status === 'hidden';
+  // is_former_member only meaningful when caller passes a set; defaults false.
+  const isFormerMember =
+    formerMemberSet !== undefined && row.author_id !== null && !formerMemberSet.has(row.author_id);
   if (hidden && !isPrivileged && !isAuthor) {
     return {
       id: row.id,
@@ -117,6 +130,7 @@ export function toPostDto(row: PostRow, caller: Caller, callerId?: string): Post
       is_own_post: false,
       hidden_by: null,
       hidden_source: null,
+      is_former_member: false,
       is_tombstone: true,
     };
   }
@@ -148,6 +162,7 @@ export function toPostDto(row: PostRow, caller: Caller, callerId?: string): Post
     is_own_post: isAuthor,
     hidden_by: hiddenBy,
     hidden_source: hiddenSource,
+    is_former_member: isFormerMember,
   };
 }
 
@@ -460,10 +475,20 @@ export async function getPostWithUpdates(
     reactions[row.emoji] = { count: Number(row.count), mine: row.mine };
   }
 
+  const updateRows = updates as unknown as PostRow[];
+  const detailAuthorIds = Array.from(
+    new Set(
+      [r.author_id, ...updateRows.map((u) => u.author_id)].filter(
+        (id): id is string => id !== null,
+      ),
+    ),
+  );
+  const memberSet = await fetchMemberSet(db, args.orgId, detailAuthorIds);
+
   return {
-    post: toPostDto(r, { role: args.callerRole }, args.callerId),
-    updates: (updates as unknown as PostRow[]).map((u) =>
-      toPostDto(u, { role: args.callerRole }, args.callerId),
+    post: toPostDto(r, { role: args.callerRole }, args.callerId, memberSet),
+    updates: updateRows.map((u) =>
+      toPostDto(u, { role: args.callerRole }, args.callerId, memberSet),
     ),
     reactions,
     prayer: {

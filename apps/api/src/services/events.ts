@@ -15,6 +15,8 @@ export type ModerationEventKind = 'moderator.hide' | 'moderator.unhide';
 
 export type InvitationEventKind = 'invite.accepted' | 'invitation.redeemed';
 
+export type AdminEventKind = 'admin.member_removed' | 'admin.org_settings_updated';
+
 export type EventKind =
   | PostEventKind
   | CommentEventKind
@@ -22,7 +24,8 @@ export type EventKind =
   | PrayerEventKind
   | FlagEventKind
   | ModerationEventKind
-  | InvitationEventKind;
+  | InvitationEventKind
+  | AdminEventKind;
 
 export type EventPayload = Record<string, unknown>;
 
@@ -219,6 +222,47 @@ export async function writeInvitationEvent(
           invitee_id: input.inviteeId,
           invite_code_id: input.inviteCodeId,
           invitee_display_name: input.inviteeDisplayName,
+        };
+  await db
+    .insertInto('events')
+    .values({
+      id: newId(),
+      org_id: input.orgId,
+      type: input.kind,
+      post_id: null,
+      actor_id: input.actorId,
+      payload: payload as never,
+    })
+    .execute();
+}
+
+export interface WriteMemberRemovedEventInput {
+  kind: 'admin.member_removed';
+  orgId: string;
+  actorId: string;
+  targetUserId: string;
+}
+
+export interface WriteOrgSettingsUpdatedEventInput {
+  kind: 'admin.org_settings_updated';
+  orgId: string;
+  actorId: string;
+  before: { displayName: string };
+  after: { displayName: string };
+}
+
+export type WriteAdminEventInput = WriteMemberRemovedEventInput | WriteOrgSettingsUpdatedEventInput;
+
+export async function writeAdminEvent(
+  db: Kysely<Database> | Transaction<Database>,
+  input: WriteAdminEventInput,
+): Promise<void> {
+  const payload =
+    input.kind === 'admin.member_removed'
+      ? { target_user_id: input.targetUserId }
+      : {
+          before: { display_name: input.before.displayName },
+          after: { display_name: input.after.displayName },
         };
   await db
     .insertInto('events')

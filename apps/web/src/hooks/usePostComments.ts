@@ -17,6 +17,8 @@ export interface Comment {
   is_hidden: boolean;
   flag_count: number;
   is_tombstone?: boolean;
+  /** True when the comment author has been removed from this org. */
+  is_former_member: boolean;
   created_at: string;
   updated_at: string;
   reactions: ReactionMap;

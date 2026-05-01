@@ -8,6 +8,7 @@ import { isPrivilegedRole } from '../lib/roles.js';
 import { decodeCursor, encodeCursor } from './cursor.js';
 import { getSnapshotId } from './feed-snapshot.js';
 import { fetchHideInfo, type HideInfo } from './hide-info.js';
+import { fetchMemberSet } from './membership-set.js';
 import { toPostDto, type PostDto, type PostRow, type ReactionSummary } from './posts.js';
 
 export const zFeedQuery = z.object({
@@ -172,9 +173,13 @@ export async function fetchFeed(
     hasMore && last ? encodeCursor({ filter: args.filter, id: last.id }) : null;
 
   const snapshotId = await getSnapshotId(db, args.orgId);
+  const distinctAuthorIds = Array.from(
+    new Set(page.map((p) => p.author_id).filter((id): id is string => id !== null)),
+  );
+  const memberSet = await fetchMemberSet(db, args.orgId, distinctAuthorIds);
   return {
     posts: page.map((r) => ({
-      ...toPostDto(r, { role: args.callerRole }, args.callerId),
+      ...toPostDto(r, { role: args.callerRole }, args.callerId, memberSet),
       prayed: prayedSet.has(r.id),
       reactions: reactionsMap.get(r.id) ?? {},
       answered_updates: answeredUpdates.get(r.id) ?? [],

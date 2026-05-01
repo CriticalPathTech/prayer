@@ -18,6 +18,7 @@ interface CommentRow {
   body: string;
   is_hidden: boolean;
   created_at: string;
+  is_former_member?: boolean;
 }
 
 export interface MobileCommentThreadProps {
@@ -67,7 +68,7 @@ interface CommentRowViewProps {
 
 function CommentRowView({ comment, canModerate, onChange }: CommentRowViewProps): JSX.Element {
   const [menuOpen, setMenuOpen] = useState(false);
-  const name = comment.display_name ?? 'Anonymous';
+  const name = comment.is_former_member ? 'Former member' : (comment.display_name ?? 'Anonymous');
 
   async function hide(): Promise<void> {
     await apiFetch(`/posts/${comment.post_id}/comments/${comment.id}`, { method: 'DELETE' });

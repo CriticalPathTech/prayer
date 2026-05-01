@@ -10,6 +10,7 @@ import {
   writeFlagEvent,
   writeModerationEvent,
   writeInvitationEvent,
+  writeAdminEvent,
 } from '../../src/services/events.js';
 import { insertOrg, insertPost, insertUser } from '../helpers/seed.js';
 
@@ -265,6 +266,67 @@ describe('writeInvitationEvent', () => {
         invitee_id: invitee.id,
         invitee_display_name: 'member one',
       },
+    });
+  });
+});
+
+describe('writeAdminEvent', () => {
+  let db: Kysely<Database>;
+  let orgId: string;
+
+  beforeAll(async () => {
+    db = initDb(process.env.TEST_DATABASE_URL!);
+    orgId = await insertOrg(db, { slug: 'lakeside-svc-events-admin' });
+  });
+  afterAll(async () => {
+    await db.destroy();
+  });
+  afterEach(async () => {
+    await db.deleteFrom('events').execute();
+    await db.deleteFrom('user_orgs').execute();
+    await db.deleteFrom('users').execute();
+  });
+
+  it('writes an admin.member_removed row to events', async () => {
+    const actor = await insertUser(db, { orgId });
+    const targetId = (await insertUser(db, { orgId })).id;
+
+    await writeAdminEvent(db, {
+      kind: 'admin.member_removed',
+      orgId,
+      actorId: actor.id,
+      targetUserId: targetId,
+    });
+
+    const row = await db
+      .selectFrom('events')
+      .selectAll()
+      .where('type', '=', 'admin.member_removed')
+      .executeTakeFirstOrThrow();
+    expect(row.org_id).toBe(orgId);
+    expect(row.actor_id).toBe(actor.id);
+    expect(row.payload).toMatchObject({ target_user_id: targetId });
+  });
+
+  it('writes an admin.org_settings_updated row with before/after', async () => {
+    const actor = await insertUser(db, { orgId });
+
+    await writeAdminEvent(db, {
+      kind: 'admin.org_settings_updated',
+      orgId,
+      actorId: actor.id,
+      before: { displayName: 'Old Name' },
+      after: { displayName: 'New Name' },
+    });
+
+    const row = await db
+      .selectFrom('events')
+      .selectAll()
+      .where('type', '=', 'admin.org_settings_updated')
+      .executeTakeFirstOrThrow();
+    expect(row.payload).toMatchObject({
+      before: { display_name: 'Old Name' },
+      after: { display_name: 'New Name' },
     });
   });
 });

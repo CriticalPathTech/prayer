@@ -26,6 +26,10 @@ export interface FeedPost {
    * null for auto-hides. */
   hidden_by: { id: string; display_name: string } | null;
   hidden_source: 'auto' | 'manual' | null;
+  /** True when the author has been removed from this org. Render the
+   * author as "Former member" + generic avatar. is_anonymous takes
+   * precedence for display masking. */
+  is_former_member: boolean;
   is_tombstone?: boolean;
   flag_count?: number;
   /** Populated only when filter === 'answered'. Every child update

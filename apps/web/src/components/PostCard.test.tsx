@@ -49,6 +49,7 @@ describe('PostCard Answered Prayer', () => {
     is_own_post: false,
     hidden_by: null,
     hidden_source: null,
+    is_former_member: false,
   };
   it('renders Prayer answered ribbon when is_answered_prayer is true', () => {
     render(
@@ -66,6 +67,26 @@ describe('PostCard Answered Prayer', () => {
       </MemoryRouter>,
     );
     expect(screen.queryByText('Prayer answered')).not.toBeInTheDocument();
+  });
+
+  it('renders Former member when is_former_member && !is_anonymous', () => {
+    render(
+      <MemoryRouter>
+        <PostCard post={{ ...base, is_former_member: true }} />
+      </MemoryRouter>,
+    );
+    expect(screen.getByText('Former member')).toBeInTheDocument();
+    expect(screen.queryByText('Mary')).not.toBeInTheDocument();
+  });
+
+  it('renders Anonymous (not Former member) when both flags are true', () => {
+    render(
+      <MemoryRouter>
+        <PostCard post={{ ...base, is_anonymous: true, is_former_member: true }} />
+      </MemoryRouter>,
+    );
+    expect(screen.getByText('Anonymous')).toBeInTheDocument();
+    expect(screen.queryByText('Former member')).not.toBeInTheDocument();
   });
 
   it('renders every embedded answered update chronologically', () => {
@@ -129,6 +150,7 @@ describe('PostCard kebab menu', () => {
     is_own_post: false,
     hidden_by: null,
     hidden_source: null,
+    is_former_member: false,
   };
 
   beforeEach(() => {

@@ -24,6 +24,7 @@ export function makeFeedPost(over: Partial<FeedPost> = {}): FeedPost {
     is_own_post: false,
     hidden_by: null,
     hidden_source: null,
+    is_former_member: false,
     answered_updates: [],
     ...over,
   };

@@ -794,4 +794,68 @@ describe('cross-org isolation', () => {
       expect(ids).not.toContain(postIdA);
     });
   });
+
+  // -------------------------------------------------------------------------
+  // church-admin (this PR)
+  // -------------------------------------------------------------------------
+
+  describe('church-admin', () => {
+    let suATok: string;
+    let suBTok: string;
+
+    beforeAll(async () => {
+      // Promote modA to super_user for orgA, create a fresh super_user for orgB.
+      await app.db
+        .updateTable('user_orgs')
+        .set({ role: 'super_user' })
+        .where('user_id', '=', modA.id)
+        .where('org_id', '=', orgA)
+        .execute();
+      suATok = tokModA;
+
+      const suB = await insertUser(app.db, {
+        email: 'su-b@iso.com',
+        orgId: orgB,
+        role: 'super_user',
+      });
+      suBTok = await mintTestJwt({ sub: suB.supabaseAuthId, email: suB.email });
+    });
+
+    it('super_user of orgA can list orgA members', async () => {
+      const res = await request(app.app)
+        .get('/admin/church/members')
+        .set('Host', 'lakeside.prays.online')
+        .set('Authorization', `Bearer ${suATok}`);
+      expect(res.status).toBe(200);
+      const ids = res.body.members.map((m: { id: string }) => m.id).sort();
+      expect(ids).toContain(userA.id);
+      expect(ids).not.toContain(userB.id);
+    });
+
+    it('super_user of orgA cannot remove a user belonging to orgB', async () => {
+      const res = await request(app.app)
+        .delete(`/admin/church/members/${userB.id}`)
+        .set('Host', 'lakeside.prays.online')
+        .set('Authorization', `Bearer ${suATok}`);
+      expect(res.status).toBe(404);
+    });
+
+    it('super_user of orgB can rename orgB', async () => {
+      const res = await request(app.app)
+        .patch('/admin/church/settings')
+        .set('Host', 'cross-org-iso-b.prays.online')
+        .set('Authorization', `Bearer ${suBTok}`)
+        .send({ displayName: 'Renamed Org B' });
+      expect(res.status).toBe(200);
+      expect(res.body.org.displayName).toBe('Renamed Org B');
+    });
+
+    it('member of orgA cannot reach /admin/church/* even on their own host', async () => {
+      const res = await request(app.app)
+        .get('/admin/church/members')
+        .set('Host', 'lakeside.prays.online')
+        .set('Authorization', `Bearer ${tokA}`);
+      expect(res.status).toBe(403);
+    });
+  });
 });

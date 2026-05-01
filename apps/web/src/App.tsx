@@ -4,6 +4,7 @@ import { Layout } from './components/Layout';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { IsMobileProvider, useIsMobileShared } from './hooks/IsMobileContext';
 import { AuthProvider } from './hooks/useAuth';
+import { AdminChurchPage } from './pages/AdminChurchPage';
 import { AuthCallbackPage } from './pages/AuthCallbackPage';
 import { CheckEmailPage } from './pages/CheckEmailPage';
 import { ComposePage } from './pages/ComposePage';
@@ -22,6 +23,7 @@ import { ResetPasswordPage } from './pages/ResetPasswordPage';
 import { SecurityPage } from './pages/SecurityPage';
 import { SignupAccountPage } from './pages/SignupAccountPage';
 import { SignupCodePage } from './pages/SignupCodePage';
+import { MobileAdminChurchPage } from './views/mobile/MobileAdminChurchPage';
 import { MobileArchivePage } from './views/mobile/MobileArchivePage';
 import { MobileAuthCallbackPage } from './views/mobile/MobileAuthCallbackPage';
 import { MobileCheckEmailPage } from './views/mobile/MobileCheckEmailPage';
@@ -80,6 +82,9 @@ export function AdaptiveModQueuePage(): JSX.Element {
 export function AdaptiveModInvitesPage(): JSX.Element {
   return useIsMobileShared() ? <MobileModInvitesPage /> : <ModInvitesPage />;
 }
+export function AdaptiveAdminChurchPage(): JSX.Element {
+  return useIsMobileShared() ? <MobileAdminChurchPage /> : <AdminChurchPage />;
+}
 export function AdaptiveNotFoundPage(): JSX.Element {
   return useIsMobileShared() ? <MobileNotFoundPage /> : <NotFoundPage />;
 }
@@ -136,6 +141,7 @@ export function App(): JSX.Element {
               <Route path="/notifications" element={<AdaptiveNotificationsPage />} />
               <Route path="/mod/queue" element={<AdaptiveModQueuePage />} />
               <Route path="/mod/invites" element={<AdaptiveModInvitesPage />} />
+              <Route path="/admin/church" element={<AdaptiveAdminChurchPage />} />
             </Route>
             <Route path="*" element={<AdaptiveNotFoundPage />} />
           </Routes>

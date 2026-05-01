@@ -142,6 +142,19 @@ export function MobileDrawer({ onClose }: MobileDrawerProps): JSX.Element {
             </>
           ) : null}
 
+          {me?.role === 'super_user' ? (
+            <>
+              <SectionLabel>Administration</SectionLabel>
+              <Item
+                to="/admin/church"
+                icon="crown"
+                label="Church"
+                active={location.pathname === '/admin/church'}
+                onClose={onClose}
+              />
+            </>
+          ) : null}
+
           <div className="mt-2 border-t border-[var(--border-soft)] pt-2">
             <button
               type="button"

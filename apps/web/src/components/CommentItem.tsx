@@ -43,9 +43,13 @@ export function CommentItem({
     );
   }
 
+  // Anonymity (post-author self-reply mask) wins over former-member treatment.
   const displayName = comment.is_anonymous_author
     ? 'Anonymous (author)'
-    : (comment.display_name ?? 'Unknown');
+    : comment.is_former_member
+      ? 'Former member'
+      : (comment.display_name ?? 'Unknown');
+  const isOrphanCommenter = comment.is_anonymous_author || comment.is_former_member;
   const isOwnComment = !!callerId && comment.author_id === callerId;
   const canRemove = isOwnComment || callerIsPrivileged;
   const removeLabel = isOwnComment ? 'Delete' : 'Hide';
@@ -68,7 +72,7 @@ export function CommentItem({
           <Avatar
             name={displayName}
             avatarUrl={comment.avatar_url}
-            anonymous={comment.is_anonymous_author}
+            anonymous={isOrphanCommenter}
             size="sm"
           />
           <span className="font-serif text-sm font-medium text-[var(--fg-1)]">{displayName}</span>

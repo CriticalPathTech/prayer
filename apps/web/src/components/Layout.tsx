@@ -78,6 +78,14 @@ export function Layout(): JSX.Element {
                 Moderation
               </Link>
             ) : null}
+            {me?.role === 'super_user' ? (
+              <Link
+                to="/admin/church"
+                className="inline-flex text-[var(--fg-3)] hover:text-[var(--fg-1)] hover:bg-parchment-100 font-medium px-2.5 py-1.5 rounded-sm"
+              >
+                Church
+              </Link>
+            ) : null}
             <div className="relative">
               <NotificationBell
                 unreadCount={notif.unreadCount}

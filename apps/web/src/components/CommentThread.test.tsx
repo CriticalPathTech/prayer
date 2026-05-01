@@ -47,6 +47,7 @@ const thread: Thread = {
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
       reactions: {},
+      is_former_member: false,
     },
   ],
 };

@@ -52,4 +52,33 @@ describe('toPostDto', () => {
     expect(dto.avatar_url).toBe(AVATAR_URL);
     expect(dto.is_anonymous).toBe(true);
   });
+
+  it('is_former_member=false when memberSet is omitted', () => {
+    const dto = toPostDto(base, { role: 'member' });
+    expect(dto.is_former_member).toBe(false);
+  });
+
+  it('is_former_member=false when author is in the member set', () => {
+    const dto = toPostDto(base, { role: 'member' }, undefined, new Set([base.author_id]));
+    expect(dto.is_former_member).toBe(false);
+  });
+
+  it('is_former_member=true when author is NOT in the member set', () => {
+    const dto = toPostDto(base, { role: 'member' }, undefined, new Set(['someone-else']));
+    expect(dto.is_former_member).toBe(true);
+  });
+
+  it('anonymous post by former member: is_anonymous mask wins for display, but is_former_member is still true', () => {
+    const dto = toPostDto(
+      { ...base, is_anonymous: true },
+      { role: 'member' },
+      undefined,
+      new Set(),
+    );
+    expect(dto.is_anonymous).toBe(true);
+    expect(dto.is_former_member).toBe(true);
+    // Anonymity mask still applies — display_name and author_id are redacted
+    expect(dto.display_name).toBeNull();
+    expect(dto.author_id).toBeNull();
+  });
 });

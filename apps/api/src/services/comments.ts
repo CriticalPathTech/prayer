@@ -12,6 +12,7 @@ import {
 } from '../middleware/error.js';
 
 import { writeCommentEvent } from './events.js';
+import { fetchMemberSet } from './membership-set.js';
 
 export interface CommentRow {
   id: string;
@@ -48,6 +49,9 @@ export interface CommentDto {
   created_at: string;
   updated_at: string;
   reactions: Record<string, CommentReactionSummary>;
+  /** True when the author has been removed from this org. Defaults false
+   * when caller doesn't pass a memberSet. See services/membership-set.ts. */
+  is_former_member: boolean;
   is_tombstone?: boolean;
 }
 
@@ -67,6 +71,7 @@ export function toCommentDto(
   caller: Caller,
   ctx: PostContext,
   reactions: Record<string, CommentReactionSummary> = {},
+  formerMemberSet?: Set<string>,
 ): CommentDto | null {
   const isCallerPrivileged = isPrivilegedRole(caller.role);
   const isCallerPostAuthor = ctx.callerId === ctx.postAuthorId;
@@ -76,6 +81,9 @@ export function toCommentDto(
   const visible =
     isCallerPrivileged || isCallerPostAuthor || isCallerParticipant || isCallerCommentAuthor;
   if (!visible) return null;
+
+  const isFormerMember =
+    formerMemberSet !== undefined && row.author_id !== null && !formerMemberSet.has(row.author_id);
 
   if (row.is_hidden && !isCallerPrivileged && !isCallerCommentAuthor) {
     return {
@@ -93,6 +101,7 @@ export function toCommentDto(
       created_at: row.created_at.toISOString(),
       updated_at: row.updated_at.toISOString(),
       reactions: {},
+      is_former_member: false,
       is_tombstone: true,
     };
   }
@@ -120,6 +129,7 @@ export function toCommentDto(
     created_at: row.created_at.toISOString(),
     updated_at: row.updated_at.toISOString(),
     reactions,
+    is_former_member: isFormerMember,
   };
 }
 
@@ -400,6 +410,11 @@ export async function listCommentsForPost(
     }
   }
 
+  const distinctAuthorIds = Array.from(
+    new Set(rows.map((r) => r.author_id).filter((id): id is string => id !== null)),
+  );
+  const memberSet = await fetchMemberSet(db, args.orgId, distinctAuthorIds);
+
   const visibleByParticipant = new Map<string, CommentThread>();
   for (const row of rows) {
     const dto = toCommentDto(
@@ -411,6 +426,7 @@ export async function listCommentsForPost(
         callerId: args.callerId,
       },
       reactionAggregates[row.id] ?? {},
+      memberSet,
     );
     if (!dto) continue;
     const existing = visibleByParticipant.get(row.participant_id);

@@ -41,6 +41,7 @@ const samplePost: FeedPost = {
   is_own_post: true,
   hidden_by: null,
   hidden_source: null,
+  is_former_member: false,
 };
 
 function mountEditPage(postId = 'p1'): void {

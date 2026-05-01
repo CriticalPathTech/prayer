@@ -54,7 +54,13 @@ export function PostCard({ post, onChange }: PostCardProps): JSX.Element {
     );
   }
 
-  const name = post.is_anonymous ? 'Anonymous' : (post.display_name ?? 'Anonymous');
+  // Anonymity mask wins over former-member treatment for display.
+  const name = post.is_anonymous
+    ? 'Anonymous'
+    : post.is_former_member
+      ? 'Former member'
+      : (post.display_name ?? 'Anonymous');
+  const isOrphanAuthor = post.is_anonymous || post.is_former_member;
   const expiring = expiringSoon(post.expires_at);
   const answered = post.is_answered_prayer;
   const isPrivileged = isPrivilegedRole(me?.role);
@@ -77,7 +83,7 @@ export function PostCard({ post, onChange }: PostCardProps): JSX.Element {
   return (
     <article className={cardClass}>
       <header className="mb-2.5 flex items-center gap-3">
-        <Avatar name={name} avatarUrl={post.avatar_url} anonymous={post.is_anonymous} size="md" />
+        <Avatar name={name} avatarUrl={post.avatar_url} anonymous={isOrphanAuthor} size="md" />
         <div className="min-w-0 flex-1">
           <div className="font-serif text-[15px] font-medium text-[var(--fg-1)]">
             <Link to={`/posts/${post.id}`} className="hover:underline">
