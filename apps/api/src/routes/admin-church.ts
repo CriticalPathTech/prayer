@@ -3,7 +3,12 @@ import { Router } from 'express';
 import type { Kysely } from 'kysely';
 
 import { UnauthorizedError } from '../middleware/error.js';
-import { listMembers, removeMember, updateChurchSettings } from '../services/church-admin.js';
+import {
+  getChurchSettings,
+  listMembers,
+  removeMember,
+  updateChurchSettings,
+} from '../services/church-admin.js';
 
 export function adminChurchRouter(deps: { db: Kysely<Database> }): Router {
   const router = Router();
@@ -11,8 +16,11 @@ export function adminChurchRouter(deps: { db: Kysely<Database> }): Router {
   router.get('/admin/church/members', async (req, res, next) => {
     try {
       if (!req.user) throw new UnauthorizedError();
-      const members = await listMembers(deps.db, req.user.orgId);
-      res.json({ members });
+      const [members, settings] = await Promise.all([
+        listMembers(deps.db, req.user.orgId),
+        getChurchSettings(deps.db, req.user.orgId),
+      ]);
+      res.json({ members, org: settings });
     } catch (err) {
       next(err);
     }

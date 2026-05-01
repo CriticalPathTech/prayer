@@ -1,4 +1,4 @@
-import { useState, type JSX } from 'react';
+import { useEffect, useState, type JSX } from 'react';
 import { Navigate } from 'react-router-dom';
 
 import { RemoveMemberDialog } from '../components/RemoveMemberDialog';
@@ -13,22 +13,38 @@ import { useRemoveMember } from '../hooks/useRemoveMember';
 
 export function AdminChurchPage(): JSX.Element {
   const { me } = useAuth();
-  const { members, loading, refresh } = useChurchMembers();
+  const { members, currentDisplayName, loading, refresh } = useChurchMembers();
   const { updateDisplayName, saving } = useChurchSettings();
   const { removeMember, removing } = useRemoveMember();
   const [target, setTarget] = useState<MemberRow | null>(null);
   const [draftName, setDraftName] = useState<string>('');
-  const [savedName, setSavedName] = useState<string | null>(null);
+  const [hydrated, setHydrated] = useState(false);
+
+  // Pre-fill the draft input with the current org name once on first fetch.
+  // After save, refresh() updates currentDisplayName which we sync into the
+  // draft so the Save button correctly disables (draft === current).
+  useEffect(() => {
+    if (currentDisplayName === null) return;
+    if (!hydrated) {
+      setDraftName(currentDisplayName);
+      setHydrated(true);
+    } else if (draftName === '' || draftName === currentDisplayName) {
+      // Sync after save: only overwrite if user hasn't typed something new.
+      setDraftName(currentDisplayName);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentDisplayName]);
 
   if (!me) return <div>Loading…</div>;
   if (me.role !== 'super_user') return <Navigate to="/" replace />;
 
+  const trimmed = draftName.trim();
+  const canSave = trimmed.length > 0 && trimmed !== currentDisplayName && !saving;
+
   async function onSaveSettings(): Promise<void> {
-    const trimmed = draftName.trim();
-    if (!trimmed) return;
-    const result = await updateDisplayName(trimmed);
-    setSavedName(result.displayName);
-    setDraftName('');
+    if (!canSave) return;
+    await updateDisplayName(trimmed);
+    await refresh();
   }
 
   async function onConfirmRemove(): Promise<void> {
@@ -55,19 +71,16 @@ export function AdminChurchPage(): JSX.Element {
           <input
             type="text"
             value={draftName}
-            placeholder="(unchanged)"
             onChange={(e) => setDraftName(e.target.value)}
             maxLength={60}
+            disabled={currentDisplayName === null}
             className={inputClass}
           />
         </Field>
         <div className="mt-2 flex items-center gap-3">
-          <Button onClick={() => void onSaveSettings()} disabled={saving || !draftName.trim()}>
+          <Button onClick={() => void onSaveSettings()} disabled={!canSave}>
             {saving ? 'Saving…' : 'Save'}
           </Button>
-          {savedName ? (
-            <span className="text-sm text-[var(--fg-3)]">Saved: {savedName}</span>
-          ) : null}
         </div>
       </section>
 

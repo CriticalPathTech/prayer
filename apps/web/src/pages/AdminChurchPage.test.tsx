@@ -35,6 +35,7 @@ vi.mock('../hooks/useChurchMembers', () => ({
         joinedAt: '2026-01-02T00:00:00Z',
       },
     ],
+    currentDisplayName: 'Hope Church',
     loading: false,
     error: null,
     refresh,
@@ -96,21 +97,43 @@ describe('AdminChurchPage', () => {
     await waitFor(() => expect(refresh).toHaveBeenCalled());
   });
 
-  it('Save calls updateDisplayName when input is non-empty', async () => {
+  it('pre-fills the display-name input with the current value, Save disabled until changed', async () => {
     updateDisplayName.mockResolvedValueOnce({
       id: 'o1',
       slug: 'hope',
-      displayName: 'New Name',
+      displayName: 'Hope Renamed',
     });
     render(
       <MemoryRouter>
         <AdminChurchPage />
       </MemoryRouter>,
     );
-    // Field labels aren't htmlFor-bound — use placeholder for stable selection.
-    const input = screen.getByPlaceholderText(/unchanged/i);
-    await userEvent.type(input, 'New Name');
-    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
-    await waitFor(() => expect(updateDisplayName).toHaveBeenCalledWith('New Name'));
+    // Initial state: input pre-filled with 'Hope Church', Save disabled (no diff).
+    const input = screen.getByDisplayValue('Hope Church');
+    expect(input).toBeInTheDocument();
+    const saveBtn = screen.getByRole('button', { name: 'Save' });
+    expect(saveBtn).toBeDisabled();
+
+    // Edit → Save enables.
+    await userEvent.clear(input);
+    await userEvent.type(input, 'Hope Renamed');
+    expect(saveBtn).toBeEnabled();
+
+    // Submit.
+    await userEvent.click(saveBtn);
+    await waitFor(() => expect(updateDisplayName).toHaveBeenCalledWith('Hope Renamed'));
+    await waitFor(() => expect(refresh).toHaveBeenCalled());
+  });
+
+  it('Save stays disabled when the user types whitespace only', async () => {
+    render(
+      <MemoryRouter>
+        <AdminChurchPage />
+      </MemoryRouter>,
+    );
+    const input = screen.getByDisplayValue('Hope Church');
+    await userEvent.clear(input);
+    await userEvent.type(input, '   ');
+    expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
   });
 });

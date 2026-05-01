@@ -71,6 +71,15 @@ describe('GET /admin/church/members', () => {
     });
     expect(su.joinedAt).toBeTruthy();
   });
+
+  it("200 response includes the org's current displayName", async () => {
+    const res = await request(app.app)
+      .get('/admin/church/members')
+      .set('Host', 'admin-church-routes.prays.online')
+      .set('Authorization', `Bearer ${suToken}`);
+    expect(res.status).toBe(200);
+    expect(res.body.org).toEqual({ displayName: 'Admin Church Routes' });
+  });
 });
 
 describe('DELETE /admin/church/members/:userId', () => {

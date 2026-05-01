@@ -59,13 +59,15 @@ describe('church-admin — removeMember', () => {
       .executeTakeFirstOrThrow();
     expect(userRow.email).toBe('target@chadm.com');
 
-    // event row written
+    // event row written — scope by org_id + actor to avoid picking up events
+    // from other test files that share this DB schema.
     const event = await db
       .selectFrom('events')
       .where('type', '=', 'admin.member_removed')
+      .where('org_id', '=', orgId)
+      .where('actor_id', '=', actor.id)
       .selectAll()
       .executeTakeFirstOrThrow();
-    expect(event.actor_id).toBe(actor.id);
     expect(event.payload).toMatchObject({ target_user_id: target.id });
   });
 

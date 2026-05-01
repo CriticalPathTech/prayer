@@ -75,6 +75,26 @@ export async function updateChurchSettings(
   return { id: input.orgId, displayName };
 }
 
+export interface ChurchSettings {
+  displayName: string;
+}
+
+/** Read-only snapshot of editable church-level fields. Bundled with the
+ * members list so the UI can pre-fill the settings form without a second
+ * round-trip. Reads from `orgs` directly (not via the orgContext cache) so
+ * the value is always fresh — the cache TTL is a known staleness window. */
+export async function getChurchSettings(
+  db: Kysely<Database>,
+  orgId: string,
+): Promise<ChurchSettings> {
+  const row = await db
+    .selectFrom('orgs')
+    .select('display_name')
+    .where('id', '=', orgId)
+    .executeTakeFirstOrThrow();
+  return { displayName: row.display_name };
+}
+
 export interface MemberRow {
   id: string;
   displayName: string;
