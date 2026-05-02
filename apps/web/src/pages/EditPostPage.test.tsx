@@ -73,7 +73,11 @@ describe('EditPostPage', () => {
     });
     mountEditPage();
     const ta = await screen.findByLabelText(/body/i);
-    expect(ta).toHaveValue('original body\nwith newline');
+    // waitFor retries the value check; findByLabelText resolves as soon as the
+    // textarea is in the DOM, but the hydration useEffect (which sets `body`)
+    // runs in a later tick. CI runners surface this race; locally it usually
+    // passes by accident.
+    await waitFor(() => expect(ta).toHaveValue('original body\nwith newline'));
   });
 
   it('hydrates from the buffer when one exists (buffer wins over server)', async () => {
@@ -89,7 +93,7 @@ describe('EditPostPage', () => {
     });
     mountEditPage();
     const ta = await screen.findByLabelText(/body/i);
-    expect(ta).toHaveValue('buffered body');
+    await waitFor(() => expect(ta).toHaveValue('buffered body'));
   });
 
   it('persists typing to the buffer', async () => {
