@@ -8,6 +8,7 @@ import { AdminChurchPage } from './AdminChurchPage';
 const refresh = vi.fn();
 const updateDisplayName = vi.fn();
 const removeMember = vi.fn();
+const changeRole = vi.fn();
 
 vi.mock('../hooks/useAuth', () => ({
   useAuth: () => ({
@@ -36,6 +37,7 @@ vi.mock('../hooks/useChurchMembers', () => ({
       },
     ],
     currentDisplayName: 'Hope Church',
+    superUserCount: 1,
     loading: false,
     error: null,
     refresh,
@@ -47,11 +49,15 @@ vi.mock('../hooks/useChurchSettings', () => ({
 vi.mock('../hooks/useRemoveMember', () => ({
   useRemoveMember: () => ({ removeMember, removing: false, error: null }),
 }));
+vi.mock('../hooks/useChangeMemberRole', () => ({
+  useChangeMemberRole: () => ({ changeRole, saving: false, error: null }),
+}));
 
 beforeEach(() => {
   refresh.mockReset();
   updateDisplayName.mockReset();
   removeMember.mockReset().mockResolvedValue(undefined);
+  changeRole.mockReset().mockResolvedValue(undefined);
 });
 
 describe('AdminChurchPage', () => {
@@ -67,15 +73,18 @@ describe('AdminChurchPage', () => {
     expect(screen.getByText('m@x.com')).toBeInTheDocument();
   });
 
-  it('does not show a Remove button for the current super_user (Sue)', () => {
+  it("does not show Remove or Change role buttons on the current super_user's row", () => {
     render(
       <MemoryRouter>
         <AdminChurchPage />
       </MemoryRouter>,
     );
-    // Only one Remove button (for Mary), not two.
+    // Only one Remove button (for Mary, not Sue).
     const removeBtns = screen.getAllByRole('button', { name: /remove/i });
     expect(removeBtns).toHaveLength(1);
+    // Only one Change role button (for Mary, not Sue).
+    const changeBtns = screen.getAllByRole('button', { name: /change role/i });
+    expect(changeBtns).toHaveLength(1);
   });
 
   it('clicking Remove opens the dialog and calls removeMember on confirm', async () => {
@@ -94,6 +103,28 @@ describe('AdminChurchPage', () => {
     ) as HTMLButtonElement;
     await userEvent.click(dialogRemoveBtn);
     await waitFor(() => expect(removeMember).toHaveBeenCalledWith('m1'));
+    await waitFor(() => expect(refresh).toHaveBeenCalled());
+  });
+
+  it('clicking Change role opens the dialog and calls changeRole on save', async () => {
+    render(
+      <MemoryRouter>
+        <AdminChurchPage />
+      </MemoryRouter>,
+    );
+    await userEvent.click(screen.getByRole('button', { name: /change role/i }));
+
+    const dialog = screen.getByRole('alertdialog');
+    // Mary is currently 'member'; promote her to 'moderator' (no type-to-confirm needed).
+    const select = dialog.querySelector('select') as HTMLSelectElement;
+    await userEvent.selectOptions(select, 'moderator');
+
+    const dialogSaveBtn = Array.from(dialog.querySelectorAll('button')).find(
+      (b) => b.textContent === 'Save',
+    ) as HTMLButtonElement;
+    await userEvent.click(dialogSaveBtn);
+
+    await waitFor(() => expect(changeRole).toHaveBeenCalledWith('m1', 'moderator'));
     await waitFor(() => expect(refresh).toHaveBeenCalled());
   });
 

@@ -1,4 +1,4 @@
-import type { Database } from '@prayer/db';
+import type { Database, UserRole } from '@prayer/db';
 import { newId } from '@prayer/db';
 import type { Emoji } from '@prayer/shared';
 import type { Kysely, Transaction } from 'kysely';
@@ -15,7 +15,10 @@ export type ModerationEventKind = 'moderator.hide' | 'moderator.unhide';
 
 export type InvitationEventKind = 'invite.accepted' | 'invitation.redeemed';
 
-export type AdminEventKind = 'admin.member_removed' | 'admin.org_settings_updated';
+export type AdminEventKind =
+  | 'admin.member_removed'
+  | 'admin.org_settings_updated'
+  | 'admin.role_changed';
 
 export type EventKind =
   | PostEventKind
@@ -251,7 +254,19 @@ export interface WriteOrgSettingsUpdatedEventInput {
   after: { displayName: string };
 }
 
-export type WriteAdminEventInput = WriteMemberRemovedEventInput | WriteOrgSettingsUpdatedEventInput;
+export interface WriteRoleChangedEventInput {
+  kind: 'admin.role_changed';
+  orgId: string;
+  actorId: string;
+  targetUserId: string;
+  beforeRole: UserRole;
+  afterRole: UserRole;
+}
+
+export type WriteAdminEventInput =
+  | WriteMemberRemovedEventInput
+  | WriteOrgSettingsUpdatedEventInput
+  | WriteRoleChangedEventInput;
 
 export async function writeAdminEvent(
   db: Kysely<Database> | Transaction<Database>,
@@ -260,10 +275,16 @@ export async function writeAdminEvent(
   const payload =
     input.kind === 'admin.member_removed'
       ? { target_user_id: input.targetUserId }
-      : {
-          before: { display_name: input.before.displayName },
-          after: { display_name: input.after.displayName },
-        };
+      : input.kind === 'admin.role_changed'
+        ? {
+            target_user_id: input.targetUserId,
+            before_role: input.beforeRole,
+            after_role: input.afterRole,
+          }
+        : {
+            before: { display_name: input.before.displayName },
+            after: { display_name: input.after.displayName },
+          };
   await db
     .insertInto('events')
     .values({

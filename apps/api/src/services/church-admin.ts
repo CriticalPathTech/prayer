@@ -1,7 +1,13 @@
-import type { Database } from '@prayer/db';
-import type { Kysely } from 'kysely';
+import type { Database, UserRole } from '@prayer/db';
+import type { Kysely, Transaction } from 'kysely';
 
-import { ForbiddenError, NotFoundError, ValidationError } from '../middleware/error.js';
+import {
+  ForbiddenError,
+  LastSuperUserError,
+  NotFoundError,
+  TooManySuperUsersError,
+  ValidationError,
+} from '../middleware/error.js';
 
 import { writeAdminEvent } from './events.js';
 
@@ -127,6 +133,80 @@ export async function listMembers(db: Kysely<Database>, orgId: string): Promise<
     role: r.role as MemberRow['role'],
     joinedAt: (r.joinedAt as unknown as Date).toISOString(),
   }));
+}
+
+/**
+ * Count super_users in an org. Used by GET /admin/church/members for the
+ * UI cap status, and by changeMemberRole for the cap/floor checks.
+ */
+export async function countSuperUsers(
+  db: Kysely<Database> | Transaction<Database>,
+  orgId: string,
+): Promise<number> {
+  const row = await db
+    .selectFrom('user_orgs')
+    .select(({ fn }) => fn.count<number>('user_id').as('count'))
+    .where('org_id', '=', orgId)
+    .where('role', '=', 'super_user')
+    .executeTakeFirstOrThrow();
+  return Number(row.count);
+}
+
+export interface ChangeMemberRoleInput {
+  actorId: string;
+  targetUserId: string;
+  orgId: string;
+  newRole: UserRole;
+}
+
+export async function changeMemberRole(
+  db: Kysely<Database>,
+  input: ChangeMemberRoleInput,
+): Promise<void> {
+  if (input.actorId === input.targetUserId) {
+    throw new ForbiddenError('cannot change your own role');
+  }
+
+  await db.transaction().execute(async (trx) => {
+    const target = await trx
+      .selectFrom('user_orgs')
+      .where('user_id', '=', input.targetUserId)
+      .where('org_id', '=', input.orgId)
+      .select(['role'])
+      .executeTakeFirst();
+    if (!target) throw new NotFoundError();
+
+    const currentRole = target.role as UserRole;
+    if (currentRole === input.newRole) return; // no-op short-circuit; no event
+
+    // Both cap and floor checks need the current super_user count.
+    const count = await countSuperUsers(trx, input.orgId);
+
+    // Cap: promoting a non-super_user into super_user when already at 3.
+    if (input.newRole === 'super_user' && currentRole !== 'super_user' && count >= 3) {
+      throw new TooManySuperUsersError();
+    }
+    // Floor: demoting the only super_user.
+    if (currentRole === 'super_user' && input.newRole !== 'super_user' && count <= 1) {
+      throw new LastSuperUserError();
+    }
+
+    await trx
+      .updateTable('user_orgs')
+      .set({ role: input.newRole })
+      .where('user_id', '=', input.targetUserId)
+      .where('org_id', '=', input.orgId)
+      .execute();
+
+    await writeAdminEvent(trx, {
+      kind: 'admin.role_changed',
+      orgId: input.orgId,
+      actorId: input.actorId,
+      targetUserId: input.targetUserId,
+      beforeRole: currentRole,
+      afterRole: input.newRole,
+    });
+  });
 }
 
 export async function removeMember(db: Kysely<Database>, input: RemoveMemberInput): Promise<void> {

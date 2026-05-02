@@ -329,4 +329,31 @@ describe('writeAdminEvent', () => {
       after: { display_name: 'New Name' },
     });
   });
+
+  it('writes an admin.role_changed row with before/after roles', async () => {
+    const actor = await insertUser(db, { orgId });
+    const target = await insertUser(db, { orgId });
+
+    await writeAdminEvent(db, {
+      kind: 'admin.role_changed',
+      orgId,
+      actorId: actor.id,
+      targetUserId: target.id,
+      beforeRole: 'member',
+      afterRole: 'moderator',
+    });
+
+    const row = await db
+      .selectFrom('events')
+      .selectAll()
+      .where('type', '=', 'admin.role_changed')
+      .executeTakeFirstOrThrow();
+    expect(row.org_id).toBe(orgId);
+    expect(row.actor_id).toBe(actor.id);
+    expect(row.payload).toMatchObject({
+      target_user_id: target.id,
+      before_role: 'member',
+      after_role: 'moderator',
+    });
+  });
 });

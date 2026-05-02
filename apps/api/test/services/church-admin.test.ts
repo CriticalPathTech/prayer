@@ -1,8 +1,17 @@
 import { createDb, newId } from '@prayer/db';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
-import { ForbiddenError, NotFoundError } from '../../src/middleware/error.js';
-import { removeMember, updateChurchSettings } from '../../src/services/church-admin.js';
+import {
+  ForbiddenError,
+  LastSuperUserError,
+  NotFoundError,
+  TooManySuperUsersError,
+} from '../../src/middleware/error.js';
+import {
+  changeMemberRole,
+  removeMember,
+  updateChurchSettings,
+} from '../../src/services/church-admin.js';
 import { mintInviteCode } from '../../src/services/invite-codes.js';
 import { insertOrg, insertUser } from '../helpers/seed.js';
 
@@ -175,5 +184,217 @@ describe('church-admin — updateChurchSettings', () => {
       .where('type', '=', 'admin.org_settings_updated')
       .executeTakeFirstOrThrow();
     expect(Number(eventCount.count)).toBe(0);
+  });
+});
+
+describe('church-admin — changeMemberRole', () => {
+  let orgId: string;
+  let actor: { id: string };
+
+  beforeAll(async () => {
+    orgId = await insertOrg(db, { slug: `chrole-${newId().slice(0, 8)}` });
+    actor = await insertUser(db, { email: 'role-actor@chrole.com', orgId, role: 'super_user' });
+  });
+
+  afterEach(async () => {
+    await db.deleteFrom('events').execute();
+    await db
+      .deleteFrom('user_orgs')
+      .where('org_id', '=', orgId)
+      .where('user_id', '!=', actor.id)
+      .execute();
+    await db
+      .deleteFrom('users')
+      .where('id', 'not in', db.selectFrom('user_orgs').select('user_id'))
+      .execute();
+  });
+
+  afterAll(async () => {
+    await db.deleteFrom('user_orgs').where('user_id', '=', actor.id).execute();
+    await db.deleteFrom('users').where('id', '=', actor.id).execute();
+    await db.deleteFrom('orgs').where('id', '=', orgId).execute();
+  });
+
+  it('promotes member → moderator and writes the event', async () => {
+    const target = await insertUser(db, { email: 'm@chrole.com', orgId, role: 'member' });
+
+    await changeMemberRole(db, {
+      actorId: actor.id,
+      targetUserId: target.id,
+      orgId,
+      newRole: 'moderator',
+    });
+
+    const uo = await db
+      .selectFrom('user_orgs')
+      .where('user_id', '=', target.id)
+      .where('org_id', '=', orgId)
+      .select('role')
+      .executeTakeFirstOrThrow();
+    expect(uo.role).toBe('moderator');
+
+    const event = await db
+      .selectFrom('events')
+      .where('type', '=', 'admin.role_changed')
+      .where('org_id', '=', orgId)
+      .where('actor_id', '=', actor.id)
+      .selectAll()
+      .executeTakeFirstOrThrow();
+    expect(event.payload).toMatchObject({
+      target_user_id: target.id,
+      before_role: 'member',
+      after_role: 'moderator',
+    });
+  });
+
+  it('promotes moderator → super_user when count < 3', async () => {
+    const target = await insertUser(db, { email: 'mod@chrole.com', orgId, role: 'moderator' });
+
+    await changeMemberRole(db, {
+      actorId: actor.id,
+      targetUserId: target.id,
+      orgId,
+      newRole: 'super_user',
+    });
+
+    const uo = await db
+      .selectFrom('user_orgs')
+      .where('user_id', '=', target.id)
+      .where('org_id', '=', orgId)
+      .select('role')
+      .executeTakeFirstOrThrow();
+    expect(uo.role).toBe('super_user');
+  });
+
+  it('demotes super_user → moderator when count > 1', async () => {
+    const target = await insertUser(db, { email: 'su@chrole.com', orgId, role: 'super_user' });
+
+    await changeMemberRole(db, {
+      actorId: actor.id,
+      targetUserId: target.id,
+      orgId,
+      newRole: 'moderator',
+    });
+
+    const uo = await db
+      .selectFrom('user_orgs')
+      .where('user_id', '=', target.id)
+      .where('org_id', '=', orgId)
+      .select('role')
+      .executeTakeFirstOrThrow();
+    expect(uo.role).toBe('moderator');
+  });
+
+  it('no-op when newRole === current role: returns without writing event', async () => {
+    const target = await insertUser(db, { email: 'noop@chrole.com', orgId, role: 'moderator' });
+
+    await changeMemberRole(db, {
+      actorId: actor.id,
+      targetUserId: target.id,
+      orgId,
+      newRole: 'moderator',
+    });
+
+    const eventCount = await db
+      .selectFrom('events')
+      .select(({ fn }) => fn.count<number>('id').as('count'))
+      .where('type', '=', 'admin.role_changed')
+      .where('org_id', '=', orgId)
+      .where('actor_id', '=', actor.id)
+      .executeTakeFirstOrThrow();
+    expect(Number(eventCount.count)).toBe(0);
+  });
+
+  it('throws ForbiddenError when actor === target (self-change)', async () => {
+    await expect(
+      changeMemberRole(db, {
+        actorId: actor.id,
+        targetUserId: actor.id,
+        orgId,
+        newRole: 'moderator',
+      }),
+    ).rejects.toBeInstanceOf(ForbiddenError);
+  });
+
+  it('throws TooManySuperUsersError when promoting to super_user at the cap', async () => {
+    // actor is already 1 super_user. Add 2 more to reach the cap of 3.
+    const su2 = await insertUser(db, { email: 'su2@chrole.com', orgId, role: 'super_user' });
+    const su3 = await insertUser(db, { email: 'su3@chrole.com', orgId, role: 'super_user' });
+    const candidate = await insertUser(db, { email: 'cand@chrole.com', orgId, role: 'moderator' });
+
+    await expect(
+      changeMemberRole(db, {
+        actorId: actor.id,
+        targetUserId: candidate.id,
+        orgId,
+        newRole: 'super_user',
+      }),
+    ).rejects.toBeInstanceOf(TooManySuperUsersError);
+
+    // Sanity: candidate is unchanged.
+    const cand = await db
+      .selectFrom('user_orgs')
+      .where('user_id', '=', candidate.id)
+      .where('org_id', '=', orgId)
+      .select('role')
+      .executeTakeFirstOrThrow();
+    expect(cand.role).toBe('moderator');
+    void su2;
+    void su3;
+  });
+
+  it('throws LastSuperUserError when demoting the only super_user', async () => {
+    // Use a separate local org so we can have an isolated single-su scenario
+    // without disturbing the shared actor.
+    const localOrg = await insertOrg(db, { slug: `chrole-floor-${newId().slice(0, 8)}` });
+    try {
+      const onlySu = await insertUser(db, {
+        email: 'only-su@chrole-floor.com',
+        orgId: localOrg,
+        role: 'super_user',
+      });
+      const otherActor = await insertUser(db, {
+        email: 'other@chrole-floor.com',
+        orgId: localOrg,
+        role: 'super_user',
+      });
+
+      // Demote otherActor first so count = 1, leaving only onlySu.
+      await changeMemberRole(db, {
+        actorId: onlySu.id,
+        targetUserId: otherActor.id,
+        orgId: localOrg,
+        newRole: 'moderator',
+      });
+
+      // Now demote onlySu — using otherActor (now moderator) as the actor.
+      // Service layer doesn't check actor's role; route layer does. The
+      // service's check here is the floor.
+      await expect(
+        changeMemberRole(db, {
+          actorId: otherActor.id,
+          targetUserId: onlySu.id,
+          orgId: localOrg,
+          newRole: 'moderator',
+        }),
+      ).rejects.toBeInstanceOf(LastSuperUserError);
+
+      // Sanity: onlySu is unchanged.
+      const stillSu = await db
+        .selectFrom('user_orgs')
+        .where('user_id', '=', onlySu.id)
+        .where('org_id', '=', localOrg)
+        .select('role')
+        .executeTakeFirstOrThrow();
+      expect(stillSu.role).toBe('super_user');
+    } finally {
+      await db.deleteFrom('events').where('org_id', '=', localOrg).execute();
+      await db.deleteFrom('user_orgs').where('org_id', '=', localOrg).execute();
+      await db
+        .deleteFrom('users')
+        .where('email', 'in', ['only-su@chrole-floor.com', 'other@chrole-floor.com'])
+        .execute();
+      await db.deleteFrom('orgs').where('id', '=', localOrg).execute();
+    }
   });
 });

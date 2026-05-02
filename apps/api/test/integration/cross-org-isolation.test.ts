@@ -857,5 +857,14 @@ describe('cross-org isolation', () => {
         .set('Authorization', `Bearer ${tokA}`);
       expect(res.status).toBe(403);
     });
+
+    it('super_user of orgA cannot PATCH a user belonging to orgB', async () => {
+      const res = await request(app.app)
+        .patch(`/admin/church/members/${userB.id}`)
+        .set('Host', 'lakeside.prays.online')
+        .set('Authorization', `Bearer ${suATok}`)
+        .send({ role: 'moderator' });
+      expect(res.status).toBe(404);
+    });
   });
 });

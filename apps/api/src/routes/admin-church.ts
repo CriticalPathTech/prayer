@@ -1,14 +1,18 @@
-import type { Database } from '@prayer/db';
+import type { Database, UserRole } from '@prayer/db';
 import { Router } from 'express';
 import type { Kysely } from 'kysely';
 
-import { UnauthorizedError } from '../middleware/error.js';
+import { UnauthorizedError, ValidationError } from '../middleware/error.js';
 import {
+  changeMemberRole,
+  countSuperUsers,
   getChurchSettings,
   listMembers,
   removeMember,
   updateChurchSettings,
 } from '../services/church-admin.js';
+
+const VALID_ROLES: readonly UserRole[] = ['member', 'moderator', 'super_user'];
 
 export function adminChurchRouter(deps: { db: Kysely<Database> }): Router {
   const router = Router();
@@ -16,11 +20,12 @@ export function adminChurchRouter(deps: { db: Kysely<Database> }): Router {
   router.get('/admin/church/members', async (req, res, next) => {
     try {
       if (!req.user) throw new UnauthorizedError();
-      const [members, settings] = await Promise.all([
+      const [members, settings, superUserCount] = await Promise.all([
         listMembers(deps.db, req.user.orgId),
         getChurchSettings(deps.db, req.user.orgId),
+        countSuperUsers(deps.db, req.user.orgId),
       ]);
-      res.json({ members, org: settings });
+      res.json({ members, org: settings, superUserCount });
     } catch (err) {
       next(err);
     }
@@ -35,6 +40,30 @@ export function adminChurchRouter(deps: { db: Kysely<Database> }): Router {
         orgId: req.user.orgId,
       });
       res.status(204).send();
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  router.patch('/admin/church/members/:userId', async (req, res, next) => {
+    try {
+      if (!req.user) throw new UnauthorizedError();
+      const body = (req.body ?? {}) as { role?: unknown };
+      const { role } = body;
+      if (typeof role !== 'string' || !(VALID_ROLES as readonly string[]).includes(role)) {
+        throw new ValidationError('role must be one of: member, moderator, super_user');
+      }
+      await changeMemberRole(deps.db, {
+        actorId: req.user.id,
+        targetUserId: req.params.userId!,
+        orgId: req.user.orgId,
+        newRole: role as UserRole,
+      });
+      // Re-read the row so the response reflects the post-update state.
+      const members = await listMembers(deps.db, req.user.orgId);
+      // Service confirmed the row exists; non-null assertion is safe.
+      const updated = members.find((m) => m.id === req.params.userId)!;
+      res.json({ member: updated });
     } catch (err) {
       next(err);
     }

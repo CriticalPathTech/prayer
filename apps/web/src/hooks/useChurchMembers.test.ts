@@ -36,15 +36,22 @@ describe('useChurchMembers', () => {
           joinedAt: '2026-01-02T00:00:00Z',
         },
       ],
+      org: { displayName: 'Hope Church' },
+      superUserCount: 1,
     });
     const { result } = renderHook(() => useChurchMembers());
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(result.current.members).toHaveLength(2);
+    expect(result.current.superUserCount).toBe(1);
     expect(apiFetch).toHaveBeenCalledWith('/admin/church/members');
   });
 
   it('refresh re-fetches', async () => {
-    vi.mocked(apiFetch).mockResolvedValue({ members: [] });
+    vi.mocked(apiFetch).mockResolvedValue({
+      members: [],
+      org: { displayName: 'Hope' },
+      superUserCount: 0,
+    });
     const { result } = renderHook(() => useChurchMembers());
     await waitFor(() => expect(result.current.loading).toBe(false));
     await result.current.refresh();

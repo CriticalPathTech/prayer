@@ -1,22 +1,27 @@
 import { useEffect, useState, type JSX } from 'react';
 import { Navigate } from 'react-router-dom';
 
+import { ChangeMemberRoleDialog } from '../components/ChangeMemberRoleDialog';
 import { RemoveMemberDialog } from '../components/RemoveMemberDialog';
 import { Avatar } from '../components/ui/Avatar';
 import { Button } from '../components/ui/Button';
 import { Field, inputClass } from '../components/ui/Field';
 import { Pill } from '../components/ui/Pill';
 import { useAuth } from '../hooks/useAuth';
+import { useChangeMemberRole } from '../hooks/useChangeMemberRole';
 import { useChurchMembers, type MemberRow } from '../hooks/useChurchMembers';
 import { useChurchSettings } from '../hooks/useChurchSettings';
 import { useRemoveMember } from '../hooks/useRemoveMember';
+import type { Role } from '../lib/roles';
 
 export function AdminChurchPage(): JSX.Element {
   const { me } = useAuth();
-  const { members, currentDisplayName, loading, refresh } = useChurchMembers();
+  const { members, currentDisplayName, superUserCount, loading, refresh } = useChurchMembers();
   const { updateDisplayName, saving } = useChurchSettings();
   const { removeMember, removing } = useRemoveMember();
+  const { changeRole, saving: changingRole } = useChangeMemberRole();
   const [target, setTarget] = useState<MemberRow | null>(null);
+  const [roleTarget, setRoleTarget] = useState<MemberRow | null>(null);
   const [draftName, setDraftName] = useState<string>('');
   const [hydrated, setHydrated] = useState(false);
 
@@ -55,6 +60,17 @@ export function AdminChurchPage(): JSX.Element {
       await refresh();
     } catch {
       // error surfaces via the hook's error state; keep dialog open for retry.
+    }
+  }
+
+  async function onConfirmRoleChange(newRole: Role): Promise<void> {
+    if (!roleTarget) return;
+    try {
+      await changeRole(roleTarget.id, newRole);
+      setRoleTarget(null);
+      await refresh();
+    } catch {
+      // Error surfaces via the hook's error state; keep dialog open for retry.
     }
   }
 
@@ -118,9 +134,14 @@ export function AdminChurchPage(): JSX.Element {
                   </td>
                   <td className="py-2 text-right">
                     {m.id !== me.id ? (
-                      <Button variant="quiet" onClick={() => setTarget(m)}>
-                        Remove
-                      </Button>
+                      <div className="inline-flex gap-2">
+                        <Button variant="quiet" onClick={() => setRoleTarget(m)}>
+                          Change role
+                        </Button>
+                        <Button variant="quiet" onClick={() => setTarget(m)}>
+                          Remove
+                        </Button>
+                      </div>
                     ) : null}
                   </td>
                 </tr>
@@ -136,6 +157,15 @@ export function AdminChurchPage(): JSX.Element {
           onConfirm={() => void onConfirmRemove()}
           onCancel={() => setTarget(null)}
           removing={removing}
+        />
+      ) : null}
+      {roleTarget ? (
+        <ChangeMemberRoleDialog
+          member={roleTarget}
+          superUserCount={superUserCount}
+          onConfirm={(newRole) => void onConfirmRoleChange(newRole)}
+          onCancel={() => setRoleTarget(null)}
+          saving={changingRole}
         />
       ) : null}
     </div>

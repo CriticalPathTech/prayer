@@ -92,6 +92,22 @@ export class StorageError extends AppError {
   }
 }
 
+export class TooManySuperUsersError extends AppError {
+  constructor() {
+    super(409, 'TOO_MANY_SUPER_USERS', 'this church already has 3 super_users; demote one first');
+  }
+}
+
+export class LastSuperUserError extends AppError {
+  constructor() {
+    super(
+      409,
+      'LAST_SUPER_USER',
+      'cannot demote the last super_user; promote another member first',
+    );
+  }
+}
+
 export const errorHandler: ErrorRequestHandler = (
   err,
   req: Request,
