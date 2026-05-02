@@ -29,7 +29,10 @@ export function meRouter(deps: {
   const router = Router();
 
   router.get('/me', (req, res) => {
-    res.json(req.user);
+    res.json({
+      ...req.user,
+      org: req.org ? { displayName: req.org.displayName } : null,
+    });
   });
 
   router.patch('/me', async (req, res, next) => {

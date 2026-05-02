@@ -23,11 +23,24 @@ describe('MobilePageHeader', () => {
       </MemoryRouter>,
     );
     expect(screen.getByRole('button', { name: /menu/i })).toBeInTheDocument();
+    // Falls back to "Prayer" when no brandLabel passed.
     expect(screen.getByText('Prayer')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /notifications/i })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /new request/i })).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: /menu/i }));
     expect(onMenu).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows the brandLabel prop in place of "Prayer" when provided', () => {
+    render(
+      <MemoryRouter>
+        <MobilePageHeader
+          variant={{ kind: 'feed', onMenu: () => {}, unreadCount: 0, brandLabel: 'Hope Church' }}
+        />
+      </MemoryRouter>,
+    );
+    expect(screen.getByText('Hope Church')).toBeInTheDocument();
+    expect(screen.queryByText('Prayer')).not.toBeInTheDocument();
   });
 
   it('shows the unread dot when unreadCount > 0', () => {

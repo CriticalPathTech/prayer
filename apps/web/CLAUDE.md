@@ -15,9 +15,11 @@ src/
     ProtectedRoute.tsx    Loading / redirect-to-/login / render children
     PostCard.tsx          Feed row — anonymity mask, expiring-soon pill, FlagButton, Reactions
     UpdatePostItem.tsx    Indented update w/ "Answered prayer" badge
-    SortTabs.tsx          Newest | Updated | Popular tablist
+    FilterTabs.tsx        All / Mine / Answered filter tabs on the feed (replaces older SortTabs)
     ExpiryPicker.tsx      1–365 day numeric input; emits ISO string
-    FlagButton.tsx, FlagModal.tsx, FlagCountPill.tsx
+    FlagButton.tsx, FlagModal.tsx, FlagCountPill.tsx, PostMenu.tsx
+    ConfirmDialog.tsx, RemoveMemberDialog.tsx, ChangeMemberRoleDialog.tsx  Modal patterns; type-to-confirm for destructive/security-significant actions
+    AuthShell.tsx         Shared sign-in / sign-up layout chrome
     HiddenBanner.tsx      Member-facing copy + moderatorView variant ("Hidden by Alice" / "Auto-hidden (2 flags)")
     HideTombstone.tsx     Dashed gray box for hidden posts to non-privileged viewers
     InviteModal.tsx
@@ -44,14 +46,19 @@ src/
   lib/
     supabase.ts           Supabase client singleton (explicit persistSession + autoRefreshToken)
     api.ts                apiFetch<T>(path) — attaches Bearer from supabase.auth.getSession()
+    roles.ts              Canonical `Role` type ('member' | 'moderator' | 'super_user') + `isPrivilegedRole`. Import from here, don't redeclare locally.
+    time.ts               formatAgo(iso), expiringSoon(iso) — relative-time helpers
     gravatar.ts           md5(email) → https://www.gravatar.com/avatar/... (used by 3-tier Avatar fallback)
     authErrorCopy.ts      Maps API/Supabase error codes to friendly user-facing text
   pages/
     LoginPage, SignupCodePage, SignupAccountPage, CheckEmailPage, AuthCallbackPage,
     ForgotPasswordPage, ResetPasswordPage,
-    FeedPage, ComposePage, PostDetailPage,
+    FeedPage, ComposePage, PostDetailPage, EditPostPage,
     ProfilePage, SecurityPage, MyArchivePage, MyInvitesPage,
-    ModQueuePage, ModInvitesPage, NotFoundPage
+    ModQueuePage, ModInvitesPage, AdminChurchPage, NotFoundPage
+  views/mobile/          Parallel mobile page tree (~25 files: Mobile<PageName>.tsx + Mobile{Layout,Drawer,PageHeader,...}.tsx)
+                         App.tsx switches between desktop pages/ and mobile views/ via useIsMobile (IsMobileContext).
+                         Add a mobile counterpart for any new page that needs touch-optimized layout.
 test/
   mobile/                 Playwright specs (smoke.spec.ts + axe.spec.ts) — iPhone SE + iPhone 12 Pro
   e2e/

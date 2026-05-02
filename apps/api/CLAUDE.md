@@ -14,7 +14,8 @@ src/
   lib/logger.ts       pino instance + redaction config
   lib/storage.ts      Narrow StorageClient interface wrapping @aws-sdk/client-s3 (tests inject a fake)
   middleware/auth.ts  requireAuth (JIT-creates user row + sanitizeDisplayName), requireMember/Moderator/SuperUser
-  middleware/error.ts Error classes + central errorHandler (UnauthorizedError, ForbiddenError, NotFoundError, ValidationError, EditDeadlinePassedError, TooManyRequestsError, PayloadTooLargeError, StorageError)
+  middleware/org-context.ts  Resolves req.org from the Host header (slug.prays.online → orgs row); errors loud on stale-multi-org localhost
+  middleware/error.ts Error classes + central errorHandler (UnauthorizedError, ForbiddenError, NotFoundError, ValidationError, EditDeadlinePassedError, TooManyRequestsError, PayloadTooLargeError, StorageError, OnboardingRequiredError, CodeNotFoundError/CodeFullError/CodeInactiveError/AlreadyRedeemedError, TooManySuperUsersError/LastSuperUserError)
   middleware/rate-limit.ts   buildLimiter(scope) + 5 scope constants (PREVIEW, ACCEPT, WRITE, REACTION, GLOBAL)
   middleware/origin-check.ts Origin allowlist on mutating verbs (CSRF belt)
   routes/health.ts    GET /healthz (pings DB with 2s timeout)
@@ -24,11 +25,21 @@ src/
   routes/feed.ts      GET /feed (3 sorts + cursor) + GET /feed/snapshot
   routes/comments.ts  /posts/:id/comments CRUD (threaded)
   routes/invitations.ts      /invitations CRUD + /invitations/{preview,accept}
+  routes/invite-codes.ts     /me/invite-codes — owner-side invite-code listing
+  routes/mod-invite-codes.ts /mod/invite-codes — moderator-side invite-code mint/list/revoke
   routes/notifications.ts    /me/notifications list + mark-read
   routes/moderation.ts       /mod/queue, /mod/hide, /mod/unhide (moderator/super_user gated)
+  routes/admin-church.ts     /admin/church/{members,settings,members/:userId} — super_user-only church management (list members, remove, rename church, promote/demote with 3-su cap + 1-su floor)
   services/posts.ts   createPost, publishPost, editPost, archivePost, createUpdate, editUpdate,
                       getOwnDraft, upsertOwnDraft, publishOwnDraft (single draft per user — partial unique index),
                       listArchive, getPostWithUpdates, toPostDto (anonymity mask + hide attribution)
+  services/church-admin.ts   listMembers, removeMember, getChurchSettings, updateChurchSettings, changeMemberRole, countSuperUsers; writes admin.* events
+  services/orgs.ts           findOrgBySlug, findOrCreateOrg — used by org-context middleware + bootstrap
+  services/membership-set.ts In-memory cache of (user_id, org_id) memberships for hot-path auth
+  services/users.ts          User lookup helpers
+  services/comments.ts       create/edit/archive comments + threading
+  services/flags.ts          flagPost/flagComment + dedup per (user, target)
+  services/prayers.ts, services/prayer-consumer.ts  Prayer toggle + count recomputer (mirrors reactions)
   services/avatars.ts uploadOwnAvatar, deleteOwnAvatar — writes to S3-compatible storage backend, `avatars/` bucket
   services/feed.ts    fetchFeed (newest|updated|popular) + getSnapshotId; role-aware status filter; batch-fetches reactions per post (same query pattern as prayedSet)
   services/feed-snapshot.ts  getSnapshotId — reads latest published post id from DB
@@ -62,6 +73,8 @@ test/
 - **Origin-check middleware** (`middleware/origin-check.ts`) runs on POST/PATCH/PUT/DELETE before routes. Missing Origin passes (server-to-server); spoofed Origin → 403. Allowlist comes from `CORS_ORIGIN` env.
 - **Display-name sanitization:** `requireAuth` strips HTML-meaningful and control characters from the email local-part via `sanitizeDisplayName()` before the JIT insert, and caps at 60 chars. A malicious Supabase email claim never lands verbatim in `users.display_name`.
 - **Auth middleware chain:** protected routes mount as `requireAuth, requireMember, router`. `requireAuth` verifies JWT against JWKS, looks up user by `supabase_auth_id`, and JIT-inserts a user row on first request (default role `member`, `display_name` from email local-part).
+- **Multi-tenancy via Host header:** `middleware/org-context.ts` resolves `req.org` from the request `Host` (e.g. `lakeside.prays.online` → orgs row with slug=`lakeside`). Routes scope all queries by `req.user.orgId`. Localhost falls back to single-org-in-DB; multi-org-localhost is a hard error (see Known rough edges).
+- **Admin event kinds:** `admin.member_removed`, `admin.org_settings_updated`, `admin.role_changed` — written by `services/church-admin.ts` via `writeAdminEvent` in the same transaction as the data mutation. Used for the audit trail surfaced to super_users.
 - **JWKS source:** in tests, `AUTH_JWKS_URL` is `file://…/test-jwks.json`; in prod it points at the auth provider's `/.well-known/jwks.json` (Supabase or local GoTrue). `jose` handles both via `createRemoteJWKSet` + `fetch`; tests rely on Node's `fetch` supporting `file:` URLs.
 - **JWT signing in tests:** uses RS256 + PKCS#8 key (required by `jose.importPKCS8`). Do NOT reintroduce PKCS#1 keys.
 - **Error handling:** throw typed errors from `middleware/error.ts` (`UnauthorizedError`, `ForbiddenError`, `NotFoundError`). The central `errorHandler` maps them to JSON responses. Don't write `res.status(401).json(...)` ad hoc.

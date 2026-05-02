@@ -4,9 +4,11 @@ import { useOutletContext, useSearchParams } from 'react-router-dom';
 
 import { NewActivityBanner } from '../../components/NewActivityBanner';
 import { Icon } from '../../components/ui/Icon';
+import { useAuth } from '../../hooks/useAuth';
 import { useFeed, type FeedFilter } from '../../hooks/useFeed';
 import { useFeedSnapshot } from '../../hooks/useFeedSnapshot';
 import { useNotifications } from '../../hooks/useNotifications';
+import { displayedOrgName } from '../../lib/org';
 
 import type { MobileLayoutContext } from './MobileLayout';
 import { MobilePageHeader } from './MobilePageHeader';
@@ -23,7 +25,10 @@ export function MobileFeedPage(): JSX.Element {
   const { posts, filter, setFilter, loading, error, hasMore, loadMore, snapshotId, refresh } =
     useFeed({ initialFilter: urlFilter });
   const notif = useNotifications();
+  const { me } = useAuth();
   const [hasNew, setHasNew] = useState(false);
+  // Mobile header has ~140px for the brand label; collapse long names to first word.
+  const brandLabel = displayedOrgName(me?.orgDisplayName, 14);
 
   useEffect(() => {
     if (urlFilter !== filter) setFilter(urlFilter);
@@ -45,7 +50,12 @@ export function MobileFeedPage(): JSX.Element {
   return (
     <>
       <MobilePageHeader
-        variant={{ kind: 'feed', onMenu: openDrawer, unreadCount: notif.unreadCount }}
+        variant={{
+          kind: 'feed',
+          onMenu: openDrawer,
+          unreadCount: notif.unreadCount,
+          brandLabel,
+        }}
       />
       <div className="flex flex-1 flex-col gap-3 px-4 pb-6 pt-3">
         <NewActivityBanner

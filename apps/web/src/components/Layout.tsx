@@ -4,6 +4,7 @@ import { Link, Outlet } from 'react-router-dom';
 
 import { useAuth } from '../hooks/useAuth';
 import { useNotifications } from '../hooks/useNotifications';
+import { displayedOrgName } from '../lib/org';
 import { isPrivilegedRole } from '../lib/roles';
 
 import { NotificationBell } from './NotificationBell';
@@ -50,6 +51,7 @@ export function Layout(): JSX.Element {
   const canMod = isPrivilegedRole(me?.role);
   const badge = roleBadge(me?.role);
   const displayName = me?.displayName ?? me?.email ?? '?';
+  const headerLabel = displayedOrgName(me?.orgDisplayName) || 'Prayer';
 
   return (
     <div className="min-h-screen bg-[var(--bg-page)] text-[var(--fg-2)] font-sans">
@@ -66,7 +68,7 @@ export function Layout(): JSX.Element {
             className="inline-flex items-center gap-2.5 font-serif font-semibold text-[22px] tracking-[-0.02em] text-[var(--fg-1)] no-underline"
           >
             <Icon name="pray" size={20} aria-hidden />
-            <span>Prayer</span>
+            <span>{headerLabel}</span>
           </Link>
           <div className="flex-1" />
           <nav className="flex items-center gap-1 text-sm">

@@ -77,6 +77,8 @@ pnpm --filter @prayer/db --filter @prayer/shared build      # project-ref artifa
 
 - Generic self-hosting guide: `docs/self-hosting.md`.
 - Per-app guidance: `apps/api/CLAUDE.md`, `apps/web/CLAUDE.md`.
+- **Multi-tenant model:** every request's hostname (`<slug>.prays.online`) resolves to an org via `apps/api/src/middleware/org-context.ts`; routes scope by `req.user.orgId`. Onboarding a new church: `pnpm admin:create-org --slug X && pnpm bootstrap --slug X`.
+- **Admin surface:** `/admin/church` (web) is super_user-only — list/remove members, rename church, promote/demote with cap + floor. Backed by `apps/api/src/routes/admin-church.ts`.
 - Internal product roadmap, design specs, and implementation plans live in a separate private repo (`prayer-cloud`).
 
 ## Branch and PR workflow

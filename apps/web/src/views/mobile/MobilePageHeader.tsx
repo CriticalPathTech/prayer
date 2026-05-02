@@ -4,7 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Icon } from '../../components/ui/Icon';
 
 type Variant =
-  | { kind: 'feed'; onMenu: () => void; unreadCount: number }
+  | { kind: 'feed'; onMenu: () => void; unreadCount: number; brandLabel?: string }
   | { kind: 'back'; title: string; onBack?: () => void; right?: ReactNode }
   | { kind: 'close'; title: string; onClose?: () => void; right?: ReactNode };
 
@@ -49,7 +49,7 @@ export function MobilePageHeader({ variant }: MobilePageHeaderProps): JSX.Elemen
           className="inline-flex items-center gap-2 font-serif text-[19px] font-semibold tracking-[-0.02em] text-[var(--fg-1)] no-underline"
         >
           <Icon name="pray" size={20} />
-          <span>Prayer</span>
+          <span>{variant.brandLabel || 'Prayer'}</span>
         </Link>
         <div className="flex items-center justify-end">
           <button

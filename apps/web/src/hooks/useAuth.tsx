@@ -19,6 +19,9 @@ export interface Me {
   displayName: string;
   avatarUrl: string | null;
   role: 'member' | 'moderator' | 'super_user';
+  /** Org display name (church name). Optional so test fixtures can omit it;
+   * absent or empty falls back to the "Prayer" wordmark in the header. */
+  orgDisplayName?: string;
 }
 
 interface AuthState {
@@ -40,6 +43,7 @@ interface MeDto {
   avatar_url?: string | null;
   avatarUrl?: string | null;
   role: 'member' | 'moderator' | 'super_user';
+  org?: { displayName?: string } | null;
 }
 
 function toMe(dto: MeDto): Me {
@@ -49,6 +53,7 @@ function toMe(dto: MeDto): Me {
     displayName: dto.displayName ?? dto.display_name ?? '',
     avatarUrl: dto.avatarUrl ?? dto.avatar_url ?? null,
     role: dto.role,
+    orgDisplayName: dto.org?.displayName ?? '',
   };
 }
 

@@ -31,7 +31,7 @@ export function FeedPage(): JSX.Element {
     <div className="mx-auto max-w-feed px-4 py-6">
       <div className="mb-4 flex items-center justify-between">
         <h1 className="font-serif text-[28px] font-semibold tracking-[-0.02em] text-[var(--fg-1)]">
-          Prayer Feed
+          Prayer Requests
         </h1>
         <Link
           to="/compose"
