@@ -17,4 +17,20 @@ describe('sanitizeDisplayName', () => {
     const out = sanitizeDisplayName("j.o'brien-smith@x.com");
     expect(out).toBe("j.o'brien-smith");
   });
+
+  it('keeps Mandarin characters', () => {
+    expect(sanitizeDisplayName('開路者@x.com')).toBe('開路者');
+    expect(sanitizeDisplayName('開路者')).toBe('開路者');
+  });
+
+  it('keeps Arabic, Devanagari, and accented Latin', () => {
+    expect(sanitizeDisplayName('محمد@x.com')).toBe('محمد');
+    expect(sanitizeDisplayName('देव@x.com')).toBe('देव');
+    expect(sanitizeDisplayName('José Sánchez@x.com')).toBe('José Sánchez');
+  });
+
+  it("strips emojis and other symbols (kept narrowly to letters/digits/whitespace/-/./')", () => {
+    expect(sanitizeDisplayName('Alice 👋@x.com')).toBe('Alice');
+    expect(sanitizeDisplayName('Bob#123@x.com')).toBe('Bob123');
+  });
 });

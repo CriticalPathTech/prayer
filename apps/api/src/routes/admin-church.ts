@@ -11,10 +11,14 @@ import {
   removeMember,
   updateChurchSettings,
 } from '../services/church-admin.js';
+import type { OrgResolver } from '../services/orgs.js';
 
 const VALID_ROLES: readonly UserRole[] = ['member', 'moderator', 'super_user'];
 
-export function adminChurchRouter(deps: { db: Kysely<Database> }): Router {
+export function adminChurchRouter(deps: {
+  db: Kysely<Database>;
+  orgResolver: OrgResolver;
+}): Router {
   const router = Router();
 
   router.get('/admin/church/members', async (req, res, next) => {
@@ -82,6 +86,10 @@ export function adminChurchRouter(deps: { db: Kysely<Database> }): Router {
         actorId: req.user.id,
         displayName,
       });
+      // Drop any cached org rows pointing at this orgId so subsequent requests
+      // re-read the new display_name instead of serving the previous value for
+      // up to HOST_TO_ORG_TTL_MS (5 min).
+      deps.orgResolver.invalidateByOrgId(req.user.orgId);
       res.json({
         org: {
           id: result.id,

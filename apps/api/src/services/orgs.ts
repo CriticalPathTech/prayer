@@ -14,6 +14,13 @@ const HOST_TO_ORG_MAX = 1000;
 export interface OrgResolver {
   resolve(host: string): Promise<ResolvedOrg | null>;
   invalidate(host: string): void;
+  /** Drop every cached entry whose resolved org id matches `orgId`.
+   * Use after writes that change the org row (e.g. PATCH /admin/church/settings):
+   * one org can sit behind multiple cached hostnames (web `<slug>.prays.online`,
+   * api `api.<slug>.prays.online`, custom domains, `localhost` in dev), so we
+   * scan instead of taking a single host. The cache is bounded by HOST_TO_ORG_MAX
+   * so the scan is O(<=1000); writes are rare. */
+  invalidateByOrgId(orgId: string): void;
 }
 
 // lru-cache v11 enforces V extends {} (no null/undefined as cached values), so
@@ -39,6 +46,11 @@ export function createOrgResolver(db: Kysely<Database>): OrgResolver {
     },
     invalidate(host) {
       cache.delete(host);
+    },
+    invalidateByOrgId(orgId) {
+      for (const [host, cached] of cache.entries()) {
+        if (cached.org?.id === orgId) cache.delete(host);
+      }
     },
   };
 }

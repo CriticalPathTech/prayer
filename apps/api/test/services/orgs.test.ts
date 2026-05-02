@@ -100,6 +100,48 @@ describe('createOrgResolver — LRU cache', () => {
     resolver.invalidate('cached-resolve.prays.online');
     // Surface check; deeper cache invalidation behavior is internal
   });
+
+  it('invalidateByOrgId() drops every cached host pointing at the org', async () => {
+    const orgId = await insertOrg(app.db, { slug: 'cache-by-id', displayName: 'Original' });
+    const resolver = createOrgResolver(app.db);
+    // Cache the same org under two host shapes (web + api subdomain).
+    const web1 = await resolver.resolve('cache-by-id.prays.online');
+    const api1 = await resolver.resolve('api.cache-by-id.prays.online');
+    expect(web1?.displayName).toBe('Original');
+    expect(api1?.displayName).toBe('Original');
+    // Mutate behind the cache, then invalidate by orgId.
+    await app.db
+      .updateTable('orgs')
+      .set({ display_name: 'Renamed' })
+      .where('id', '=', orgId)
+      .execute();
+    resolver.invalidateByOrgId(orgId);
+    // Both hosts should re-read fresh.
+    const web2 = await resolver.resolve('cache-by-id.prays.online');
+    const api2 = await resolver.resolve('api.cache-by-id.prays.online');
+    expect(web2?.displayName).toBe('Renamed');
+    expect(api2?.displayName).toBe('Renamed');
+  });
+
+  it('invalidateByOrgId() leaves other orgs cached', async () => {
+    await insertOrg(app.db, { slug: 'keep-me-cached', displayName: 'Keep' });
+    const targetOrgId = await insertOrg(app.db, { slug: 'evict-me', displayName: 'Evict' });
+    const resolver = createOrgResolver(app.db);
+    const keep1 = await resolver.resolve('keep-me-cached.prays.online');
+    await resolver.resolve('evict-me.prays.online');
+    expect(keep1?.displayName).toBe('Keep');
+    // Mutate the unrelated org, then invalidate only the target.
+    await app.db
+      .updateTable('orgs')
+      .set({ display_name: 'KeepStillCachedAsOld' })
+      .where('slug', '=', 'keep-me-cached')
+      .execute();
+    resolver.invalidateByOrgId(targetOrgId);
+    // keep-me-cached was NOT touched by invalidate, so the resolver still
+    // serves the old "Keep" value (proves we didn't blow away unrelated entries).
+    const keep2 = await resolver.resolve('keep-me-cached.prays.online');
+    expect(keep2?.displayName).toBe('Keep');
+  });
 });
 
 describe('resolveLocalhost', () => {

@@ -11,13 +11,18 @@ export interface AuthDependencies {
   jwtVerifier: JwtVerifier;
 }
 
+// Allow Unicode letters (\p{L}), combining marks (\p{M}), and digits (\p{N})
+// so non-Latin display names like 開路者, محمد, देव pass through. Combining
+// marks matter for scripts that build characters from base + diacritic
+// codepoints — e.g. Devanagari vowel signs (देव = द + े + व) where the
+// vowel sign is \p{M}, not \p{L}. Keep the existing safe ASCII shortlist
+// (whitespace, hyphen, apostrophe, period). The `u` flag enables Unicode
+// property escapes; without it, `\w` falls back to ASCII-only and would
+// strip every CJK / Arabic / Devanagari character.
+const DISPLAY_NAME_STRIP_RE = /[^\p{L}\p{M}\p{N}\s\-'.]/gu;
+
 export function sanitizeDisplayName(email: string): string {
-  return (email ?? '')
-    .split('@')[0]!
-    .trim()
-    .replace(/[^\w\s\-'.]/g, '')
-    .slice(0, 60)
-    .trim();
+  return (email ?? '').split('@')[0]!.trim().replace(DISPLAY_NAME_STRIP_RE, '').slice(0, 60).trim();
 }
 
 /** Verify JWT; attach req.supabase. Does NOT touch users. */
