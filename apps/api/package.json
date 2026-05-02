@@ -2,6 +2,7 @@
   "name": "@prayer/api",
   "version": "0.0.0",
   "private": true,
+  "license": "Elastic-2.0",
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/server.ts | pino-pretty",

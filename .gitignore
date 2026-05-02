@@ -12,6 +12,18 @@ build/
 .env
 .env.local
 .env.*.local
+.env.*
+
+# secrets / keys (defense in depth — explicit allowlist for tracked test fixtures)
+*.pem
+*.key
+*.p12
+*.pfx
+!apps/api/test/fixtures/test-private-key-pkcs8.pem
+!docker/gotrue-jwt/private.jwk.json
+
+# Local Claude Code config (may contain personal API keys / cached creds)
+.claude/settings.local.json
 
 # logs
 *.log

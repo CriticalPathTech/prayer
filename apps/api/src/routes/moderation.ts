@@ -100,10 +100,13 @@ export function moderationRouter(deps: { db: Kysely<Database> }): Router {
   router.post('/mod/comments/:id/dismiss-flags', async (req, res, next) => {
     try {
       if (!req.user) throw new UnauthorizedError();
+      // Scope by org_id so a moderator from one church can't even confirm
+      // the existence of a comment UUID that belongs to a different church.
       const comment = await deps.db
         .selectFrom('comments')
         .select('post_id')
         .where('id', '=', req.params.id!)
+        .where('org_id', '=', req.user.orgId)
         .executeTakeFirst();
       const out = await dismissFlags(deps.db, {
         callerId: req.user.id,

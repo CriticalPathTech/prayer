@@ -1,0 +1,32 @@
+name: Feature request
+description: Suggest an enhancement.
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before filing: see CONTRIBUTING.md for the project's scope. Features
+        that would fundamentally change the single-tenant-per-host shape are
+        unlikely to be merged without prior discussion.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What user need or pain point motivates this?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: Sketch the UX or API. Doesn't need to be final.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Other approaches you ruled out and why.

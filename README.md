@@ -1,6 +1,8 @@
 # Prayer
 
-Private, invite-only prayer-request app for church communities. Open source, self-hostable, runs entirely on your laptop with no external accounts.
+Private, invite-only prayer-request app for church communities. Source-available
+under the Elastic License 2.0 (see [LICENSE](LICENSE)), self-hostable, runs
+entirely on your laptop with no external accounts.
 
 ## What's inside
 
@@ -15,12 +17,13 @@ Private, invite-only prayer-request app for church communities. Open source, sel
 **Prerequisites:** Docker (Desktop or Engine) and `pnpm` (only needed for the bootstrap step). No external accounts required.
 
 ```bash
-docker compose up -d --build       # build and start: postgres + gotrue + minio + api + web
-pnpm install                       # local node_modules for the bootstrap CLI
-pnpm bootstrap                     # seed 5 users + 10 sample posts + 6 comments
+docker compose up -d --build                  # build and start: postgres + gotrue + minio + api + web
+pnpm install                                  # local node_modules for the bootstrap CLI
+pnpm admin:create-org --slug hope             # create the org (default slug)
+pnpm bootstrap --slug hope                    # seed 5 users + 10 sample posts + 6 comments
 ```
 
-Open <http://localhost:5173> and sign in as `superuser@prays.online` with password `prayer-dev-local`.
+Open <http://localhost:5173> and sign in as `hopesu@example.com` with password `prayer-dev-local`.
 
 `pnpm bootstrap` is idempotent — re-running it never duplicates data and never resets passwords.
 
@@ -45,13 +48,21 @@ curl -fs http://localhost:9000/minio/health/live    # minio
 
 ## Default users (after `pnpm bootstrap`)
 
-| Email                    | Role         | Password           |
-| ------------------------ | ------------ | ------------------ |
-| `superuser@prays.online` | `super_user` | `prayer-dev-local` |
-| `mod1@prays.online`      | `moderator`  | `prayer-dev-local` |
-| `mod2@prays.online`      | `moderator`  | `prayer-dev-local` |
-| `mem1@prays.online`      | `member`     | `prayer-dev-local` |
-| `mem2@prays.online`      | `member`     | `prayer-dev-local` |
+All emails follow the pattern `<slug><role-suffix>@<domain>`. With the default
+slug `hope` and default domain `example.com`:
+
+| Email                  | Role         | Password           |
+| ---------------------- | ------------ | ------------------ |
+| `hopesu@example.com`   | `super_user` | `prayer-dev-local` |
+| `hopemod1@example.com` | `moderator`  | `prayer-dev-local` |
+| `hopemod2@example.com` | `moderator`  | `prayer-dev-local` |
+| `hopemem1@example.com` | `member`     | `prayer-dev-local` |
+| `hopemem2@example.com` | `member`     | `prayer-dev-local` |
+
+To use a different slug or domain, pass `--slug <yourchurch>` and set
+`BOOTSTRAP_EMAIL_DOMAIN=yourdomain.org` (or pass `--domain`). Two churches in
+the same DB will never collide on email because the slug prefixes the local
+part.
 
 Sign in as different users to see how moderator vs. member views differ.
 
@@ -78,7 +89,7 @@ PRAYER_TAG=sha-<full-commit-sha> docker compose \
 **Mode B — local web against a remote API.** UI changes without running the backend:
 
 ```bash
-PROD_API_URL=https://api-staging.prays.online pnpm dev:remote
+PROD_API_URL=https://api.your-instance.example.com pnpm dev:remote
 ```
 
 **Mode C — native local for fastest iteration.** Persistent services in containers, api+web run natively with hot reload:
@@ -125,11 +136,13 @@ docs/             Self-hosting guide
 
 ## More
 
-- `docs/self-hosting.md` — generic deployment guide for the OSS Docker stack
-- `CLAUDE.md` — project guide for Claude Code sessions
+- [`docs/self-hosting.md`](docs/self-hosting.md) — generic deployment guide for the OSS Docker stack
+- [`CONTRIBUTING.md`](CONTRIBUTING.md) — how to set up a dev environment, run tests, open a PR
+- [`SECURITY.md`](SECURITY.md) — vulnerability reporting (please don't use the public issue tracker)
+- [`CLAUDE.md`](CLAUDE.md) — project guide for Claude Code sessions
 
-Internal product roadmap, design specs, and implementation plans live in a separate private repo.
+## License
 
-## Licensing
-
-This codebase is currently source-available — see the repository owner about reuse.
+[Elastic License 2.0](LICENSE). Source-available, free to self-host and modify.
+The license forbids offering this code as a hosted multi-tenant service to
+third parties — please reach out if you have a different use case in mind.

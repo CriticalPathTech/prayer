@@ -23,7 +23,9 @@ async function main(): Promise<void> {
   logger.info({ event: 'migrate:complete' });
 
   const db = initDb(cfg.DATABASE_URL);
-  const jwtVerifier = createJwtVerifier(cfg.AUTH_JWKS_URL);
+  const jwtVerifier = createJwtVerifier(cfg.AUTH_JWKS_URL, {
+    ...(cfg.AUTH_ISSUER ? { issuer: cfg.AUTH_ISSUER } : {}),
+  });
   const app = buildApp({
     db,
     env: cfg,

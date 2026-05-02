@@ -1,0 +1,60 @@
+name: Bug report
+description: Report a defect or unexpected behavior.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. **Do not include passwords, tokens, or real
+        prayer request content.** For security issues, use the Security tab
+        (private vulnerability reporting) instead — see SECURITY.md.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: Describe the bug. What did you expect, what did you see?
+      placeholder: When I clicked Save on /admin/church, the header still showed the old name.
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Reproduction steps
+      description: Numbered steps to reproduce on a fresh local stack.
+      placeholder: |
+        1. `docker compose up && pnpm bootstrap --slug example`
+        2. Sign in as examplesu@prays.online
+        3. Open /admin/church
+        4. ...
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Output of `git rev-parse HEAD` or the release tag.
+      placeholder: v0.5.7 / abc1234
+    validations:
+      required: true
+
+  - type: dropdown
+    id: env
+    attributes:
+      label: Environment
+      options:
+        - Local docker stack (Mode A)
+        - Native dev (Mode C)
+        - Self-hosted production
+        - Other (describe)
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs / console output
+      description: API logs (`pino`), web console errors, browser network tab. Redact anything sensitive.
+      render: text

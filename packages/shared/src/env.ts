@@ -9,6 +9,13 @@ const apiEnvSchema = z.object({
     .pipe(z.number().int().positive()),
   DATABASE_URL: z.string().url(),
   AUTH_JWKS_URL: z.string().url(),
+  // Optional: defense-in-depth issuer claim check on every JWT. When set, the
+  // verifier rejects tokens whose `iss` doesn't match. For Supabase set to
+  // `https://<project>.supabase.co/auth/v1`; for self-hosted GoTrue it's
+  // whatever your `GOTRUE_JWT_ISSUER` is (the dev fixture uses `supabase-demo`).
+  // If unset, only the JWKS signature is checked — sufficient when AUTH_JWKS_URL
+  // points at a trusted issuer's keys, but cheap to add.
+  AUTH_ISSUER: z.string().min(1).optional(),
   S3_ENDPOINT: z.string().url(),
   S3_REGION: z.string().min(1).default('us-east-1'),
   S3_BUCKET: z.string().min(1),

@@ -21,6 +21,41 @@ const MAX_DECODED_BYTES = 2 * 1024 * 1024;
 const ALLOWED_MIME = new Set(['image/jpeg', 'image/png', 'image/webp']);
 const DATA_URL_RE = /^data:(image\/[a-z+.-]+);base64,(.+)$/i;
 
+/** Verify the decoded image bytes match the declared content-type via magic
+ * bytes. The data-URL header is client-controlled, so a hostile client could
+ * declare `image/jpeg` and embed an SVG/HTML/EXE payload. Each allowed MIME
+ * has a stable magic-byte signature in the first 12 bytes. */
+function detectMime(buf: Buffer): 'image/jpeg' | 'image/png' | 'image/webp' | null {
+  if (buf.length < 12) return null;
+  if (buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) return 'image/jpeg';
+  if (
+    buf[0] === 0x89 &&
+    buf[1] === 0x50 &&
+    buf[2] === 0x4e &&
+    buf[3] === 0x47 &&
+    buf[4] === 0x0d &&
+    buf[5] === 0x0a &&
+    buf[6] === 0x1a &&
+    buf[7] === 0x0a
+  ) {
+    return 'image/png';
+  }
+  // WebP: "RIFF" + size + "WEBP"
+  if (
+    buf[0] === 0x52 &&
+    buf[1] === 0x49 &&
+    buf[2] === 0x46 &&
+    buf[3] === 0x46 &&
+    buf[8] === 0x57 &&
+    buf[9] === 0x45 &&
+    buf[10] === 0x42 &&
+    buf[11] === 0x50
+  ) {
+    return 'image/webp';
+  }
+  return null;
+}
+
 export function meRouter(deps: {
   db: Kysely<Database>;
   storage: StorageClient;
@@ -80,6 +115,12 @@ export function meRouter(deps: {
 
         const buffer = Buffer.from(base64, 'base64');
         if (buffer.byteLength > MAX_DECODED_BYTES) throw new PayloadTooLargeError();
+
+        // Defense against content-type spoofing in the data-URL header.
+        const detected = detectMime(buffer);
+        if (!detected || detected !== contentType) {
+          throw new ValidationError('Image content does not match declared type.');
+        }
 
         const { avatar_url } = await uploadOwnAvatar(deps.db, deps.storage, {
           userId: req.user.id,

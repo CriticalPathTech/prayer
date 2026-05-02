@@ -65,21 +65,28 @@ export interface BootstrapUserSpec {
   role: UserRole;
 }
 
+/** Default email domain when neither --domain nor BOOTSTRAP_EMAIL_DOMAIN is set.
+ * Uses example.com (RFC 2606 reserved for documentation) so the OSS Quickstart
+ * doesn't mint placeholder users at a real domain that the operator may not own. */
+export const DEFAULT_BOOTSTRAP_EMAIL_DOMAIN = 'example.com';
+
 // Emails are slug-derived so two churches in the same DB don't collide.
 // Display names stay slug-agnostic so a future "rename placeholder users"
 // tool doesn't reveal the church the placeholder originally belonged to.
-export function bootstrapUsersForSlug(slug: string): BootstrapUserSpec[] {
+export function bootstrapUsersForSlug(slug: string, domain: string): BootstrapUserSpec[] {
   return [
-    { email: `${slug}su@prays.online`, displayName: 'Super User', role: 'super_user' },
-    { email: `${slug}mod1@prays.online`, displayName: 'Moderator One', role: 'moderator' },
-    { email: `${slug}mod2@prays.online`, displayName: 'Moderator Two', role: 'moderator' },
-    { email: `${slug}mem1@prays.online`, displayName: 'Member One', role: 'member' },
-    { email: `${slug}mem2@prays.online`, displayName: 'Member Two', role: 'member' },
+    { email: `${slug}su@${domain}`, displayName: 'Super User', role: 'super_user' },
+    { email: `${slug}mod1@${domain}`, displayName: 'Moderator One', role: 'moderator' },
+    { email: `${slug}mod2@${domain}`, displayName: 'Moderator Two', role: 'moderator' },
+    { email: `${slug}mem1@${domain}`, displayName: 'Member One', role: 'member' },
+    { email: `${slug}mem2@${domain}`, displayName: 'Member Two', role: 'member' },
   ];
 }
 
 export interface BootstrapOptions {
   slug: string;
+  /** Email domain for slug-derived placeholder users. */
+  emailDomain: string;
   skipSeed: boolean;
 }
 
@@ -272,11 +279,13 @@ export async function seedComments(
 function parseArgs(argv: string[]): BootstrapOptions {
   const opts: BootstrapOptions = {
     slug: 'hope',
+    emailDomain: process.env.BOOTSTRAP_EMAIL_DOMAIN ?? DEFAULT_BOOTSTRAP_EMAIL_DOMAIN,
     skipSeed: false,
   };
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (arg === '--slug') opts.slug = argv[++i] ?? opts.slug;
+    else if (arg === '--domain') opts.emailDomain = argv[++i] ?? opts.emailDomain;
     else if (arg === '--skip-seed') opts.skipSeed = true;
   }
   return opts;
@@ -302,7 +311,7 @@ function printSummary(result: BootstrapResult, opts: BootstrapOptions): void {
   }
   console.log('  ' + '─'.repeat(58));
   console.log('');
-  console.log(`  Tell the admin to log in at https://${opts.slug}.prays.online/`);
+  console.log(`  Tell the admin to log in at https://${opts.slug}.<your-domain>/`);
   console.log('');
 }
 
@@ -332,7 +341,7 @@ export async function bootstrap(
   let usersReused = 0;
   const userIds: string[] = [];
 
-  const users = bootstrapUsersForSlug(opts.slug);
+  const users = bootstrapUsersForSlug(opts.slug, opts.emailDomain);
   const isCloud = process.env.BOOTSTRAP_ALLOW_REMOTE === '1';
   const credentials: BootstrapCredential[] = [];
 

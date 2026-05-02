@@ -10,7 +10,7 @@ export function MobileAdminChurchPage(): JSX.Element {
   const desktopUrl =
     typeof window !== 'undefined'
       ? `https://${window.location.hostname}/admin/church`
-      : 'https://<your-church>.prays.online/admin/church';
+      : 'https://<your-host>/admin/church';
 
   return (
     <div className="flex min-h-screen flex-col bg-[var(--bg-page)] text-[var(--fg-2)] font-sans">

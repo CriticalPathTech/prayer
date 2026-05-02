@@ -13,12 +13,13 @@ Generic guide for running the Prayer OSS Docker stack on any host. No cloud depe
 ```bash
 git clone https://github.com/CriticalPathTech/prayer.git
 cd prayer
-docker compose up -d --build       # build + start all containers
-pnpm install                       # local node_modules for the bootstrap CLI
-pnpm bootstrap                     # seed 5 demo users + 10 sample posts + 6 comments
+docker compose up -d --build                  # build + start all containers
+pnpm install                                  # local node_modules for the bootstrap CLI
+pnpm admin:create-org --slug hope             # create the org (default slug)
+pnpm bootstrap --slug hope                    # seed 5 demo users + 10 sample posts + 6 comments
 ```
 
-Open <http://localhost:5173> and sign in as `superuser@prays.online` with password `prayer-dev-local`.
+Open <http://localhost:5173> and sign in as `hopesu@example.com` with password `prayer-dev-local`.
 
 `pnpm bootstrap` is idempotent — re-running it doesn't duplicate data and doesn't reset passwords.
 

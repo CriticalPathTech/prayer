@@ -16,12 +16,13 @@ import { test, expect } from '@playwright/test';
 // are running underneath.
 //
 // Default seed credentials assume `pnpm bootstrap` (no flags) ran with the
-// default migration org slug ('hope'). Bootstrap derives user emails from the
-// slug, so the super_user is `<slug>su@prays.online` = `hopesu@prays.online`.
-// Override via env if running against a non-default seed:
+// default org slug ('hope') and the default email domain ('example.com' via
+// BOOTSTRAP_EMAIL_DOMAIN). Bootstrap derives user emails from those, so the
+// super_user is `<slug>su@<domain>` = `hopesu@example.com`. Override via env
+// if running against a non-default seed:
 //   E2E_USER_EMAIL, E2E_USER_PASSWORD
 
-const EMAIL = process.env.E2E_USER_EMAIL ?? 'hopesu@prays.online';
+const EMAIL = process.env.E2E_USER_EMAIL ?? 'hopesu@example.com';
 const PASSWORD = process.env.E2E_USER_PASSWORD ?? 'prayer-dev-local';
 
 test.describe('OSS stack smoke', () => {

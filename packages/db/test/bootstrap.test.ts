@@ -52,14 +52,14 @@ describe('bootstrap', () => {
 
 describe('bootstrapUsersForSlug', () => {
   it('returns 5 users with slug-prefixed emails and the spec roles', () => {
-    const users = bootstrapUsersForSlug('waymakerstage');
+    const users = bootstrapUsersForSlug('demo', 'example.com');
     expect(users).toHaveLength(5);
     expect(users.map((u) => u.email)).toEqual([
-      'waymakerstagesu@prays.online',
-      'waymakerstagemod1@prays.online',
-      'waymakerstagemod2@prays.online',
-      'waymakerstagemem1@prays.online',
-      'waymakerstagemem2@prays.online',
+      'demosu@example.com',
+      'demomod1@example.com',
+      'demomod2@example.com',
+      'demomem1@example.com',
+      'demomem2@example.com',
     ]);
     expect(users.map((u) => u.role)).toEqual([
       'super_user',
@@ -78,10 +78,17 @@ describe('bootstrapUsersForSlug', () => {
   });
 
   it('different slug → different emails', () => {
-    const a = bootstrapUsersForSlug('alpha');
-    const b = bootstrapUsersForSlug('beta');
-    expect(a[0]!.email).toBe('alphasu@prays.online');
-    expect(b[0]!.email).toBe('betasu@prays.online');
+    const a = bootstrapUsersForSlug('alpha', 'example.com');
+    const b = bootstrapUsersForSlug('beta', 'example.com');
+    expect(a[0]!.email).toBe('alphasu@example.com');
+    expect(b[0]!.email).toBe('betasu@example.com');
+  });
+
+  it('different domain → different emails', () => {
+    const a = bootstrapUsersForSlug('hope', 'example.com');
+    const b = bootstrapUsersForSlug('hope', 'mychurch.org');
+    expect(a[0]!.email).toBe('hopesu@example.com');
+    expect(b[0]!.email).toBe('hopesu@mychurch.org');
   });
 });
 
@@ -90,7 +97,7 @@ describe('createOrReuseSupabaseUser', () => {
     const state = { users: [] as Array<{ id: string; email: string }> };
     const supabase = fakeSupabase(state);
     const id = await createOrReuseSupabaseUser(supabase, {
-      email: 'new@prays.online',
+      email: 'new@example.com',
       password: 'prayer-dev-local',
     });
     expect(id).toBe(fakeAuthId(1));
@@ -100,11 +107,11 @@ describe('createOrReuseSupabaseUser', () => {
   it('returns the existing id when the email is already taken', async () => {
     const existingId = fakeAuthId(99);
     const state = {
-      users: [{ id: existingId, email: 'taken@prays.online' }],
+      users: [{ id: existingId, email: 'taken@example.com' }],
     };
     const supabase = fakeSupabase(state);
     const id = await createOrReuseSupabaseUser(supabase, {
-      email: 'taken@prays.online',
+      email: 'taken@example.com',
       password: 'prayer-dev-local',
     });
     expect(id).toBe(existingId);
@@ -246,7 +253,7 @@ describe('upsertAppUser', () => {
         .values({ id: orgId, slug: 'test', display_name: 'Test' })
         .execute();
       const supabaseId = '00000000-0000-0000-0000-000000000010';
-      const userA = bootstrapUsersForSlug('fixture')[0]!;
+      const userA = bootstrapUsersForSlug('fixture', 'example.com')[0]!;
       const id1 = await upsertAppUser(db, supabaseId, userA, orgId);
       const id2 = await upsertAppUser(db, supabaseId, userA, orgId);
       expect(id1).toBe(id2);
@@ -299,7 +306,7 @@ describe('mintInviteCodeIfMissing', () => {
       const userId = await upsertAppUser(
         db,
         supabaseId,
-        bootstrapUsersForSlug('fixture')[0]!,
+        bootstrapUsersForSlug('fixture', 'example.com')[0]!,
         orgId,
       );
       const created1 = await mintInviteCodeIfMissing(db, userId, orgId);
@@ -350,7 +357,7 @@ describe('seedPosts', () => {
         .execute();
       // Need 5 real user rows for the FK
       const userIds: string[] = [];
-      for (const [i, u] of bootstrapUsersForSlug('fixture').entries()) {
+      for (const [i, u] of bootstrapUsersForSlug('fixture', 'example.com').entries()) {
         const id = await upsertAppUser(db, `00000000-0000-0000-0000-00000000000${i + 1}`, u, orgId);
         userIds.push(id);
       }
@@ -389,7 +396,7 @@ describe('seedComments', () => {
         .values({ id: orgId, slug: 'test-comments', display_name: 'Test Comments' })
         .execute();
       const userIds: string[] = [];
-      for (const [i, u] of bootstrapUsersForSlug('fixture').entries()) {
+      for (const [i, u] of bootstrapUsersForSlug('fixture', 'example.com').entries()) {
         userIds.push(
           await upsertAppUser(db, `00000000-0000-0000-0000-00000000000${i + 1}`, u, orgId),
         );
@@ -419,7 +426,10 @@ describe('bootstrap end-to-end', () => {
 
       const state = { users: [] as Array<{ id: string; email: string }> };
       const supabase = fakeSupabase(state);
-      const result = await bootstrap({ db, supabase }, { slug: 'default', skipSeed: false });
+      const result = await bootstrap(
+        { db, supabase },
+        { slug: 'default', skipSeed: false, emailDomain: 'example.com' },
+      );
       expect(result.usersCreated).toBe(5);
       expect(result.usersReused).toBe(0);
       expect(result.postsCreated).toBe(10);
@@ -443,8 +453,14 @@ describe('bootstrap end-to-end', () => {
 
       const state = { users: [] as Array<{ id: string; email: string }> };
       const supabase = fakeSupabase(state);
-      await bootstrap({ db, supabase }, { slug: 'default', skipSeed: false });
-      const result = await bootstrap({ db, supabase }, { slug: 'default', skipSeed: false });
+      await bootstrap(
+        { db, supabase },
+        { slug: 'default', skipSeed: false, emailDomain: 'example.com' },
+      );
+      const result = await bootstrap(
+        { db, supabase },
+        { slug: 'default', skipSeed: false, emailDomain: 'example.com' },
+      );
       expect(result.usersCreated).toBe(0);
       expect(result.usersReused).toBe(5);
       expect(result.postsCreated).toBe(0);
@@ -468,7 +484,10 @@ describe('bootstrap end-to-end', () => {
       const state = { users: [] as Array<{ id: string; email: string }> };
       const supabase = fakeSupabase(state);
       await expect(
-        bootstrap({ db, supabase }, { slug: 'never-created', skipSeed: true }),
+        bootstrap(
+          { db, supabase },
+          { slug: 'never-created', skipSeed: true, emailDomain: 'example.com' },
+        ),
       ).rejects.toThrow(/admin:create-org/);
     } finally {
       await db.destroy();
@@ -488,14 +507,17 @@ describe('bootstrap end-to-end', () => {
       await findOrCreateOrg(db, 'fixture-slug', 'fixture-slug');
       const state = { users: [] as Array<{ id: string; email: string }> };
       const supabase = fakeSupabase(state);
-      await bootstrap({ db, supabase }, { slug: 'fixture-slug', skipSeed: true });
+      await bootstrap(
+        { db, supabase },
+        { slug: 'fixture-slug', skipSeed: true, emailDomain: 'example.com' },
+      );
       const emails = await db.selectFrom('users').select('email').orderBy('email').execute();
       expect(emails.map((r) => r.email)).toEqual([
-        'fixture-slugmem1@prays.online',
-        'fixture-slugmem2@prays.online',
-        'fixture-slugmod1@prays.online',
-        'fixture-slugmod2@prays.online',
-        'fixture-slugsu@prays.online',
+        'fixture-slugmem1@example.com',
+        'fixture-slugmem2@example.com',
+        'fixture-slugmod1@example.com',
+        'fixture-slugmod2@example.com',
+        'fixture-slugsu@example.com',
       ]);
     } finally {
       await db.destroy();
@@ -516,10 +538,13 @@ describe('bootstrap end-to-end', () => {
       await findOrCreateOrg(db, 'pw-test-cloud', 'pw-test-cloud');
       const state = { users: [] as Array<{ id: string; email: string }> };
       const supabase = fakeSupabase(state);
-      const result = await bootstrap({ db, supabase }, { slug: 'pw-test-cloud', skipSeed: true });
+      const result = await bootstrap(
+        { db, supabase },
+        { slug: 'pw-test-cloud', skipSeed: true, emailDomain: 'example.com' },
+      );
       expect(result.credentials).toHaveLength(5);
       for (const cred of result.credentials) {
-        expect(cred.email).toMatch(/^pw-test-cloud(su|mod[12]|mem[12])@prays\.online$/);
+        expect(cred.email).toMatch(/^pw-test-cloud(su|mod[12]|mem[12])@example\.com$/);
         expect(cred.passwordOrNote).toMatch(/^[a-zA-Z0-9]{20}$/);
         expect(cred.passwordOrNote).not.toBe('prayer-dev-local');
       }
@@ -545,7 +570,10 @@ describe('bootstrap end-to-end', () => {
       await findOrCreateOrg(db, 'pw-test-local', 'pw-test-local');
       const state = { users: [] as Array<{ id: string; email: string }> };
       const supabase = fakeSupabase(state);
-      const result = await bootstrap({ db, supabase }, { slug: 'pw-test-local', skipSeed: true });
+      const result = await bootstrap(
+        { db, supabase },
+        { slug: 'pw-test-local', skipSeed: true, emailDomain: 'example.com' },
+      );
       for (const cred of result.credentials) {
         expect(cred.passwordOrNote).toBe('prayer-dev-local');
       }
@@ -567,8 +595,14 @@ describe('bootstrap end-to-end', () => {
       await findOrCreateOrg(db, 'pw-test-reuse', 'pw-test-reuse');
       const state = { users: [] as Array<{ id: string; email: string }> };
       const supabase = fakeSupabase(state);
-      await bootstrap({ db, supabase }, { slug: 'pw-test-reuse', skipSeed: true });
-      const second = await bootstrap({ db, supabase }, { slug: 'pw-test-reuse', skipSeed: true });
+      await bootstrap(
+        { db, supabase },
+        { slug: 'pw-test-reuse', skipSeed: true, emailDomain: 'example.com' },
+      );
+      const second = await bootstrap(
+        { db, supabase },
+        { slug: 'pw-test-reuse', skipSeed: true, emailDomain: 'example.com' },
+      );
       expect(second.usersCreated).toBe(0);
       expect(second.usersReused).toBe(5);
       for (const cred of second.credentials) {

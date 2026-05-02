@@ -10,7 +10,7 @@ apps/web          Vite + React frontend (@prayer/web)
 packages/db       Kysely schema types, migrations (SQL), bootstrap, shared invite-code helpers (@prayer/db)
 packages/shared   Shared zod-validated env parsers (@prayer/shared)
 docker/           Local stack fixtures: gotrue-jwt/ (RS256 dev keypair), gotrue-proxy/ (nginx config), init-db.sh
-docs/             self-hosting.md (internal product docs live in the private prayer-cloud repo)
+docs/             self-hosting.md
 ```
 
 ## Stack
@@ -28,7 +28,7 @@ pnpm install
 pnpm db:up              # legacy — starts only Postgres. Prefer `docker compose up -d postgres gotrue` (see Dev modes / Known rough edges)
 pnpm db:migrate         # apply migrations
 pnpm admin:create-org --slug <slug>   # Create empty orgs row. Run once per new church before bootstrap. Idempotent.
-pnpm bootstrap --slug <slug>          # Seed 5 placeholder users (e.g. <slug>su@prays.online), 10 posts, 6 comments INTO an existing org. Random per-user passwords for cloud (printed at end of run); hardcoded prayer-dev-local for local dev. Refuses non-localhost DATABASE_URL by default; set BOOTSTRAP_ALLOW_REMOTE=1 for cloud-tenant onboarding.
+pnpm bootstrap --slug <slug>          # Seed 5 placeholder users (e.g. <slug>su@<domain>), 10 posts, 6 comments INTO an existing org. Email domain comes from BOOTSTRAP_EMAIL_DOMAIN env (default: example.com) or --domain. Random per-user passwords for cloud (printed at end of run); hardcoded prayer-dev-local for local dev. Refuses non-localhost DATABASE_URL by default; set BOOTSTRAP_ALLOW_REMOTE=1 for cloud-tenant onboarding.
 pnpm dev                # api :3001 + web :5173
 pnpm dev:remote         # web only, proxied to a remote API (set PROD_API_URL=https://… first)
 pnpm test               # all workspaces
@@ -44,7 +44,7 @@ pnpm format:check       # prettier --check . (what the pre-push hook runs)
 Three first-class local-dev modes:
 
 - **Mode A — Full local Docker:** `docker compose up && pnpm bootstrap`. All four containers; no external services.
-- **Mode B — Local web + remote API:** `PROD_API_URL=https://api-staging.prays.online pnpm dev:remote`. Web runs natively against the deployed staging API.
+- **Mode B — Local web + remote API:** `PROD_API_URL=https://api.your-instance.example.com pnpm dev:remote`. Web runs natively against a deployed remote API.
 - **Mode C — Native local:** `docker compose up -d postgres gotrue && pnpm dev`. postgres + gotrue in containers; api + web run natively for fastest iteration. Run `pnpm bootstrap` once to seed sample data.
 
 ## Worktree bootstrap
@@ -66,7 +66,7 @@ pnpm --filter @prayer/db --filter @prayer/shared build      # project-ref artifa
 - **Kysely columns:** Read-only generated columns use `ColumnType<T, never, never>`. DB defaults use `Generated<T>`.
 - **Tests isolate via schema reset:** `apps/api/test/global-setup.ts` drops + recreates `public` and reruns all migrations before the suite. `packages/db/test/global-setup.ts` does the same for db-package tests — add new integration tests directly without per-file `beforeAll` setup.
 - **Bootstrap / seed scripts bypass the service layer.** `packages/db/src/bootstrap.ts` and `apps/api/test/helpers/seed.ts` write directly via Kysely. Service-layer functions write to the `events` outbox in the same transaction, which would trigger notification builders, count recomputers, and feed-snapshot updates for fixture data. Don't "fix" the direct-insert pattern by routing through services.
-- **Bootstrap user emails are slug-derived.** `pnpm bootstrap --slug X` creates `Xsu@prays.online`, `Xmod1@prays.online`, `Xmod2@prays.online`, `Xmem1@prays.online`, `Xmem2@prays.online`. Two churches in the same DB never collide on email. Display names stay slug-agnostic (`Super User`, `Moderator One`, etc.) so a future "rename placeholder users" tool doesn't reveal the church the placeholder originally belonged to.
+- **Bootstrap user emails are slug-derived.** `pnpm bootstrap --slug X` creates `Xsu@<domain>`, `Xmod1@<domain>`, `Xmod2@<domain>`, `Xmem1@<domain>`, `Xmem2@<domain>` (domain from `BOOTSTRAP_EMAIL_DOMAIN`, default `example.com`). Two churches in the same DB never collide on email. Display names stay slug-agnostic (`Super User`, `Moderator One`, etc.) so a future "rename placeholder users" tool doesn't reveal the church the placeholder originally belonged to.
 - **Roles:** `member` | `moderator` | `super_user`. API routes gate with `requireAuth` + `requireMember/Moderator/SuperUser`.
 - **Events outbox:** Every post mutation writes a row to `events` in the **same transaction** as the data write (via `writePostEvent` in `apps/api/src/services/events.ts`). Consumed by `services/event-worker.ts` (LISTEN/NOTIFY) which dispatches notification builders, count recomputers, flag-auto-hide, and the feed snapshot holder.
 - **Feed reactions:** `GET /feed` batch-fetches the per-emoji reaction map for each page of posts (one extra query, same pattern as the `prayed` flag). Each `FeedPost` includes `reactions: Record<string, {count, mine}>` — don't assume it's only on the post-detail endpoint.
@@ -77,9 +77,8 @@ pnpm --filter @prayer/db --filter @prayer/shared build      # project-ref artifa
 
 - Generic self-hosting guide: `docs/self-hosting.md`.
 - Per-app guidance: `apps/api/CLAUDE.md`, `apps/web/CLAUDE.md`.
-- **Multi-tenant model:** every request's hostname (`<slug>.prays.online`) resolves to an org via `apps/api/src/middleware/org-context.ts`; routes scope by `req.user.orgId`. Onboarding a new church: `pnpm admin:create-org --slug X && pnpm bootstrap --slug X`.
+- **Multi-tenant model:** every request's hostname (`<slug>.<your-domain>`) resolves to an org via `apps/api/src/middleware/org-context.ts`; routes scope by `req.user.orgId`. Onboarding a new church: `pnpm admin:create-org --slug X && pnpm bootstrap --slug X`.
 - **Admin surface:** `/admin/church` (web) is super_user-only — list/remove members, rename church, promote/demote with cap + floor. Backed by `apps/api/src/routes/admin-church.ts`.
-- Internal product roadmap, design specs, and implementation plans live in a separate private repo (`prayer-cloud`).
 
 ## Branch and PR workflow
 
@@ -105,6 +104,6 @@ Claude Code also runs hooks (`.claude/settings.json`): `pnpm lint` before every 
 - `pnpm test` runs Vitest which is structurally permissive for types. `pnpm build` (which CI runs) invokes `tsc -b` against the full project references and catches missing fields on DTO fixtures. **Run `pnpm --filter @prayer/web build` locally after changing any shared type before pushing** — otherwise CI fails on a typecheck gap that Vitest happily ignored.
 - `pnpm db:migrate:test` script uses `cross-env DATABASE_URL=$TEST_DATABASE_URL …` which expands the shell variable before `.env` loads → DATABASE_URL ends up empty. Tests do not depend on this script (they go through `migrate()` from `@prayer/db` programmatically), but the script itself is broken.
 - `pnpm db:up` only starts Postgres (legacy). For local dev with GoTrue (current default), use `docker compose up -d postgres gotrue` (Mode C) or `docker compose up` (Mode A) per the Dev modes section. The bare `pnpm db:up` script is kept for backward compat but produces an incomplete local stack.
-- **`pnpm dev` against an aged local DB throws `orgContext: multiple orgs in DB`.** The orgContext middleware refuses to guess when localhost has more than one org row (the dev convention is one-org-per-localhost). After running the M3+ test suite or playing with cell-onboarding, you'll have stale orgs. Either delete them (`psql "$DATABASE_URL" -c "DELETE FROM orgs WHERE slug NOT IN ('hope');"` plus the cascade — see `prayer-cloud/docs/onboarding-new-org.md` rollback for the full delete order) or set an explicit `Host` header on every request.
+- **`pnpm dev` against an aged local DB throws `orgContext: multiple orgs in DB`.** The orgContext middleware refuses to guess when localhost has more than one org row (the dev convention is one-org-per-localhost). After running the test suite or playing with cell-onboarding, you'll have stale orgs. Delete them with `psql "$DATABASE_URL" -c "DELETE FROM orgs WHERE slug NOT IN ('hope');"` (cascade also clears `user_orgs`, `posts`, `comments`, `events`), or set an explicit `Host` header on every request.
 - **Native `pnpm dev` port collisions.** Ports 3001 (api) and 5173 (web) can be held by either (a) the docker stack's prayer-api/prayer-web containers — `docker stop prayer-api prayer-web` (keep postgres + gotrue running); the containers serve images built from `main`, useless for branch testing — or (b) a `pnpm dev` from another worktree — `lsof -iTCP:3001 -sTCP:LISTEN -nP` shows the cwd in the process path; `kill <pid>`. Always `lsof` first when a fresh `pnpm dev` exits silently.
 - **Don't pipe `pnpm dev` (or any `pnpm -r --parallel` script) through `head`/`tail`/etc. when running in the background.** SIGPIPE from the truncating filter kills pnpm, which kills api + web. Either let it stream raw to a log file, or `tail -f` the output file separately. Same applies to `docker compose up` without `-d`.
