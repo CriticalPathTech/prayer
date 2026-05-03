@@ -1,0 +1,41 @@
+{
+  "name": "@prayer/api",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/server.ts | pino-pretty",
+    "build": "tsc -b",
+    "start": "node dist/server.js",
+    "test": "vitest run",
+    "typecheck": "tsc -b --dry"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1037.0",
+    "@prayer/db": "workspace:*",
+    "@prayer/shared": "workspace:*",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.0",
+    "express": "^4.21.0",
+    "express-rate-limit": "^7",
+    "jose": "^5.9.0",
+    "kysely": "^0.27.4",
+    "node-cron": "^3.0.3",
+    "pg": "^8.13.0",
+    "pino": "^9.5.0",
+    "pino-http": "^10.3.0",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.16.0",
+    "@types/node-cron": "^3.0.11",
+    "@types/pg": "^8.11.0",
+    "@types/supertest": "^6.0.2",
+    "pino-pretty": "^11.3.0",
+    "supertest": "^7.0.0",
+    "tsx": "^4.19.0",
+    "vitest": "^2.1.0"
+  }
+}

@@ -1,0 +1,124 @@
+import type { ColumnType, Generated } from 'kysely';
+
+export type UserRole = 'member' | 'moderator' | 'super_user';
+export type PostStatus = 'draft' | 'published' | 'archived' | 'hidden';
+export type ReactionTargetType = 'post' | 'comment';
+
+type Timestamp = ColumnType<Date, Date | string | undefined, Date | string>;
+
+export interface UsersTable {
+  id: string;
+  supabase_auth_id: string;
+  email: string;
+  display_name: string;
+  avatar_url: string | null;
+  role: Generated<UserRole>;
+  created_at: Generated<Timestamp>;
+}
+
+export interface PostsTable {
+  id: string;
+  parent_id: string | null;
+  author_id: string;
+  status: Generated<PostStatus>;
+  is_anonymous: Generated<boolean>;
+  is_answered_prayer: Generated<boolean>;
+  body: string;
+  reaction_count: Generated<number>;
+  prayer_count: Generated<number>;
+  flag_count: Generated<number>;
+  expires_at: Date | null;
+  edit_deadline: Date;
+  created_at: Generated<Timestamp>;
+}
+
+export interface CommentsTable {
+  id: string;
+  post_id: string;
+  author_id: string;
+  participant_id: string;
+  body: string;
+  reaction_count: Generated<number>;
+  is_hidden: Generated<boolean>;
+  flag_count: Generated<number>;
+  created_at: Generated<Timestamp>;
+  updated_at: Generated<Timestamp>;
+}
+
+export interface ReactionsTable {
+  id: string;
+  target_type: ReactionTargetType;
+  target_id: string;
+  author_id: string;
+  emoji: string;
+  created_at: Generated<Timestamp>;
+}
+
+export interface PrayersTable {
+  id: string;
+  post_id: string;
+  user_id: string;
+  created_at: Generated<Timestamp>;
+}
+
+export interface FlagsTable {
+  id: string;
+  target_type: ReactionTargetType;
+  target_id: string;
+  flagger_id: string;
+  reason: string;
+  note: string | null;
+  resolved_at: Date | null;
+  resolved_by_id: string | null;
+  created_at: Generated<Timestamp>;
+}
+
+export interface InvitationsTable {
+  id: string;
+  invite_code_id: string;
+  invitor_id: string;
+  invitee_id: string;
+  created_at: Generated<Timestamp>;
+}
+
+export interface InviteCodesTable {
+  id: string;
+  owner_id: string;
+  code: string;
+  seat_cap: number;
+  seats_remaining: number;
+  is_active: Generated<boolean>;
+  created_at: Generated<Timestamp>;
+}
+
+export interface EventsTable {
+  id: string;
+  type: string;
+  post_id: string | null;
+  actor_id: string | null;
+  payload: unknown;
+  processed_at: Date | null;
+  created_at: Generated<Timestamp>;
+}
+
+export interface NotificationsTable {
+  id: string;
+  user_id: string;
+  type: string;
+  payload: unknown;
+  read_at: Date | null;
+  created_at: Generated<Timestamp>;
+}
+
+export interface Database {
+  users: UsersTable;
+  posts: PostsTable;
+  comments: CommentsTable;
+  reactions: ReactionsTable;
+  prayers: PrayersTable;
+  flags: FlagsTable;
+  invitations: InvitationsTable;
+  invite_codes: InviteCodesTable;
+  events: EventsTable;
+  notifications: NotificationsTable;
+}

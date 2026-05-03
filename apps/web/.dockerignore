@@ -1,0 +1,17 @@
+**/node_modules
+**/dist
+**/coverage
+**/.turbo
+.git
+.gitignore
+.dockerignore
+.env
+.env.*
+!.env.example
+*.log
+docs
+docker
+playwright-report
+test-results
+README.md
+apps/api

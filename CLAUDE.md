@@ -1,0 +1,98 @@
+# Prayer App — Project Guide for Claude
+
+Private, invite-only prayer request app for a church community. pnpm workspaces monorepo.
+
+## Layout
+
+```
+apps/api          Express + Kysely backend (@prayer/api)
+apps/web          Vite + React frontend (@prayer/web)
+packages/db       Kysely schema types, migrations (SQL), bootstrap, shared invite-code helpers (@prayer/db)
+packages/shared   Shared zod-validated env parsers (@prayer/shared)
+docker/           Local Postgres compose config
+docs/             deployment.md, superpowers/specs/, superpowers/plans/
+```
+
+## Stack
+
+- Node 20, pnpm 9, TypeScript 5 (strict, `noUncheckedIndexedAccess`, project references)
+- ESM + `"module": "NodeNext"` everywhere → **relative imports MUST use `.js` extensions** (e.g., `import { x } from './foo.js'`), even though source is `.ts`. The web app is the exception: Vite uses Bundler resolution, so web source code does NOT use `.js` suffixes.
+- Postgres 16, node-pg-migrate (raw SQL migrations), Kysely as query builder
+- Supabase for auth only (no Supabase DB client on server; verify JWTs via JWKS with `jose`)
+- Pino for structured logs; Vitest + supertest / RTL for tests
+
+## Commands (run from repo root)
+
+```
+pnpm install
+pnpm db:up              # start local Postgres (docker)
+pnpm db:migrate         # apply migrations
+pnpm bootstrap          # 5 dev users, 10 posts, 6 comments
+pnpm dev                # api :3001 + web :5173
+pnpm dev:remote         # web only, proxied to a remote API (set PROD_API_URL=https://… first)
+pnpm test               # all workspaces
+pnpm build              # tsc -b across refs (what CI runs)
+pnpm typecheck
+pnpm lint
+pnpm format             # prettier --write .
+pnpm format:check       # prettier --check . (what the pre-push hook runs)
+```
+
+## Dev modes
+
+Three first-class local-dev modes:
+
+- **Mode A — Full local Docker:** `docker compose up && pnpm bootstrap`. All four containers; no external services.
+- **Mode B — Local web + remote API:** `PROD_API_URL=https://api-staging.prays.online pnpm dev:remote`. Web runs natively against the deployed staging API.
+- **Mode C — Native local:** `docker compose up -d postgres gotrue && pnpm dev`. postgres + gotrue in containers; api + web run natively for fastest iteration. Run `pnpm bootstrap` once to seed sample data.
+
+## Worktree bootstrap
+
+After `git worktree add`, before running tests:
+
+```bash
+cp ../../.env .env                                          # TEST_DATABASE_URL + others required
+cp ../../apps/web/.env.local apps/web/.env.local           # required for web test mocks (VITE_API_URL dummy)
+pnpm install
+pnpm --filter @prayer/db --filter @prayer/shared build      # project-ref artifacts required for api/web tests
+```
+
+## Conventions
+
+- **IDs:** UUIDv7 (sortable, chronological). Use `newId()` from `@prayer/db`.
+- **Timestamps:** `created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`.
+- **Migrations:** `node-pg-migrate` tracks applied migrations by filename only. Editing a migration file after it has run against any long-lived DB (a deployed staging instance, shared CI DB, personal DB you keep around) has **no effect** there — only a newly-numbered migration is picked up. Edit in place only when every DB that runs your code is routinely dropped and re-migrated (the test harness does this via `test/global-setup.ts`). For anything else, add a new migration. Each file has both `-- Up Migration` and `-- Down Migration` sections.
+- **Kysely columns:** Read-only generated columns use `ColumnType<T, never, never>`. DB defaults use `Generated<T>`.
+- **Tests isolate via schema reset:** `apps/api/test/global-setup.ts` drops + recreates `public` and reruns all migrations before the suite. `packages/db/test/global-setup.ts` does the same for db-package tests — add new integration tests directly without per-file `beforeAll` setup.
+- **Bootstrap / seed scripts bypass the service layer.** `packages/db/src/bootstrap.ts` and `apps/api/test/helpers/seed.ts` write directly via Kysely. Service-layer functions write to the `events` outbox in the same transaction, which would trigger notification builders, count recomputers, and feed-snapshot updates for fixture data. Don't "fix" the direct-insert pattern by routing through services.
+- **Roles:** `member` | `moderator` | `super_user`. API routes gate with `requireAuth` + `requireMember/Moderator/SuperUser`.
+- **Events outbox:** Every post mutation writes a row to `events` in the **same transaction** as the data write (via `writePostEvent` in `apps/api/src/services/events.ts`). Consumed by `services/event-worker.ts` (LISTEN/NOTIFY) which dispatches notification builders, count recomputers, flag-auto-hide, and the feed snapshot holder.
+- **Feed reactions:** `GET /feed` batch-fetches the per-emoji reaction map for each page of posts (one extra query, same pattern as the `prayed` flag). Each `FeedPost` includes `reactions: Record<string, {count, mine}>` — don't assume it's only on the post-detail endpoint.
+- **`exactOptionalPropertyTypes: true`** in `tsconfig.base.json` → passing `{ foo: value | undefined }` fails type-check. For optional fields, spread conditionally: `...(value !== undefined ? { foo: value } : {})`.
+
+## Where to look
+
+- Generic self-hosting guide: `docs/self-hosting.md`.
+- Per-app guidance: `apps/api/CLAUDE.md`, `apps/web/CLAUDE.md`.
+
+## Branch and PR workflow
+
+- **Never push directly to `main`.** All changes must go through a pull request. A Claude hook blocks any `git push` that targets `main` directly; Husky blocks the same at the git level.
+- Create a worktree + feature branch, do the work, open a PR, merge via GitHub.
+- **Cleaning a branch after sibling PRs merge:** `git rebase --onto origin/main <last-already-merged-commit> HEAD` replays only the commits above that SHA onto current main — no interactive rebase needed.
+
+## Pre-push hook
+
+Husky installs a `pre-push` hook (`.husky/pre-push`) that runs `pnpm format:check` and `pnpm lint` on every `git push`. Both checks must pass or the push is aborted.
+
+- **If you see the hook run on every push, it's working.** `pnpm install` enables it via the `prepare` script.
+- **Before pushing, always run `pnpm format && pnpm lint` locally** — the hook is a safety net, not a substitute for running these yourself. Fixing formatting issues after writing the commit means amending or stacking a fixup commit.
+- Use `git push --no-verify` to bypass only when you explicitly know why (e.g., pushing a WIP branch that's not going to CI yet).
+
+Claude Code also runs hooks (`.claude/settings.json`): `pnpm lint` before every `git commit`, and `git rebase origin/main` + a main-branch guard before every `git push`.
+
+## Known rough edges
+
+- `pnpm test` runs Vitest which is structurally permissive for types. `pnpm build` (which CI runs) invokes `tsc -b` against the full project references and catches missing fields on DTO fixtures. **Run `pnpm --filter @prayer/web build` locally after changing any shared type before pushing** — otherwise CI fails on a typecheck gap that Vitest happily ignored.
+- `pnpm db:migrate:test` script uses `cross-env DATABASE_URL=$TEST_DATABASE_URL …` which expands the shell variable before `.env` loads → DATABASE_URL ends up empty. Tests do not depend on this script (they go through `migrate()` from `@prayer/db` programmatically), but the script itself is broken.
+- `pnpm db:up` only starts Postgres (legacy). For local dev with GoTrue (current default), use `docker compose up -d postgres gotrue` (Mode C) or `docker compose up` (Mode A) per the Dev modes section. The bare `pnpm db:up` script is kept for backward compat but produces an incomplete local stack.

@@ -1,0 +1,338 @@
+name: release-tag
+
+# Tag-driven release pipeline. Workflow:
+#
+#   1. validate         — tag matches package.json version (no version drift)
+#   2. build            — matrix per-platform native builds (amd64 + arm64),
+#                          each pushed by digest only
+#   3. merge            — stitch the per-arch digests into one multi-arch
+#                          manifest list per image, applying SemVer tags
+#   4. e2e              — bring up the full stack from the just-published
+#                          images, bootstrap, run Playwright OSS smoke
+#   5. release          — gh release create on success
+#
+# Tag a release locally with:
+#   git tag v0.4.1 && git push --tags
+#
+# The tag must equal `v` + the version in package.json. The validate job
+# fails fast if they disagree, so the only failure mode is a forgotten
+# version bump (which is exactly what we want loud about).
+#
+# Build shape: matrix per platform on native runners. Each matrix job
+# builds and pushes a single per-platform digest; the merge job creates
+# the SemVer-tagged manifest list. Avoids QEMU emulation, which made
+# arm64 builds 5–6× slower and occasionally segfaulted partway through
+# pnpm operations.
+
+on:
+  push:
+    tags: ['v*.*.*']
+
+permissions:
+  contents: write # gh release create
+  packages: write # ghcr.io push
+
+concurrency:
+  group: release-tag-${{ github.ref }}
+  # Each tag is a distinct artifact; do not cancel an in-flight tag
+  # build if another tag pushes in the same window. The validate gate
+  # already prevents accidental duplicates.
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.parse.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: parse
+        name: Verify tag matches package.json version
+        run: |
+          TAG="${GITHUB_REF#refs/tags/v}"
+          PKG=$(node -p "require('./package.json').version")
+          if [ "$TAG" != "$PKG" ]; then
+            echo "::error::tag v$TAG does not match package.json version $PKG — bump package.json before tagging"
+            exit 1
+          fi
+          echo "version=$TAG" >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: validate
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux/amd64
+            runs-on: ubuntu-latest
+            arch: amd64
+          - platform: linux/arm64
+            runs-on: ubuntu-24.04-arm
+            arch: arm64
+    runs-on: ${{ matrix.runs-on }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - id: repo
+        run: echo "owner=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
+
+      - name: Build & push prayer-api by digest
+        id: build-api
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: apps/api/Dockerfile
+          platforms: ${{ matrix.platform }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.description=Prayer API
+            org.opencontainers.image.licenses=Elastic-2.0
+          cache-from: type=gha,scope=prayer-api-${{ matrix.arch }}
+          cache-to: type=gha,scope=prayer-api-${{ matrix.arch }},mode=max
+          outputs: type=image,name=ghcr.io/${{ steps.repo.outputs.owner }}/prayer-api,push-by-digest=true,name-canonical=true,push=true
+
+      # VITE_* values are inlined at build time. The dev anon key is the same
+      # one committed to .env.example and docker-compose.yml — explicitly
+      # marked dev-only and signed with the dev RS256 keypair in docker/gotrue-jwt/.
+      # Production web is built separately (Railway) with real Supabase values.
+      - name: Build & push prayer-web by digest
+        id: build-web
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: apps/web/Dockerfile
+          platforms: ${{ matrix.platform }}
+          build-args: |
+            VITE_API_URL=http://localhost:3001
+            VITE_AUTH_URL=http://localhost:9999
+            VITE_AUTH_ANON_KEY=eyJhbGciOiJSUzI1NiIsImtpZCI6ImRldi1yczI1Ni1rZXktMSJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlLWRlbW8iLCJleHAiOjE5ODM4MTI5OTYsImlhdCI6MTc3NzE3NzU4NH0.L8OxBc_6q3OKq8Tpi2nsWlAdqxWqarXE3JehIhtS92PPinOU6SeP6C94VecMNj44OZcuQcZ5uRm2D_bCM3KBFCPeTL8W13fWhQd1ttTPlbZiCvflwd3EXopKDnTFJqrGLyYDvHx_SaOxbDBJHigZoaeJRTATo-OlvL_joUE6Ub93m3iK7JTY5iME2pH0qqEAGstTX3WMR-Mrx8hfe4KoREFD4QMY8iJghuJZgMDybZeAR0tWqMzem9Oecu8A93YEEHs-6RAOn_ATVOEzq_x6ptm1EqGOmoC5sYz_r2GTIN4CaXJbjFGzHI9rsNUHigHSaYjpTj2XHCehCMJxM2avAw
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.description=Prayer Web
+            org.opencontainers.image.licenses=Elastic-2.0
+          cache-from: type=gha,scope=prayer-web-${{ matrix.arch }}
+          cache-to: type=gha,scope=prayer-web-${{ matrix.arch }},mode=max
+          outputs: type=image,name=ghcr.io/${{ steps.repo.outputs.owner }}/prayer-web,push-by-digest=true,name-canonical=true,push=true
+
+      - name: Export digests
+        run: |
+          mkdir -p /tmp/digests
+          echo "${{ steps.build-api.outputs.digest }}" > "/tmp/digests/api-${{ matrix.arch }}"
+          echo "${{ steps.build-web.outputs.digest }}" > "/tmp/digests/web-${{ matrix.arch }}"
+
+      - name: Upload digests
+        uses: actions/upload-artifact@v4
+        with:
+          name: digests-${{ matrix.arch }}
+          path: /tmp/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  merge:
+    needs: build
+    runs-on: ubuntu-latest
+    outputs:
+      api-tags: ${{ steps.meta-api.outputs.tags }}
+      web-tags: ${{ steps.meta-web.outputs.tags }}
+    steps:
+      - name: Download digests
+        uses: actions/download-artifact@v4
+        with:
+          path: /tmp/digests
+          pattern: digests-*
+          merge-multiple: true
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - id: repo
+        run: echo "owner=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
+
+      # metadata-action runs here (not in the per-arch build) because the
+      # SemVer tags apply to the merged manifest list, not to the per-arch
+      # images. push-by-digest builds in the matrix job are intentionally
+      # untagged.
+      - uses: docker/metadata-action@v5
+        id: meta-api
+        with:
+          images: ghcr.io/${{ steps.repo.outputs.owner }}/prayer-api
+          flavor: |
+            latest=auto
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=sha,prefix=sha-,format=long
+
+      - uses: docker/metadata-action@v5
+        id: meta-web
+        with:
+          images: ghcr.io/${{ steps.repo.outputs.owner }}/prayer-web
+          flavor: |
+            latest=auto
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=sha,prefix=sha-,format=long
+
+      - name: Create manifest lists
+        run: |
+          set -euo pipefail
+          OWNER="${{ steps.repo.outputs.owner }}"
+
+          # docker/metadata-action emits one tag per line; build the
+          # `--tag <ref>` flags as an array.
+          API_TAGS_ARGS=()
+          while IFS= read -r tag; do
+            [[ -z "$tag" ]] && continue
+            API_TAGS_ARGS+=(--tag "$tag")
+          done <<<"${{ steps.meta-api.outputs.tags }}"
+
+          WEB_TAGS_ARGS=()
+          while IFS= read -r tag; do
+            [[ -z "$tag" ]] && continue
+            WEB_TAGS_ARGS+=(--tag "$tag")
+          done <<<"${{ steps.meta-web.outputs.tags }}"
+
+          API_AMD64=$(cat /tmp/digests/api-amd64)
+          API_ARM64=$(cat /tmp/digests/api-arm64)
+          WEB_AMD64=$(cat /tmp/digests/web-amd64)
+          WEB_ARM64=$(cat /tmp/digests/web-arm64)
+
+          docker buildx imagetools create \
+            "${API_TAGS_ARGS[@]}" \
+            "ghcr.io/${OWNER}/prayer-api@${API_AMD64}" \
+            "ghcr.io/${OWNER}/prayer-api@${API_ARM64}"
+
+          docker buildx imagetools create \
+            "${WEB_TAGS_ARGS[@]}" \
+            "ghcr.io/${OWNER}/prayer-web@${WEB_AMD64}" \
+            "ghcr.io/${OWNER}/prayer-web@${WEB_ARM64}"
+
+      - name: Inspect resulting manifests
+        run: |
+          set -euo pipefail
+          while IFS= read -r tag; do
+            [[ -z "$tag" ]] && continue
+            docker buildx imagetools inspect "$tag"
+          done <<<"${{ steps.meta-api.outputs.tags }}
+          ${{ steps.meta-web.outputs.tags }}"
+
+  e2e:
+    needs: [validate, merge]
+    runs-on: ubuntu-latest
+    env:
+      PRAYER_TAG: ${{ needs.validate.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.12.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # @prayer/db and @prayer/shared are project refs that bootstrap and
+      # the web build pull from. Build them now so the test workspace
+      # resolves their dist artifacts.
+      - run: pnpm --filter @prayer/db --filter @prayer/shared build
+
+      - run: pnpm --filter @prayer/web exec playwright install --with-deps chromium webkit
+
+      - name: Configure local env from example
+        run: cp .env.example .env
+
+      # Each GHA job is a fresh VM. The build/merge jobs above logged in
+      # for pushing, but that auth state doesn't carry over — e2e needs
+      # its own GHCR login so `docker compose pull` can fetch the
+      # private prayer-api / prayer-web images we just published.
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Pull and start the stack from registry
+        run: |
+          docker compose -f docker-compose.yml -f docker-compose.images.yml pull
+          docker compose -f docker-compose.yml -f docker-compose.images.yml up -d
+
+      - name: Wait for api healthcheck
+        run: |
+          for i in $(seq 1 60); do
+            if curl -fs http://localhost:3001/healthz > /dev/null; then
+              echo "api healthy after ${i}s"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "api never became healthy" >&2
+          docker compose -f docker-compose.yml -f docker-compose.images.yml ps
+          docker compose -f docker-compose.yml -f docker-compose.images.yml logs --tail 100
+          exit 1
+
+      - name: Bootstrap users + posts
+        run: pnpm bootstrap
+
+      - name: Playwright OSS smoke
+        run: pnpm --filter @prayer/web exec playwright test oss-stack-smoke
+
+      - if: always()
+        name: Capture compose logs
+        run: |
+          mkdir -p /tmp/stack-logs
+          docker compose -f docker-compose.yml -f docker-compose.images.yml logs > /tmp/stack-logs/all.log 2>&1 || true
+          docker compose -f docker-compose.yml -f docker-compose.images.yml ps > /tmp/stack-logs/ps.txt 2>&1 || true
+
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: stack-logs-${{ needs.validate.outputs.version }}
+          path: /tmp/stack-logs
+
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-${{ needs.validate.outputs.version }}
+          path: apps/web/playwright-report
+          if-no-files-found: ignore
+
+      - if: always()
+        name: Tear down stack
+        run: docker compose -f docker-compose.yml -f docker-compose.images.yml down -v
+
+  release:
+    needs: [validate, e2e]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" \
+            --title "${GITHUB_REF_NAME}" \
+            --generate-notes \
+            --verify-tag

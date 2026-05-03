@@ -1,0 +1,28 @@
+#!/usr/bin/env sh
+# Pre-push: catch CI-blocking style + lint issues before they hit GitHub.
+# Skip with `git push --no-verify` only if you know why.
+
+# Block any push whose remote ref is refs/heads/main. GitHub's ruleset
+# enforces this server-side too; this hook catches it before the push
+# leaves the machine.
+while read -r _local_ref _local_sha remote_ref _remote_sha; do
+  if [ "$remote_ref" = "refs/heads/main" ]; then
+    echo
+    echo "✖ Direct pushes to main are not allowed. Open a pull request instead."
+    exit 1
+  fi
+done
+
+echo "▶ prettier --check"
+pnpm -s format:check || {
+  echo
+  echo "✖ Formatting issues found. Run: pnpm format"
+  exit 1
+}
+
+echo "▶ eslint ."
+pnpm -s lint || {
+  echo
+  echo "✖ Lint errors found. Run: pnpm lint --fix (or hand-fix)"
+  exit 1
+}

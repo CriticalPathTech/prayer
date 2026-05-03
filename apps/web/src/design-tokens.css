@@ -1,0 +1,29 @@
+/* Design tokens — semantic aliases consumed via Tailwind arbitrary values:
+   bg-[var(--bg-page)], text-[var(--fg-1)], shadow-[var(--focus-ring)], etc. */
+
+:root {
+  --bg-page: #fbf7f1;
+  --bg-raised: #ffffff;
+  --bg-sunken: #f5efe4;
+  --bg-inset: #ebe3d2;
+
+  --fg-1: #1a1713;
+  --fg-2: #3d352a;
+  --fg-3: #5e5240;
+  --fg-4: #8a7a5d;
+  --fg-on-accent: #fbf7f1;
+
+  --border-soft: #ebe3d2;
+  --border-default: #d9cdb3;
+  --border-strong: #b8a889;
+
+  --accent: #5849a2;
+  --accent-hover: #453780;
+  --accent-bg: #f3f1fb;
+
+  --answered-fg: #a67b15;
+  --answered-bg: #f9ebc1;
+  --answered-border: #e6bd4d;
+
+  --focus-ring: 0 0 0 2px var(--bg-page), 0 0 0 4px #7a6bc0;
+}

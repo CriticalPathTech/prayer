@@ -1,0 +1,21 @@
+/* Size-adjusted fallback to minimize CLS while Source Serif 4 loads */
+@font-face {
+  font-family: 'Georgia Fallback';
+  src: local('Georgia');
+  size-adjust: 107%;
+  ascent-override: 90%;
+  descent-override: 22%;
+  line-gap-override: 0%;
+}
+
+/* Collapse motion for users who request it */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

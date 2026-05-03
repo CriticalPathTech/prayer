@@ -1,0 +1,173 @@
+name: release-images
+
+# Builds prayer-api and prayer-web images on every push to main and
+# publishes them to GHCR. Visibility is inherited from the source repo
+# (private while the source repo is private). Pulls require a PAT with
+# read:packages scope.
+#
+# Tags published per image:
+#   :sha-<commit-sha>   immutable, used for production pinning
+#   :main               moving, used for staging auto-deploy
+#
+# Build shape: matrix of one job per platform on native runners
+# (ubuntu-latest for amd64, ubuntu-24.04-arm for arm64), each pushing
+# a per-platform digest. A `merge` job stitches the digests into a
+# single multi-arch manifest list under the desired tags. This avoids
+# QEMU emulation, which made arm64 builds 5–6× slower and occasionally
+# segfaulted partway through pnpm operations.
+
+# Gated on CI success: only fires after the CI workflow on the same
+# main commit completes successfully. Prevents pushing a broken image
+# tag to GHCR if tests/lint/typecheck fail on the same SHA.
+on:
+  workflow_run:
+    workflows: ['CI']
+    types: [completed]
+    branches: [main]
+
+concurrency:
+  group: release-images-${{ github.ref }}
+  # Per-main-commit pipeline — only the latest commit's :main image
+  # matters. If a newer commit lands, kill the in-flight run; saves
+  # build minutes and clears queue contention.
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build:
+    # Only run when the triggering CI workflow succeeded.
+    if: github.event.workflow_run.conclusion == 'success'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux/amd64
+            runs-on: ubuntu-latest
+            arch: amd64
+          - platform: linux/arm64
+            runs-on: ubuntu-24.04-arm
+            arch: arm64
+    runs-on: ${{ matrix.runs-on }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # workflow_run runs against the default branch by default; pin
+          # to the exact commit that CI succeeded on.
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Compute lowercase repo owner
+        id: repo
+        run: echo "owner=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
+
+      - name: Build & push prayer-api by digest
+        id: build-api
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: apps/api/Dockerfile
+          platforms: ${{ matrix.platform }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.description=Prayer API
+            org.opencontainers.image.licenses=Elastic-2.0
+          cache-from: type=gha,scope=prayer-api-${{ matrix.arch }}
+          cache-to: type=gha,scope=prayer-api-${{ matrix.arch }},mode=max
+          outputs: type=image,name=ghcr.io/${{ steps.repo.outputs.owner }}/prayer-api,push-by-digest=true,name-canonical=true,push=true
+
+      # VITE_* values are inlined at build time. The dev anon key is the same
+      # one committed to .env.example and docker-compose.yml — explicitly
+      # marked dev-only and signed with the dev RS256 keypair in docker/gotrue-jwt/.
+      # Production web is built separately (Railway) with real Supabase values.
+      - name: Build & push prayer-web by digest
+        id: build-web
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: apps/web/Dockerfile
+          platforms: ${{ matrix.platform }}
+          build-args: |
+            VITE_API_URL=http://localhost:3001
+            VITE_AUTH_URL=http://localhost:9999
+            VITE_AUTH_ANON_KEY=eyJhbGciOiJSUzI1NiIsImtpZCI6ImRldi1yczI1Ni1rZXktMSJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlLWRlbW8iLCJleHAiOjE5ODM4MTI5OTYsImlhdCI6MTc3NzE3NzU4NH0.L8OxBc_6q3OKq8Tpi2nsWlAdqxWqarXE3JehIhtS92PPinOU6SeP6C94VecMNj44OZcuQcZ5uRm2D_bCM3KBFCPeTL8W13fWhQd1ttTPlbZiCvflwd3EXopKDnTFJqrGLyYDvHx_SaOxbDBJHigZoaeJRTATo-OlvL_joUE6Ub93m3iK7JTY5iME2pH0qqEAGstTX3WMR-Mrx8hfe4KoREFD4QMY8iJghuJZgMDybZeAR0tWqMzem9Oecu8A93YEEHs-6RAOn_ATVOEzq_x6ptm1EqGOmoC5sYz_r2GTIN4CaXJbjFGzHI9rsNUHigHSaYjpTj2XHCehCMJxM2avAw
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.description=Prayer Web
+            org.opencontainers.image.licenses=Elastic-2.0
+          cache-from: type=gha,scope=prayer-web-${{ matrix.arch }}
+          cache-to: type=gha,scope=prayer-web-${{ matrix.arch }},mode=max
+          outputs: type=image,name=ghcr.io/${{ steps.repo.outputs.owner }}/prayer-web,push-by-digest=true,name-canonical=true,push=true
+
+      - name: Export digests
+        run: |
+          mkdir -p /tmp/digests
+          echo "${{ steps.build-api.outputs.digest }}" > "/tmp/digests/api-${{ matrix.arch }}"
+          echo "${{ steps.build-web.outputs.digest }}" > "/tmp/digests/web-${{ matrix.arch }}"
+
+      - name: Upload digests
+        uses: actions/upload-artifact@v4
+        with:
+          name: digests-${{ matrix.arch }}
+          path: /tmp/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  merge:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download digests
+        uses: actions/download-artifact@v4
+        with:
+          path: /tmp/digests
+          pattern: digests-*
+          merge-multiple: true
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Compute lowercase repo owner
+        id: repo
+        run: echo "owner=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
+
+      - name: Create manifest lists
+        run: |
+          set -euo pipefail
+          OWNER="${{ steps.repo.outputs.owner }}"
+          SHA="${{ github.event.workflow_run.head_sha }}"
+          for image in api web; do
+            AMD64_DIGEST=$(cat "/tmp/digests/${image}-amd64")
+            ARM64_DIGEST=$(cat "/tmp/digests/${image}-arm64")
+            docker buildx imagetools create \
+              --tag "ghcr.io/${OWNER}/prayer-${image}:sha-${SHA}" \
+              --tag "ghcr.io/${OWNER}/prayer-${image}:main" \
+              "ghcr.io/${OWNER}/prayer-${image}@${AMD64_DIGEST}" \
+              "ghcr.io/${OWNER}/prayer-${image}@${ARM64_DIGEST}"
+          done
+
+      - name: Inspect resulting manifests
+        run: |
+          OWNER="${{ steps.repo.outputs.owner }}"
+          SHA="${{ github.event.workflow_run.head_sha }}"
+          docker buildx imagetools inspect "ghcr.io/${OWNER}/prayer-api:sha-${SHA}"
+          docker buildx imagetools inspect "ghcr.io/${OWNER}/prayer-web:sha-${SHA}"

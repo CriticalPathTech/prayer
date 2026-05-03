@@ -1,0 +1,195 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: prayer-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: prayer_dev
+    ports:
+      - '5432:5432'
+    volumes:
+      - prayer_pg_data:/var/lib/postgresql/data
+      - ./docker/init-db.sh:/docker-entrypoint-initdb.d/init-db.sh:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # Self-hosted GoTrue replaces the cloud Supabase project for local dev.
+  # MAILER_AUTOCONFIRM=true means signups complete without sending email,
+  # so no SMTP container is needed for the simple-signup OSS flow.
+  #
+  # GoTrue v2.168.0+ is required for RS256 JWKS support (GOTRUE_JWT_KEYS env var
+  # and /.well-known/jwks.json endpoint). v2.143.0 only supported HS256.
+  gotrue:
+    image: supabase/gotrue:v2.168.0
+    container_name: prayer-gotrue
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    # No host port binding — gotrue-proxy fronts it on host :9999.
+    # Reachable from other containers via http://gotrue:9999.
+    environment:
+      GOTRUE_API_HOST: 0.0.0.0
+      GOTRUE_API_PORT: '9999'
+      API_EXTERNAL_URL: http://localhost:9999
+
+      GOTRUE_DB_DRIVER: postgres
+      GOTRUE_DB_DATABASE_URL: postgres://postgres:postgres@postgres:5432/prayer_dev?search_path=auth
+
+      GOTRUE_SITE_URL: http://localhost:5173
+      GOTRUE_URI_ALLOW_LIST: 'http://localhost:5173,http://localhost:5173/*'
+
+      GOTRUE_DISABLE_SIGNUP: 'false'
+      GOTRUE_EXTERNAL_EMAIL_ENABLED: 'true'
+      GOTRUE_MAILER_AUTOCONFIRM: 'true'
+
+      # RS256 asymmetric keypair for JWT signing.
+      # GoTrue v2.168.0+ reads GOTRUE_JWT_KEYS as a JSON array of private JWKs.
+      # The /.well-known/jwks.json endpoint then exposes the corresponding public key,
+      # which our api's jose JWKS verifier fetches to validate user JWTs.
+      # DEV-ONLY key committed to the repo — see docker/gotrue-jwt/README.md.
+      GOTRUE_JWT_KEYS: '[{"kty":"RSA","n":"0lA0kUzbT9TCElBFKTENnvY4tlm_J0GPYhR91nch2FCtmA_o7j-SLBXTDP627yTQsUOZXCET3SFMMO-kBDvteL75gP-7TyBqqX6jrfm307XIJbTKW2an9wDuZPz6TqAgPbth94MQ8yfc9r-HYz1d3ru-6__OS6B05Lsa9MTfMV2WtI5MDGLbZ2Mym39ftGFn17wfMdpI1-h140DZCc7qwjNQiUDAHIxY_IOt4SjXoqrY4L8bg6tt88WHqoZSk8k9oNhjPnjewO1jFEGuizMiCmgv_r35yCoXN7JJkKXq-m3fS4eUeHVo47BXrmMMAYCqxxKdQ0vcxB2n7jRYOPm7JQ","e":"AQAB","d":"AUk5xRCv_6E4rZV9ksaow2nUh3Ltiw8o0gv3iAXy-EhoA1fHkBtl6KyafYgaNMSoHQlhiPFv1miTd3Ijsd3u8g_S5UHLEq0LUe2DETeHcv0309ky6pOqX8WK76WnXy81-0Kn0vRjeGUsQfsCWC5CInBJ9tX53DcHN_XX8Jq6lanuv5SOSEY12qoaRTRAg9oQ8vrKOtKnQFzcspzC__Gsa0slHtFloYPokxFksfDeQdY1S65SUI7PN_fRdzYQD-MWShHAr4WnlE4cuCiWctZGXM0s5YFtYu9ZfXNXh4CH9A1dcgIAaANXStNj5HRv7XyFvNBLHvvt6by2aWyAoCAK-Q","p":"-GVKlMn9HThhlHwqmMJ9iInsR3PqLUARVSd9o9r0g6-iGjpG-U12mJ5ngvVNvoVxbm77j8N7Q6ligXXf95R39penkw2h-rAooV9vz5zNjGnm4neN_8CUXfQv6a-pbdm4NWXX_phDy03oruq9jeB-yMN4N-lU-V6qU--saMAES7k","q":"2MB1Jq3hbcZFNnDDoQeOuCXkyhhnMmuH4LW4RsdBqBd6HE0MVaMkYvU1EpfQHKgGtMamUtCO2civuQ0vhf0laCdY5RiB3Ysi9t-VRqAANPWZ7hI9TQCRI-lixEU9Ww7wb15LMEv-UPtkgWrNVUtcIVw3lT52tuSm0PPixgdN2M0","dp":"qA84T8T-GSgNdX4w_9wPPTM8BvgZR_ZiA8BNVHCPIQ3S2nX1kTVk-Uurc0JvEGmO3o3-bD1xh8zx1e-f0g3EwLXI7ki6ADfxtYUxzEEmHUuFqFIFZDWy7IKLbEuqkaVN6er3Ic15iPM0bCxshbKPdVwzWXjoQjRXf6TYfKL2BRk","dq":"qNhjahoRfV3yFJKLEim8954tN3EDErfJRTbJsfkOIE8JhHpQnXVUpvG0wiMYrvoFH1WPwvtMDELVACZRWuLz_MqJ6QzKPTZhqkZJFpcVEiwwGNCEiDNk3MC1e4ckYIamrVqa36iTF6p9hIMaKNNnlWUst0nNWHONr0AM645NChE","qi":"m9jgJUG2aFsJmr9DyWrKKpznkvBEwB2fGkVRM1WiShL1_HJicKcbyRw1StTuwZ0fgtY8XwAbtnQdXaPJqfFv1H5jjtptYOLQtfypSVGbczavuI8AE8z9uHV02vPQCf1l0bU5BmqKn5ukLLge-sbZ8YbgbDZxy8P6Y-eKE0xKiRs","use":"sig","alg":"RS256","kid":"dev-rs256-key-1","key_ops":["sign","verify"]}]'
+      # GOTRUE_JWT_SECRET is still required by GoTrue's config parser but is unused for
+      # signing when GOTRUE_JWT_KEYS is set. Keep it as a clearly-labelled non-secret fallback.
+      GOTRUE_JWT_SECRET: dev-only-fallback-secret-not-used-for-signing-do-not-use-in-production
+      GOTRUE_JWT_EXP: '3600'
+      GOTRUE_JWT_AUD: authenticated
+      GOTRUE_JWT_ADMIN_ROLES: service_role
+      GOTRUE_JWT_DEFAULT_GROUP_NAME: authenticated
+
+      GOTRUE_LOG_LEVEL: info
+    healthcheck:
+      test: ['CMD', 'wget', '--quiet', '--tries=1', '--spider', 'http://localhost:9999/health']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+
+  # Tiny nginx in front of GoTrue that strips the `/auth/v1` prefix the
+  # Supabase JS SDK adds to every auth call. On hosted Supabase, Kong
+  # does this routing; locally we have no Kong, so this sidecar takes
+  # GoTrue's native root paths and exposes them at /auth/v1/* so the
+  # SDK can call a self-hosted GoTrue without any code changes.
+  gotrue-proxy:
+    image: nginxinc/nginx-unprivileged:alpine
+    container_name: prayer-gotrue-proxy
+    restart: unless-stopped
+    depends_on:
+      gotrue:
+        condition: service_healthy
+    ports:
+      - '9999:8080'
+    volumes:
+      - ./docker/gotrue-proxy/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    healthcheck:
+      # Use 127.0.0.1 — nginx-unprivileged's minimal alpine doesn't resolve
+      # 'localhost' DNS, so wget against `localhost:8080` fails to connect.
+      test: ['CMD', 'wget', '--quiet', '--tries=1', '--spider', 'http://127.0.0.1:8080/healthz']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+
+  # S3-compatible local storage for avatars in OSS mode.
+  # Production reads/writes the same bucket via Supabase's S3 endpoint.
+  minio:
+    image: minio/minio:RELEASE.2025-09-07T16-13-09Z
+    container_name: prayer-minio
+    restart: unless-stopped
+    ports:
+      - '127.0.0.1:9000:9000' # S3 API
+      - '127.0.0.1:9001:9001' # Web UI (admin console)
+    environment:
+      MINIO_ROOT_USER: prayer-dev-local
+      MINIO_ROOT_PASSWORD: prayer-dev-local-secret
+    command: server /data --console-address ":9001"
+    volumes:
+      - prayer_minio_data:/data
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:9000/minio/health/live']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+
+  # One-shot bucket creator. Idempotent — safe to re-run on every start.
+  minio-init:
+    image: minio/mc:RELEASE.2025-08-13T08-35-41Z
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+        mc alias set local http://minio:9000 prayer-dev-local prayer-dev-local-secret &&
+        mc mb --ignore-existing local/avatars &&
+        mc anonymous set download local/avatars
+      "
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: prayer-api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      gotrue:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+    ports:
+      - '3001:3001'
+    environment:
+      NODE_ENV: development
+      PORT: '3001'
+      LOG_LEVEL: info
+
+      DATABASE_URL: postgres://postgres:postgres@postgres:5432/prayer_dev
+
+      AUTH_JWKS_URL: http://gotrue:9999/.well-known/jwks.json
+
+      S3_ENDPOINT: http://minio:9000
+      S3_REGION: us-east-1
+      S3_BUCKET: avatars
+      S3_ACCESS_KEY: prayer-dev-local
+      S3_SECRET_KEY: prayer-dev-local-secret
+      S3_FORCE_PATH_STYLE: 'true'
+      STORAGE_PUBLIC_URL_BASE: http://localhost:9000/avatars
+
+      CORS_ORIGIN: http://localhost:5173
+    healthcheck:
+      test: ['CMD', 'wget', '--quiet', '--tries=1', '--spider', 'http://localhost:3001/healthz']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        VITE_API_URL: http://localhost:3001
+        VITE_AUTH_URL: http://localhost:9999
+        # Anon JWT signed with the RS256 dev key above.
+        # Local-dev-only — never reuse in production.
+        VITE_AUTH_ANON_KEY: eyJhbGciOiJSUzI1NiIsImtpZCI6ImRldi1yczI1Ni1rZXktMSJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlLWRlbW8iLCJleHAiOjE5ODM4MTI5OTYsImlhdCI6MTc3NzE3NzU4NH0.L8OxBc_6q3OKq8Tpi2nsWlAdqxWqarXE3JehIhtS92PPinOU6SeP6C94VecMNj44OZcuQcZ5uRm2D_bCM3KBFCPeTL8W13fWhQd1ttTPlbZiCvflwd3EXopKDnTFJqrGLyYDvHx_SaOxbDBJHigZoaeJRTATo-OlvL_joUE6Ub93m3iK7JTY5iME2pH0qqEAGstTX3WMR-Mrx8hfe4KoREFD4QMY8iJghuJZgMDybZeAR0tWqMzem9Oecu8A93YEEHs-6RAOn_ATVOEzq_x6ptm1EqGOmoC5sYz_r2GTIN4CaXJbjFGzHI9rsNUHigHSaYjpTj2XHCehCMJxM2avAw
+    container_name: prayer-web
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - '5173:8080'
+
+volumes:
+  prayer_pg_data:
+  prayer_minio_data:

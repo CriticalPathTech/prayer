@@ -1,0 +1,9 @@
+**/dist/
+**/node_modules/
+pnpm-lock.yaml
+*.tsbuildinfo
+coverage/
+.claude/
+*.conf
+**/playwright-report/
+**/test-results/

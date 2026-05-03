@@ -1,0 +1,346 @@
+import { newId } from '@prayer/db';
+import type { Database } from '@prayer/db';
+import type { Kysely } from 'kysely';
+import request from 'supertest';
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+
+import { initDb } from '../../src/db/index.js';
+import { clearSnapshotCache } from '../../src/services/feed-snapshot.js';
+import { mintTestJwt } from '../helpers/jwt.js';
+import { insertPost, insertUser } from '../helpers/seed.js';
+import { createTestApp, type TestApp } from '../helpers/supertest.js';
+
+describe('GET /feed', () => {
+  let ctx: TestApp;
+  beforeAll(async () => {
+    ctx = await createTestApp();
+  });
+  afterAll(async () => {
+    await ctx.close();
+  });
+  afterEach(async () => {
+    clearSnapshotCache();
+    await ctx.db.deleteFrom('events').execute();
+    await ctx.db.deleteFrom('posts').execute();
+    await ctx.db.deleteFrom('users').execute();
+  });
+
+  it('excludes drafts and archived', async () => {
+    const user = await insertUser(ctx.db);
+    const token = await mintTestJwt({ sub: user.supabaseAuthId, email: user.email });
+    await insertPost(ctx.db, { authorId: user.id, status: 'published' });
+    await insertPost(ctx.db, { authorId: user.id, status: 'draft' });
+    await insertPost(ctx.db, { authorId: user.id, status: 'archived' });
+    const res = await request(ctx.app)
+      .get('/feed?filter=all')
+      .set('Authorization', `Bearer ${token}`);
+    expect(res.status).toBe(200);
+    expect(res.body.posts).toHaveLength(1);
+    expect(res.body.posts[0].status).toBe('published');
+    expect(res.body.snapshotId).toBe(res.body.posts[0].id);
+  });
+
+  it('excludes hidden posts for members', async () => {
+    const author = await insertUser(ctx.db);
+    const member = await insertUser(ctx.db);
+    await insertPost(ctx.db, { authorId: author.id, status: 'hidden' });
+    await insertPost(ctx.db, { authorId: author.id, status: 'published' });
+    const token = await mintTestJwt({ sub: member.supabaseAuthId, email: member.email });
+    const res = await request(ctx.app)
+      .get('/feed?filter=all')
+      .set('Authorization', `Bearer ${token}`);
+    expect(res.status).toBe(200);
+    expect(res.body.posts).toHaveLength(1);
+    expect(res.body.posts[0].status).toBe('published');
+  });
+
+  it('includes hidden posts for moderators with hidden_by attribution', async () => {
+    const author = await insertUser(ctx.db);
+    const moderator = await insertUser(ctx.db, { role: 'moderator' });
+    const hidden = await insertPost(ctx.db, { authorId: author.id, status: 'hidden' });
+    // Write the moderator.hide event that the DTO will look up.
+    await ctx.db
+      .insertInto('events')
+      .values({
+        id: newId(),
+        type: 'moderator.hide',
+        post_id: hidden.id,
+        actor_id: moderator.id,
+        payload: {
+          target_type: 'post',
+          target_id: hidden.id,
+          source: 'manual',
+        } as never,
+      })
+      .execute();
+    const token = await mintTestJwt({ sub: moderator.supabaseAuthId, email: moderator.email });
+    const res = await request(ctx.app)
+      .get('/feed?filter=all')
+      .set('Authorization', `Bearer ${token}`);
+    expect(res.status).toBe(200);
+    const row = res.body.posts.find((p: { id: string }) => p.id === hidden.id);
+    expect(row).toBeDefined();
+    expect(row.status).toBe('hidden');
+    expect(row.hidden_source).toBe('manual');
+    expect(row.hidden_by).toEqual({
+      id: moderator.id,
+      display_name: moderator.email.split('@')[0],
+    });
+  });
+
+  it('includes auto-hidden posts for moderators with null hidden_by', async () => {
+    const author = await insertUser(ctx.db);
+    const moderator = await insertUser(ctx.db, { role: 'moderator' });
+    const hidden = await insertPost(ctx.db, { authorId: author.id, status: 'hidden' });
+    // Auto-hide event: actor_id is null, source is 'auto'.
+    await ctx.db
+      .insertInto('events')
+      .values({
+        id: newId(),
+        type: 'moderator.hide',
+        post_id: hidden.id,
+        actor_id: null,
+        payload: {
+          target_type: 'post',
+          target_id: hidden.id,
+          source: 'auto',
+        } as never,
+      })
+      .execute();
+    const token = await mintTestJwt({ sub: moderator.supabaseAuthId, email: moderator.email });
+    const res = await request(ctx.app)
+      .get('/feed?filter=all')
+      .set('Authorization', `Bearer ${token}`);
+    const row = res.body.posts.find((p: { id: string }) => p.id === hidden.id);
+    expect(row).toBeDefined();
+    expect(row.status).toBe('hidden');
+    expect(row.hidden_source).toBe('auto');
+    expect(row.hidden_by).toBeNull();
+  });
+
+  it('excludes update posts (only originals)', async () => {
+    const user = await insertUser(ctx.db);
+    const token = await mintTestJwt({ sub: user.supabaseAuthId, email: user.email });
+    const parent = await insertPost(ctx.db, { authorId: user.id, status: 'published' });
+    await insertPost(ctx.db, { authorId: user.id, status: 'published', parentId: parent.id });
+    const res = await request(ctx.app)
+      .get('/feed?filter=all')
+      .set('Authorization', `Bearer ${token}`);
+    expect(res.body.posts).toHaveLength(1);
+    expect(res.body.posts[0].id).toBe(parent.id);
+  });
+
+  it('all: paginates by cursor', async () => {
+    const user = await insertUser(ctx.db);
+    const token = await mintTestJwt({ sub: user.supabaseAuthId, email: user.email });
+    for (let i = 0; i < 3; i++) {
+      await insertPost(ctx.db, { authorId: user.id, status: 'published' });
+    }
+    const first = await request(ctx.app)
+      .get('/feed?filter=all&limit=2')
+      .set('Authorization', `Bearer ${token}`);
+    expect(first.body.posts).toHaveLength(2);
+    expect(first.body.nextCursor).toBeDefined();
+    const second = await request(ctx.app)
+      .get(`/feed?filter=all&limit=2&cursor=${encodeURIComponent(first.body.nextCursor)}`)
+      .set('Authorization', `Bearer ${token}`);
+    expect(second.body.posts).toHaveLength(1);
+    expect(second.body.nextCursor).toBeNull();
+  });
+
+  it('rejects limit > 50', async () => {
+    const user = await insertUser(ctx.db);
+    const token = await mintTestJwt({ sub: user.supabaseAuthId, email: user.email });
+    const res = await request(ctx.app)
+      .get('/feed?filter=all&limit=100')
+      .set('Authorization', `Bearer ${token}`);
+    expect(res.status).toBe(400);
+  });
+
+  it('rejects bad filter', async () => {
+    const user = await insertUser(ctx.db);
+    const token = await mintTestJwt({ sub: user.supabaseAuthId, email: user.email });
+    const res = await request(ctx.app)
+      .get('/feed?filter=weird')
+      .set('Authorization', `Bearer ${token}`);
+    expect(res.status).toBe(400);
+  });
+
+  it('mine: only returns posts authored by the caller', async () => {
+    const author = await insertUser(ctx.db);
+    const other = await insertUser(ctx.db);
+    const token = await mintTestJwt({ sub: author.supabaseAuthId, email: author.email });
+    const mine = await insertPost(ctx.db, { authorId: author.id, status: 'published' });
+    await insertPost(ctx.db, { authorId: other.id, status: 'published' });
+    const res = await request(ctx.app)
+      .get('/feed?filter=mine')
+      .set('Authorization', `Bearer ${token}`);
+    expect(res.status).toBe(200);
+    expect(res.body.posts).toHaveLength(1);
+    expect(res.body.posts[0].id).toBe(mine.id);
+  });
+
+  it('answered: only returns parents flagged answered and embeds every answered update chronologically', async () => {
+    const author = await insertUser(ctx.db);
+    const token = await mintTestJwt({ sub: author.supabaseAuthId, email: author.email });
+    const pending = await insertPost(ctx.db, { authorId: author.id, status: 'published' });
+    const answered = await insertPost(ctx.db, { authorId: author.id, status: 'published' });
+    await ctx.db
+      .updateTable('posts')
+      .set({ is_answered_prayer: true })
+      .where('id', '=', answered.id)
+      .execute();
+    const earlierUpdate = await insertPost(ctx.db, {
+      authorId: author.id,
+      status: 'published',
+      parentId: answered.id,
+      body: 'interim',
+    });
+    await ctx.db
+      .updateTable('posts')
+      .set({ is_answered_prayer: true })
+      .where('id', '=', earlierUpdate.id)
+      .execute();
+    const laterUpdate = await insertPost(ctx.db, {
+      authorId: author.id,
+      status: 'published',
+      parentId: answered.id,
+      body: 'answered!',
+    });
+    await ctx.db
+      .updateTable('posts')
+      .set({ is_answered_prayer: true })
+      .where('id', '=', laterUpdate.id)
+      .execute();
+    const res = await request(ctx.app)
+      .get('/feed?filter=answered')
+      .set('Authorization', `Bearer ${token}`);
+    expect(res.status).toBe(200);
+    expect(res.body.posts.map((p: { id: string }) => p.id)).toEqual([answered.id]);
+    expect(res.body.posts.map((p: { id: string }) => p.id)).not.toContain(pending.id);
+    const answered_updates = res.body.posts[0].answered_updates;
+    expect(answered_updates).toHaveLength(2);
+    // Chronological order: oldest → newest.
+    expect(answered_updates[0].id).toBe(earlierUpdate.id);
+    expect(answered_updates[0].body).toBe('interim');
+    expect(answered_updates[1].id).toBe(laterUpdate.id);
+    expect(answered_updates[1].body).toBe('answered!');
+  });
+
+  it('all: answered_updates is an empty array on every row', async () => {
+    const author = await insertUser(ctx.db);
+    const token = await mintTestJwt({ sub: author.supabaseAuthId, email: author.email });
+    await insertPost(ctx.db, { authorId: author.id, status: 'published' });
+    const res = await request(ctx.app)
+      .get('/feed?filter=all')
+      .set('Authorization', `Bearer ${token}`);
+    expect(res.body.posts[0].answered_updates).toEqual([]);
+  });
+
+  it('answered: does not embed archived or hidden update posts', async () => {
+    const author = await insertUser(ctx.db);
+    const token = await mintTestJwt({ sub: author.supabaseAuthId, email: author.email });
+    const answered = await insertPost(ctx.db, { authorId: author.id, status: 'published' });
+    await ctx.db
+      .updateTable('posts')
+      .set({ is_answered_prayer: true })
+      .where('id', '=', answered.id)
+      .execute();
+    // Archived answered update — should be excluded from answered_updates embed
+    const archivedUpdate = await insertPost(ctx.db, {
+      authorId: author.id,
+      status: 'archived',
+      parentId: answered.id,
+      body: 'archived update body',
+    });
+    await ctx.db
+      .updateTable('posts')
+      .set({ is_answered_prayer: true })
+      .where('id', '=', archivedUpdate.id)
+      .execute();
+    const res = await request(ctx.app)
+      .get('/feed?filter=answered')
+      .set('Authorization', `Bearer ${token}`);
+    expect(res.status).toBe(200);
+    // Parent returned because its own is_answered_prayer=true, but the archived
+    // child must not surface as an embedded update.
+    expect(res.body.posts).toHaveLength(1);
+    expect(res.body.posts[0].id).toBe(answered.id);
+    expect(res.body.posts[0].answered_updates).toEqual([]);
+  });
+});
+
+describe('GET /feed/snapshot', () => {
+  let ctx: TestApp;
+  beforeAll(async () => {
+    ctx = await createTestApp();
+  });
+  afterAll(async () => {
+    await ctx.close();
+  });
+  afterEach(async () => {
+    clearSnapshotCache();
+    await ctx.db.deleteFrom('posts').execute();
+    await ctx.db.deleteFrom('users').execute();
+  });
+
+  it('returns zero-uuid when no published posts exist', async () => {
+    const user = await insertUser(ctx.db);
+    const token = await mintTestJwt({ sub: user.supabaseAuthId, email: user.email });
+    const res = await request(ctx.app)
+      .get('/feed/snapshot')
+      .set('Authorization', `Bearer ${token}`);
+    expect(res.status).toBe(200);
+    expect(res.body.snapshotId).toBe('00000000-0000-0000-0000-000000000000');
+  });
+
+  it('returns the max published post id', async () => {
+    const user = await insertUser(ctx.db);
+    const token = await mintTestJwt({ sub: user.supabaseAuthId, email: user.email });
+    await insertPost(ctx.db, { authorId: user.id, status: 'draft' });
+    const published = await insertPost(ctx.db, { authorId: user.id, status: 'published' });
+    const res = await request(ctx.app)
+      .get('/feed/snapshot')
+      .set('Authorization', `Bearer ${token}`);
+    expect(res.status).toBe(200);
+    expect(res.body.snapshotId).toBe(published.id);
+  });
+});
+
+describe('GET /feed — M5 prayed flag', () => {
+  let db: Kysely<Database>;
+  beforeAll(() => {
+    db = initDb(process.env.TEST_DATABASE_URL!);
+  });
+  afterAll(async () => {
+    await db.destroy();
+  });
+  afterEach(async () => {
+    clearSnapshotCache();
+    await db.deleteFrom('prayers').execute();
+    await db.deleteFrom('posts').execute();
+    await db.deleteFrom('users').execute();
+  });
+
+  it('feed rows include prayed:true when caller prayed the post', async () => {
+    const author = await insertUser(db);
+    const caller = await insertUser(db);
+    const p1 = await insertPost(db, { authorId: author.id, status: 'published' });
+    const p2 = await insertPost(db, { authorId: author.id, status: 'published' });
+    await db
+      .insertInto('prayers')
+      .values({ id: newId(), post_id: p1.id, user_id: caller.id })
+      .execute();
+
+    const ctx = await createTestApp();
+    const token = await mintTestJwt({ sub: caller.supabaseAuthId, email: caller.email });
+    const res = await request(ctx.app)
+      .get('/feed?filter=all')
+      .set('Authorization', `Bearer ${token}`);
+    expect(res.status).toBe(200);
+    const p1Row = res.body.posts.find((x: { id: string }) => x.id === p1.id);
+    const p2Row = res.body.posts.find((x: { id: string }) => x.id === p2.id);
+    expect(p1Row.prayed).toBe(true);
+    expect(p2Row.prayed).toBe(false);
+  });
+});

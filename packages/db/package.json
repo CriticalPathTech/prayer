@@ -1,0 +1,36 @@
+{
+  "name": "@prayer/db",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "test": "vitest run",
+    "migrate:up": "node-pg-migrate up -m migrations -j sql --envPath ../../.env",
+    "migrate:down": "node-pg-migrate down -m migrations -j sql --envPath ../../.env",
+    "migrate:up:test": "cross-env DATABASE_URL=$TEST_DATABASE_URL node-pg-migrate up -m migrations -j sql --envPath ../../.env",
+    "bootstrap": "tsx src/bootstrap.ts"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.103.3",
+    "kysely": "^0.27.4",
+    "node-pg-migrate": "^7.6.0",
+    "pg": "^8.13.0",
+    "uuidv7": "^1.0.2"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.11.0",
+    "cross-env": "^7.0.3",
+    "dotenv": "^17.4.2",
+    "tsx": "^4.21.0",
+    "vitest": "^2.1.0"
+  }
+}

@@ -1,0 +1,246 @@
+import type { Database } from '@prayer/db';
+import type { Kysely } from 'kysely';
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+
+import { initDb } from '../../src/db/index.js';
+import {
+  writePostEvent,
+  writeReactionEvent,
+  writePrayerEvent,
+  writeFlagEvent,
+  writeModerationEvent,
+  writeInvitationEvent,
+} from '../../src/services/events.js';
+import { insertPost, insertUser } from '../helpers/seed.js';
+
+describe('writePostEvent', () => {
+  let db: Kysely<Database>;
+
+  beforeAll(() => {
+    db = initDb(process.env.TEST_DATABASE_URL!);
+  });
+  afterAll(async () => {
+    await db.destroy();
+  });
+  afterEach(async () => {
+    await db.deleteFrom('events').execute();
+    await db.deleteFrom('posts').execute();
+    await db.deleteFrom('users').execute();
+  });
+
+  it('inserts a post.update_created event with payload', async () => {
+    const user = await insertUser(db);
+    const post = await insertPost(db, { authorId: user.id, status: 'published' });
+
+    await db.transaction().execute(async (trx) => {
+      await writePostEvent(trx, {
+        kind: 'post.update_created',
+        postId: post.id,
+        actorId: user.id,
+        payload: { parent_id: post.id, is_answered_prayer: false },
+      });
+    });
+
+    const rows = await db.selectFrom('events').selectAll().execute();
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      type: 'post.update_created',
+      post_id: post.id,
+      actor_id: user.id,
+      payload: { parent_id: post.id, is_answered_prayer: false },
+      processed_at: null,
+    });
+  });
+});
+
+describe('writeReactionEvent', () => {
+  let db: Kysely<Database>;
+  beforeAll(() => {
+    db = initDb(process.env.TEST_DATABASE_URL!);
+  });
+  afterAll(async () => {
+    await db.destroy();
+  });
+  afterEach(async () => {
+    await db.deleteFrom('events').execute();
+    await db.deleteFrom('posts').execute();
+    await db.deleteFrom('users').execute();
+  });
+
+  it('writes a reaction.added event with target_type + emoji payload', async () => {
+    const user = await insertUser(db);
+    const post = await insertPost(db, { authorId: user.id, status: 'published' });
+    await db.transaction().execute(async (trx) => {
+      await writeReactionEvent(trx, {
+        kind: 'reaction.added',
+        postId: post.id,
+        actorId: user.id,
+        targetType: 'post',
+        targetId: post.id,
+        emoji: '🙏',
+      });
+    });
+    const rows = await db.selectFrom('events').selectAll().execute();
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      type: 'reaction.added',
+      post_id: post.id,
+      actor_id: user.id,
+      payload: { target_type: 'post', target_id: post.id, emoji: '🙏' },
+    });
+  });
+});
+
+describe('writePrayerEvent', () => {
+  let db: Kysely<Database>;
+  beforeAll(() => {
+    db = initDb(process.env.TEST_DATABASE_URL!);
+  });
+  afterAll(async () => {
+    await db.destroy();
+  });
+  afterEach(async () => {
+    await db.deleteFrom('events').execute();
+    await db.deleteFrom('posts').execute();
+    await db.deleteFrom('users').execute();
+  });
+
+  it('writes a prayer.added event with post_id payload', async () => {
+    const user = await insertUser(db);
+    const post = await insertPost(db, { authorId: user.id, status: 'published' });
+    await db.transaction().execute(async (trx) => {
+      await writePrayerEvent(trx, {
+        kind: 'prayer.added',
+        postId: post.id,
+        actorId: user.id,
+      });
+    });
+    const rows = await db.selectFrom('events').selectAll().execute();
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      type: 'prayer.added',
+      post_id: post.id,
+      actor_id: user.id,
+      payload: { post_id: post.id },
+    });
+  });
+});
+
+describe('writeFlagEvent', () => {
+  let db: Kysely<Database>;
+  beforeAll(() => {
+    db = initDb(process.env.TEST_DATABASE_URL!);
+  });
+  afterAll(async () => {
+    await db.destroy();
+  });
+  afterEach(async () => {
+    await db.deleteFrom('events').execute();
+    await db.deleteFrom('posts').execute();
+    await db.deleteFrom('users').execute();
+  });
+
+  it('writes a flag.created event with payload', async () => {
+    const user = await insertUser(db);
+    const post = await insertPost(db, { authorId: user.id, status: 'published' });
+    await db.transaction().execute(async (trx) => {
+      await writeFlagEvent(trx, {
+        kind: 'flag.created',
+        postId: post.id,
+        actorId: user.id,
+        flagId: '019da000-0000-7000-8000-000000000000',
+        targetType: 'post',
+        targetId: post.id,
+        reason: 'off_topic',
+      });
+    });
+    const rows = await db.selectFrom('events').selectAll().execute();
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      type: 'flag.created',
+      post_id: post.id,
+      actor_id: user.id,
+      payload: {
+        target_type: 'post',
+        target_id: post.id,
+        reason: 'off_topic',
+      },
+    });
+  });
+});
+
+describe('writeModerationEvent', () => {
+  let db: Kysely<Database>;
+  beforeAll(() => {
+    db = initDb(process.env.TEST_DATABASE_URL!);
+  });
+  afterAll(async () => {
+    await db.destroy();
+  });
+  afterEach(async () => {
+    await db.deleteFrom('events').execute();
+    await db.deleteFrom('posts').execute();
+    await db.deleteFrom('users').execute();
+  });
+
+  it('writes a moderator.hide event with source=auto and null actor', async () => {
+    const user = await insertUser(db);
+    const post = await insertPost(db, { authorId: user.id, status: 'published' });
+    await db.transaction().execute(async (trx) => {
+      await writeModerationEvent(trx, {
+        kind: 'moderator.hide',
+        postId: post.id,
+        actorId: null,
+        targetType: 'post',
+        targetId: post.id,
+        source: 'auto',
+      });
+    });
+    const rows = await db.selectFrom('events').selectAll().execute();
+    expect(rows[0]).toMatchObject({
+      type: 'moderator.hide',
+      actor_id: null,
+      payload: { target_type: 'post', target_id: post.id, source: 'auto' },
+    });
+  });
+});
+
+describe('writeInvitationEvent', () => {
+  let db: Kysely<Database>;
+  beforeAll(() => {
+    db = initDb(process.env.TEST_DATABASE_URL!);
+  });
+  afterAll(async () => {
+    await db.destroy();
+  });
+  afterEach(async () => {
+    await db.deleteFrom('events').execute();
+    await db.deleteFrom('users').execute();
+  });
+
+  it('writes an invite.accepted event with null post_id and invitor as actor', async () => {
+    const invitor = await insertUser(db);
+    const invitee = await insertUser(db);
+    await db.transaction().execute(async (trx) => {
+      await writeInvitationEvent(trx, {
+        kind: 'invite.accepted',
+        actorId: invitor.id,
+        invitationId: '019da000-0000-7000-8000-000000000000',
+        inviteeId: invitee.id,
+        inviteeDisplayName: 'member one',
+      });
+    });
+    const rows = await db.selectFrom('events').selectAll().execute();
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      type: 'invite.accepted',
+      post_id: null,
+      actor_id: invitor.id,
+      payload: {
+        invitation_id: '019da000-0000-7000-8000-000000000000',
+        invitee_id: invitee.id,
+        invitee_display_name: 'member one',
+      },
+    });
+  });
+});

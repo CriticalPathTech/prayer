@@ -1,0 +1,221 @@
+import type { Database } from '@prayer/db';
+import { newId } from '@prayer/db';
+import type { Emoji } from '@prayer/shared';
+import type { Kysely, Transaction } from 'kysely';
+
+export type PostEventKind = 'post.update_created';
+
+export type CommentEventKind = 'comment.created';
+
+export type ReactionEventKind = 'reaction.added' | 'reaction.removed';
+export type PrayerEventKind = 'prayer.added' | 'prayer.removed';
+
+export type FlagEventKind = 'flag.created' | 'flag.resolved';
+export type ModerationEventKind = 'moderator.hide' | 'moderator.unhide';
+
+export type InvitationEventKind = 'invite.accepted' | 'invitation.redeemed';
+
+export type EventKind =
+  | PostEventKind
+  | CommentEventKind
+  | ReactionEventKind
+  | PrayerEventKind
+  | FlagEventKind
+  | ModerationEventKind
+  | InvitationEventKind;
+
+export type EventPayload = Record<string, unknown>;
+
+export interface WriteEventInput {
+  kind: EventKind;
+  postId: string;
+  actorId: string;
+  payload: EventPayload;
+}
+
+/** Backwards-compatible alias — existing callers pass `kind: PostEventKind`. */
+export async function writePostEvent(
+  db: Kysely<Database> | Transaction<Database>,
+  input: WriteEventInput,
+): Promise<void> {
+  await db
+    .insertInto('events')
+    .values({
+      id: newId(),
+      type: input.kind,
+      post_id: input.postId,
+      actor_id: input.actorId,
+      payload: input.payload as never,
+    })
+    .execute();
+}
+
+/** Alias for clarity at comment call-sites; shares the same table. */
+export const writeCommentEvent = writePostEvent;
+
+export interface WriteReactionEventInput {
+  kind: ReactionEventKind;
+  postId: string;
+  actorId: string;
+  targetType: 'post' | 'comment';
+  targetId: string;
+  emoji: Emoji;
+}
+
+export async function writeReactionEvent(
+  db: Kysely<Database> | Transaction<Database>,
+  input: WriteReactionEventInput,
+): Promise<void> {
+  await db
+    .insertInto('events')
+    .values({
+      id: newId(),
+      type: input.kind,
+      post_id: input.postId,
+      actor_id: input.actorId,
+      payload: {
+        target_type: input.targetType,
+        target_id: input.targetId,
+        emoji: input.emoji,
+      } as never,
+    })
+    .execute();
+}
+
+export interface WritePrayerEventInput {
+  kind: PrayerEventKind;
+  postId: string;
+  actorId: string;
+}
+
+export async function writePrayerEvent(
+  db: Kysely<Database> | Transaction<Database>,
+  input: WritePrayerEventInput,
+): Promise<void> {
+  await db
+    .insertInto('events')
+    .values({
+      id: newId(),
+      type: input.kind,
+      post_id: input.postId,
+      actor_id: input.actorId,
+      payload: { post_id: input.postId } as never,
+    })
+    .execute();
+}
+
+export interface WriteFlagEventInput {
+  kind: FlagEventKind;
+  postId: string;
+  actorId: string;
+  flagId: string;
+  targetType: 'post' | 'comment';
+  targetId: string;
+  reason: string;
+  note?: string;
+}
+
+export async function writeFlagEvent(
+  db: Kysely<Database> | Transaction<Database>,
+  input: WriteFlagEventInput,
+): Promise<void> {
+  await db
+    .insertInto('events')
+    .values({
+      id: newId(),
+      type: input.kind,
+      post_id: input.postId,
+      actor_id: input.actorId,
+      payload: {
+        flag_id: input.flagId,
+        target_type: input.targetType,
+        target_id: input.targetId,
+        reason: input.reason,
+        ...(input.note !== undefined ? { note: input.note } : {}),
+      } as never,
+    })
+    .execute();
+}
+
+export interface WriteModerationEventInput {
+  kind: ModerationEventKind;
+  postId: string;
+  actorId: string | null;
+  targetType: 'post' | 'comment';
+  targetId: string;
+  source: 'auto' | 'manual';
+  reason?: string;
+}
+
+export async function writeModerationEvent(
+  db: Kysely<Database> | Transaction<Database>,
+  input: WriteModerationEventInput,
+): Promise<void> {
+  await db
+    .insertInto('events')
+    .values({
+      id: newId(),
+      type: input.kind,
+      post_id: input.postId,
+      actor_id: input.actorId,
+      payload: {
+        target_type: input.targetType,
+        target_id: input.targetId,
+        source: input.source,
+        ...(input.reason !== undefined ? { reason: input.reason } : {}),
+      } as never,
+    })
+    .execute();
+}
+
+export interface WriteInviteAcceptedEventInput {
+  kind: 'invite.accepted';
+  actorId: string;
+  invitationId: string;
+  inviteeId: string;
+  inviteeDisplayName: string;
+}
+
+export interface WriteInvitationRedeemedEventInput {
+  kind: 'invitation.redeemed';
+  actorId: string;
+  invitationId: string;
+  invitorId: string;
+  inviteeId: string;
+  inviteCodeId: string;
+  inviteeDisplayName: string;
+}
+
+export type WriteInvitationEventInput =
+  | WriteInviteAcceptedEventInput
+  | WriteInvitationRedeemedEventInput;
+
+export async function writeInvitationEvent(
+  db: Kysely<Database> | Transaction<Database>,
+  input: WriteInvitationEventInput,
+): Promise<void> {
+  const payload =
+    input.kind === 'invite.accepted'
+      ? {
+          invitation_id: input.invitationId,
+          invitee_id: input.inviteeId,
+          invitee_display_name: input.inviteeDisplayName,
+        }
+      : {
+          invitation_id: input.invitationId,
+          invitor_id: input.invitorId,
+          invitee_id: input.inviteeId,
+          invite_code_id: input.inviteCodeId,
+          invitee_display_name: input.inviteeDisplayName,
+        };
+  await db
+    .insertInto('events')
+    .values({
+      id: newId(),
+      type: input.kind,
+      post_id: null,
+      actor_id: input.actorId,
+      payload: payload as never,
+    })
+    .execute();
+}

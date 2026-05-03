@@ -1,0 +1,27 @@
+{
+  "enabledPlugins": {
+    "superpowers@claude-plugins-official": true,
+    "claude-md-management@claude-plugins-official": true
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "if": "Bash(git commit *)",
+            "command": "pnpm lint 2>&1; ec=$?; [ $ec -ne 0 ] && printf '{\"continue\":false,\"stopReason\":\"Lint failed — run pnpm lint to fix errors before committing.\"}' || true; exit $ec",
+            "statusMessage": "Running lint before commit…"
+          },
+          {
+            "type": "command",
+            "if": "Bash(git push *)",
+            "command": "cmd=$(jq -r '.tool_input.command'); branch=$(git branch --show-current 2>/dev/null); if [ \"$branch\" = \"main\" ] || echo \"$cmd\" | grep -qE '( |:)main( |$)'; then printf '{\"continue\":false,\"stopReason\":\"Direct pushes to main are not allowed — open a pull request instead.\"}'; exit 1; fi; git fetch origin 2>&1 && git rebase origin/main 2>&1; ec=$?; [ $ec -ne 0 ] && printf '{\"continue\":false,\"stopReason\":\"Rebase onto origin/main failed — resolve conflicts before pushing.\"}' || true; exit $ec",
+            "statusMessage": "Checking branch + rebasing onto origin/main before push…"
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "jsx": "react-jsx",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "noEmit": true,
+    "types": ["vite/client"],
+    "allowImportingTsExtensions": true
+  },
+  "include": ["src", "test/mobile"],
+  "references": [{ "path": "../../packages/shared" }, { "path": "./tsconfig.node.json" }]
+}

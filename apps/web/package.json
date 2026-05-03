@@ -1,0 +1,44 @@
+{
+  "name": "@prayer/web",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "dev:remote": "vite --mode remote",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:mobile": "playwright test --config=playwright.config.ts",
+    "typecheck": "tsc -b --dry"
+  },
+  "dependencies": {
+    "@fontsource/inter": "^5.2.8",
+    "@fontsource/source-serif-4": "^5.2.9",
+    "@prayer/shared": "workspace:*",
+    "@supabase/supabase-js": "^2.45.0",
+    "blueimp-md5": "^2.19.0",
+    "react": "^18.3.0",
+    "react-dom": "^18.3.0",
+    "react-easy-crop": "^5.0.0",
+    "react-router-dom": "^6.26.0"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.11.2",
+    "@playwright/test": "^1.59.1",
+    "@testing-library/jest-dom": "^6.5.0",
+    "@testing-library/react": "^16.0.0",
+    "@testing-library/user-event": "^14.5.0",
+    "@types/blueimp-md5": "^2.18.0",
+    "@types/react": "^18.3.0",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.0",
+    "autoprefixer": "^10.4.0",
+    "jsdom": "^25.0.0",
+    "postcss": "^8.4.0",
+    "tailwindcss": "^3.4.0",
+    "vite": "^5.4.0",
+    "vite-plugin-svgr": "^5.2.0",
+    "vitest": "^2.1.0"
+  }
+}
