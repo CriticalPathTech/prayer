@@ -221,8 +221,14 @@ describe('EditPostPage', () => {
     });
     mountEditPage();
     await screen.findByLabelText(/body/i);
+    // The deadline check runs in a useEffect that fires after data arrives, so
+    // findByLabelText can resolve before deadlinePassed flips. waitFor retries
+    // until the effect has flushed — the same fix the EDIT_DEADLINE_PASSED test
+    // above uses for the API-error variant.
+    await waitFor(() => {
+      expect(screen.getByText(/edit window has passed/i)).toBeInTheDocument();
+    });
     expect(screen.getByRole('button', { name: /save changes/i })).toBeDisabled();
-    expect(screen.getByText(/edit window has passed/i)).toBeInTheDocument();
   });
 
   it('renders "not allowed" for a post that is not the user\'s own', async () => {

@@ -38,6 +38,15 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
   return body as T;
 }
 
+export interface OrgBranding {
+  slug: string;
+  displayName: string;
+}
+
+export async function fetchOrgBranding(): Promise<OrgBranding> {
+  return apiFetch<OrgBranding>('/org');
+}
+
 export type InviteCodePreview =
   | { status: 'valid'; invitor_display_name: string; seat_cap: number; seats_remaining: number }
   | { status: 'full'; invitor_display_name: string; seat_cap: number }

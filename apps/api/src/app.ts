@@ -37,6 +37,7 @@ import { meRouter } from './routes/me.js';
 import { modInviteCodesRouter } from './routes/mod-invite-codes.js';
 import { moderationRouter } from './routes/moderation.js';
 import { notificationsRouter } from './routes/notifications.js';
+import { orgRouter } from './routes/org.js';
 import { postsRouter } from './routes/posts.js';
 import { createEventWorker, type EventHandler, type EventWorker } from './services/event-worker.js';
 import { createExpirySweeper, type ExpiryJobHandle } from './services/expiry-job.js';
@@ -130,6 +131,8 @@ export function buildApp(deps: AppDependencies): Express {
 
   const orgResolver = createOrgResolver(deps.db);
   app.use(orgContext({ db: deps.db, resolver: orgResolver }));
+
+  app.use(orgRouter());
 
   app.use(
     requireSession({ jwtVerifier: deps.jwtVerifier }),

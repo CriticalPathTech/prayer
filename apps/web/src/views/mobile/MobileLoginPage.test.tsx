@@ -11,6 +11,9 @@ vi.mock('../../hooks/useAuth', () => ({ useAuth: () => useAuthMock() }));
 const useLoginMock = vi.fn();
 vi.mock('../../hooks/useLogin', () => ({ useLogin: () => useLoginMock() }));
 
+const useOrgBrandingMock = vi.fn();
+vi.mock('../../hooks/useOrgBranding', () => ({ useOrgBranding: () => useOrgBrandingMock() }));
+
 const baseHook = {
   email: '',
   password: '',
@@ -25,6 +28,7 @@ describe('MobileLoginPage', () => {
   beforeEach(() => {
     useAuthMock.mockReturnValue({ session: null, loading: false, needsOnboarding: false });
     useLoginMock.mockReturnValue({ ...baseHook });
+    useOrgBrandingMock.mockReturnValue({ displayName: null });
   });
   afterEach(() => vi.clearAllMocks());
 
@@ -38,6 +42,28 @@ describe('MobileLoginPage', () => {
     expect(screen.getByLabelText(/email/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/password/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /sign in/i })).toBeInTheDocument();
+  });
+
+  it('shows the church display name when known', () => {
+    useOrgBrandingMock.mockReturnValue({ displayName: 'Hope Community Church' });
+    render(
+      <MemoryRouter>
+        <MobileLoginPage />
+      </MemoryRouter>,
+    );
+    expect(screen.getByText('Hope Community Church')).toBeInTheDocument();
+    // The generic tagline is replaced by the church name when known.
+    expect(screen.queryByText('An invite-only community.')).not.toBeInTheDocument();
+  });
+
+  it('falls back to the generic tagline when the host is unknown', () => {
+    useOrgBrandingMock.mockReturnValue({ displayName: null });
+    render(
+      <MemoryRouter>
+        <MobileLoginPage />
+      </MemoryRouter>,
+    );
+    expect(screen.getByText('An invite-only community.')).toBeInTheDocument();
   });
 
   it('shows error from hook', () => {
