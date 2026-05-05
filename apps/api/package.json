@@ -12,7 +12,7 @@
     "typecheck": "tsc -b --dry"
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.1037.0",
+    "@aws-sdk/client-s3": "^3.1042.0",
     "@prayer/db": "workspace:*",
     "@prayer/shared": "workspace:*",
     "cors": "^2.8.5",
@@ -21,7 +21,7 @@
     "express-rate-limit": "^7",
     "jose": "^5.9.0",
     "kysely": "^0.28.14",
-    "lru-cache": "^11.3.5",
+    "lru-cache": "^11.3.6",
     "node-cron": "^3.0.3",
     "pg": "^8.13.0",
     "pino": "^9.5.0",
