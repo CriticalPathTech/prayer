@@ -44,16 +44,27 @@ describe('MobileLoginPage', () => {
     expect(screen.getByRole('button', { name: /sign in/i })).toBeInTheDocument();
   });
 
-  it('uses the church display name as the wordmark when known', () => {
-    useOrgBrandingMock.mockReturnValue({ displayName: 'Hope Community Church' });
+  it('uses a short display name as the wordmark verbatim', () => {
+    useOrgBrandingMock.mockReturnValue({ displayName: 'Hope Church' });
     render(
       <MemoryRouter>
         <MobileLoginPage />
       </MemoryRouter>,
     );
-    expect(screen.getByText('Hope Community Church')).toBeInTheDocument();
+    expect(screen.getByText('Hope Church')).toBeInTheDocument();
     // "Prayer" wordmark is replaced by the church name on a known host.
     expect(screen.queryByText('Prayer')).not.toBeInTheDocument();
+  });
+
+  it('collapses a long display name to the first word (matches nav)', () => {
+    useOrgBrandingMock.mockReturnValue({ displayName: 'Lakeside Christian Church' });
+    render(
+      <MemoryRouter>
+        <MobileLoginPage />
+      </MemoryRouter>,
+    );
+    expect(screen.getByText('Lakeside')).toBeInTheDocument();
+    expect(screen.queryByText('Lakeside Christian Church')).not.toBeInTheDocument();
   });
 
   it('falls back to the Prayer wordmark when the host is unknown', () => {

@@ -6,6 +6,7 @@ import { Field, inputClass } from '../../components/ui/Field';
 import { useAuth } from '../../hooks/useAuth';
 import { useLogin } from '../../hooks/useLogin';
 import { useOrgBranding } from '../../hooks/useOrgBranding';
+import { displayedOrgName } from '../../lib/org';
 
 import { MobileAuthHeader } from './MobileAuthHeader';
 
@@ -13,6 +14,7 @@ export function MobileLoginPage(): JSX.Element {
   const { session, loading, needsOnboarding } = useAuth();
   const f = useLogin();
   const { displayName: orgDisplayName } = useOrgBranding();
+  const wordmark = displayedOrgName(orgDisplayName) || 'Prayer';
 
   if (loading) {
     return <div className="p-6 font-sans text-[var(--fg-3)]">Loading…</div>;
@@ -21,9 +23,9 @@ export function MobileLoginPage(): JSX.Element {
 
   return (
     <div className="flex min-h-screen flex-col items-center bg-[var(--bg-page)] px-4 pb-6 font-sans text-[var(--fg-2)]">
-      <MobileAuthHeader wordmark={orgDisplayName ?? 'Prayer'} />
+      <MobileAuthHeader wordmark={wordmark} />
       <div className="w-full max-w-sm">
-        <p className="mb-4 text-[13px] text-[var(--fg-3)]">Carrying each other in prayer.</p>
+        <p className="mb-4 text-[13px] text-[var(--fg-3)]">Carrying each other in prayer</p>
         <form
           onSubmit={(e) => {
             e.preventDefault();

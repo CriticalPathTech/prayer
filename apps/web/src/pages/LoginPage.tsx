@@ -7,11 +7,13 @@ import { Icon } from '../components/ui/Icon';
 import { useAuth } from '../hooks/useAuth';
 import { useLogin } from '../hooks/useLogin';
 import { useOrgBranding } from '../hooks/useOrgBranding';
+import { displayedOrgName } from '../lib/org';
 
 export function LoginPage(): JSX.Element {
   const { session, loading, needsOnboarding } = useAuth();
   const f = useLogin();
   const { displayName: orgDisplayName } = useOrgBranding();
+  const wordmark = displayedOrgName(orgDisplayName) || 'Prayer';
 
   if (loading) return <div className="p-6 text-[var(--fg-3)] font-sans">Loading…</div>;
   if (session && !needsOnboarding) return <Navigate to="/" replace />;
@@ -27,9 +29,9 @@ export function LoginPage(): JSX.Element {
       <div className="relative z-10 mx-auto mt-24 max-w-sm rounded-lg border border-[var(--border-soft)] bg-[var(--bg-raised)] p-7 shadow-warm-sm">
         <div className="mb-5 inline-flex items-center gap-2.5 font-serif font-semibold text-[28px] tracking-[-0.02em] text-[var(--fg-1)]">
           <Icon name="pray" size={24} />
-          <span>{orgDisplayName ?? 'Prayer'}</span>
+          <span>{wordmark}</span>
         </div>
-        <p className="mb-4 text-[13px] text-[var(--fg-3)]">Carrying each other in prayer.</p>
+        <p className="mb-4 text-[13px] text-[var(--fg-3)]">Carrying each other in prayer</p>
         <form
           onSubmit={(e) => {
             e.preventDefault();
