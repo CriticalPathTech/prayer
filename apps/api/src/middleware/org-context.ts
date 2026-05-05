@@ -15,13 +15,26 @@ export interface OrgContextDeps {
 export function orgContext(deps: OrgContextDeps): RequestHandler {
   return async (req, _res, next) => {
     try {
-      const host = pickHost(req);
       let org = null;
-      if (host === 'localhost' || host === '127.0.0.1') {
-        org = await resolveLocalhost(deps.db);
-      } else {
-        org = await deps.resolver.resolve(host);
+
+      // Mobile clients talk to a per-cell api hostname (e.g. `api.staging.prays.online`)
+      // and pass the org via X-Org-Slug. Take this path first when present —
+      // the resolver validates the slug shape before hitting the DB. A bad
+      // header falls through to host-based resolution below.
+      const headerSlug = req.get('x-org-slug');
+      if (headerSlug) {
+        org = await deps.resolver.resolveBySlug(headerSlug.toLowerCase());
       }
+
+      if (!org) {
+        const host = pickHost(req);
+        if (host === 'localhost' || host === '127.0.0.1') {
+          org = await resolveLocalhost(deps.db);
+        } else {
+          org = await deps.resolver.resolve(host);
+        }
+      }
+
       if (!org) {
         throw new NotFoundError('Unknown host');
       }

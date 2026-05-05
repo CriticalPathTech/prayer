@@ -33,6 +33,7 @@ import { healthRouter } from './routes/health.js';
 import { invitationsRedeemRouter } from './routes/invitations.js';
 import { publicInviteCodesRouter } from './routes/invite-codes.js';
 import { meDraftRouter } from './routes/me-draft.js';
+import { meOrgsRouter } from './routes/me-orgs.js';
 import { meRouter } from './routes/me.js';
 import { modInviteCodesRouter } from './routes/mod-invite-codes.js';
 import { moderationRouter } from './routes/moderation.js';
@@ -128,6 +129,17 @@ export function buildApp(deps: AppDependencies): Express {
 
   app.use(healthRouter({ db: deps.db, gitSha: deps.gitSha, startedAt }));
   app.use(publicInviteCodesRouter({ db: deps.db }));
+
+  // /me/orgs is auth-gated but org-context-exempt: the caller hasn't picked an
+  // org yet (this is the endpoint that tells them what they can pick from).
+  // Mount it BEFORE the global orgContext so it doesn't 404 on missing slug/host.
+  // Path-scope the mount so requireSession doesn't blanket-reject unrelated
+  // public routes that come later in the chain (e.g. /org).
+  app.use(
+    '/me/orgs',
+    requireSession({ jwtVerifier: deps.jwtVerifier }),
+    meOrgsRouter({ db: deps.db }),
+  );
 
   const orgResolver = createOrgResolver(deps.db);
   app.use(orgContext({ db: deps.db, resolver: orgResolver }));

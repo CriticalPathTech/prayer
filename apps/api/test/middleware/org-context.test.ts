@@ -58,4 +58,62 @@ describe('orgContext middleware', () => {
     // after the malformed Origin failed URL parsing.
     expect(res.status).toBe(401);
   });
+
+  it('resolves via X-Org-Slug header (mobile clients)', async () => {
+    // Mobile flow: api hostname has no per-org slug (e.g. `api.staging.prays.online`)
+    // and Origin is unset. orgContext should pick up X-Org-Slug instead.
+    await insertOrg(app.db, { slug: 'mobile-slug-fixture' });
+    const res = await supertest(app.app)
+      .get('/me')
+      .set('Host', 'api.staging.prays.online')
+      .set('X-Org-Slug', 'mobile-slug-fixture');
+    // Reaches requireSession (401) — proves the header-based path resolved
+    // an org. Without the header we'd see 404 ('Unknown host') because
+    // 'staging' is not a real org slug.
+    expect(res.status).toBe(401);
+  });
+
+  it('X-Org-Slug header takes priority over hostname', async () => {
+    // Both header and hostname point at real orgs; the header should win so
+    // mobile clients aren't accidentally bound to whichever org happens to
+    // share a label with the api hostname.
+    await insertOrg(app.db, { slug: 'header-priority-fixture' });
+    await insertOrg(app.db, { slug: 'host-loser-fixture' });
+    const res = await supertest(app.app)
+      .get('/me')
+      .set('Host', 'host-loser-fixture.prays.online')
+      .set('X-Org-Slug', 'header-priority-fixture');
+    // Without an Authorization header we land on requireSession (401), which
+    // tells us the header resolved an org without erroring.
+    expect(res.status).toBe(401);
+  });
+
+  it('falls through to host-based resolution when X-Org-Slug is malformed', async () => {
+    // A header value that isn't a valid DNS label (leading hyphen) shouldn't
+    // 404 outright if the hostname carries a real slug. The malformed slug
+    // returns null from the resolver; we then fall through to the host path.
+    await insertOrg(app.db, { slug: 'malformed-slug-fallback' });
+    const res = await supertest(app.app)
+      .get('/me')
+      .set('Host', 'malformed-slug-fallback.prays.online')
+      .set('X-Org-Slug', '-not-a-dns-label-');
+    expect(res.status).toBe(401);
+  });
+
+  it('returns 404 when X-Org-Slug names an unknown org and host is also unknown', async () => {
+    const res = await supertest(app.app)
+      .get('/me')
+      .set('Host', 'api.staging.prays.online')
+      .set('X-Org-Slug', 'no-such-org-anywhere');
+    expect(res.status).toBe(404);
+  });
+
+  it('lowercases X-Org-Slug before lookup (header values are case-insensitive in the wild)', async () => {
+    await insertOrg(app.db, { slug: 'lowercased-slug' });
+    const res = await supertest(app.app)
+      .get('/me')
+      .set('Host', 'api.staging.prays.online')
+      .set('X-Org-Slug', 'Lowercased-Slug');
+    expect(res.status).toBe(401);
+  });
 });

@@ -1,6 +1,11 @@
 import { describe, expect, it, beforeAll, afterAll } from 'vitest';
 
-import { findOrgByHost, createOrgResolver, resolveLocalhost } from '../../src/services/orgs.js';
+import {
+  findOrgByHost,
+  findOrgBySlug,
+  createOrgResolver,
+  resolveLocalhost,
+} from '../../src/services/orgs.js';
 import { insertOrg } from '../helpers/seed.js';
 import { createTestApp, type TestApp } from '../helpers/supertest.js';
 
@@ -68,6 +73,38 @@ describe('findOrgByHost', () => {
   });
 });
 
+describe('findOrgBySlug', () => {
+  let app: TestApp;
+  beforeAll(async () => {
+    app = await createTestApp();
+  });
+  afterAll(async () => {
+    await app.close();
+  });
+
+  it('matches a known slug', async () => {
+    const orgId = await insertOrg(app.db, { slug: 'slug-direct' });
+    const result = await findOrgBySlug(app.db, 'slug-direct');
+    expect(result?.id).toBe(orgId);
+    expect(result?.slug).toBe('slug-direct');
+  });
+
+  it('returns null for unknown slug', async () => {
+    const result = await findOrgBySlug(app.db, 'no-such-slug');
+    expect(result).toBeNull();
+  });
+
+  it('returns null for slugs that fail DNS-label validation', async () => {
+    // Defense-in-depth: header-borne slug should never cause an arbitrary
+    // DB lookup with attacker-controlled input shape.
+    expect(await findOrgBySlug(app.db, '-leading-hyphen')).toBeNull();
+    expect(await findOrgBySlug(app.db, 'trailing-hyphen-')).toBeNull();
+    expect(await findOrgBySlug(app.db, '')).toBeNull();
+    expect(await findOrgBySlug(app.db, 'has spaces')).toBeNull();
+    expect(await findOrgBySlug(app.db, 'has.dots')).toBeNull();
+  });
+});
+
 describe('createOrgResolver — LRU cache', () => {
   let app: TestApp;
   beforeAll(async () => {
@@ -121,6 +158,43 @@ describe('createOrgResolver — LRU cache', () => {
     const api2 = await resolver.resolve('api.cache-by-id.prays.online');
     expect(web2?.displayName).toBe('Renamed');
     expect(api2?.displayName).toBe('Renamed');
+  });
+
+  it('resolveBySlug caches results across calls', async () => {
+    await insertOrg(app.db, { slug: 'slug-cached' });
+    const resolver = createOrgResolver(app.db);
+    const r1 = await resolver.resolveBySlug('slug-cached');
+    const r2 = await resolver.resolveBySlug('slug-cached');
+    expect(r1).not.toBeNull();
+    expect(r2).toEqual(r1);
+  });
+
+  it('resolveBySlug caches null results for unknown slugs', async () => {
+    const resolver = createOrgResolver(app.db);
+    const r1 = await resolver.resolveBySlug('definitely-not-an-org-slug');
+    const r2 = await resolver.resolveBySlug('definitely-not-an-org-slug');
+    expect(r1).toBeNull();
+    expect(r2).toBeNull();
+  });
+
+  it('invalidateByOrgId() drops both host- and slug-cached entries', async () => {
+    const orgId = await insertOrg(app.db, { slug: 'invalidate-both', displayName: 'Original' });
+    const resolver = createOrgResolver(app.db);
+    // Cache the same org under both code paths.
+    await resolver.resolve('invalidate-both.prays.online');
+    await resolver.resolveBySlug('invalidate-both');
+    // Mutate behind both caches.
+    await app.db
+      .updateTable('orgs')
+      .set({ display_name: 'Renamed' })
+      .where('id', '=', orgId)
+      .execute();
+    resolver.invalidateByOrgId(orgId);
+    // Both entry points should now reflect the rename.
+    const host2 = await resolver.resolve('invalidate-both.prays.online');
+    const slug2 = await resolver.resolveBySlug('invalidate-both');
+    expect(host2?.displayName).toBe('Renamed');
+    expect(slug2?.displayName).toBe('Renamed');
   });
 
   it('invalidateByOrgId() leaves other orgs cached', async () => {

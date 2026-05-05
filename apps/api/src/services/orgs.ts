@@ -13,13 +13,18 @@ const HOST_TO_ORG_MAX = 1000;
 
 export interface OrgResolver {
   resolve(host: string): Promise<ResolvedOrg | null>;
+  /** Look up an org by its slug directly. Used by the X-Org-Slug header path
+   * for mobile clients, which talk to a per-cell api hostname (no per-org
+   * subdomain). Same caching contract as `resolve`, with a separate slug-keyed
+   * LRU. */
+  resolveBySlug(slug: string): Promise<ResolvedOrg | null>;
   invalidate(host: string): void;
   /** Drop every cached entry whose resolved org id matches `orgId`.
    * Use after writes that change the org row (e.g. PATCH /admin/church/settings):
    * one org can sit behind multiple cached hostnames (web `<slug>.prays.online`,
-   * api `api.<slug>.prays.online`, custom domains, `localhost` in dev), so we
-   * scan instead of taking a single host. The cache is bounded by HOST_TO_ORG_MAX
-   * so the scan is O(<=1000); writes are rare. */
+   * api `api.<slug>.prays.online`, custom domains, `localhost` in dev) AND a
+   * slug-keyed entry from the X-Org-Slug header path, so we scan both caches.
+   * Each is bounded by HOST_TO_ORG_MAX so the scan is O(<=2000); writes are rare. */
   invalidateByOrgId(orgId: string): void;
 }
 
@@ -32,24 +37,38 @@ interface CachedResolution {
 }
 
 export function createOrgResolver(db: Kysely<Database>): OrgResolver {
-  const cache = new LRUCache<string, CachedResolution>({
+  const hostCache = new LRUCache<string, CachedResolution>({
+    max: HOST_TO_ORG_MAX,
+    ttl: HOST_TO_ORG_TTL_MS,
+  });
+  const slugCache = new LRUCache<string, CachedResolution>({
     max: HOST_TO_ORG_MAX,
     ttl: HOST_TO_ORG_TTL_MS,
   });
   return {
     async resolve(host) {
-      const cached = cache.get(host);
+      const cached = hostCache.get(host);
       if (cached !== undefined) return cached.org;
       const org = await findOrgByHost(db, host);
-      cache.set(host, { org });
+      hostCache.set(host, { org });
+      return org;
+    },
+    async resolveBySlug(slug) {
+      const cached = slugCache.get(slug);
+      if (cached !== undefined) return cached.org;
+      const org = await findOrgBySlug(db, slug);
+      slugCache.set(slug, { org });
       return org;
     },
     invalidate(host) {
-      cache.delete(host);
+      hostCache.delete(host);
     },
     invalidateByOrgId(orgId) {
-      for (const [host, cached] of cache.entries()) {
-        if (cached.org?.id === orgId) cache.delete(host);
+      for (const [host, cached] of hostCache.entries()) {
+        if (cached.org?.id === orgId) hostCache.delete(host);
+      }
+      for (const [slug, cached] of slugCache.entries()) {
+        if (cached.org?.id === orgId) slugCache.delete(slug);
       }
     },
   };
@@ -85,6 +104,18 @@ export async function findOrgByHost(
 ): Promise<ResolvedOrg | null> {
   const slug = extractSlugFromHost(host);
   if (!slug) return null;
+  return findOrgBySlug(db, slug);
+}
+
+/** Look up an org by its slug. Used by the X-Org-Slug header path for mobile
+ * clients (which talk to a per-cell api hostname with no per-org subdomain).
+ * Validates the slug as a DNS label before hitting the DB so attacker-controlled
+ * input can't cause arbitrary lookups. */
+export async function findOrgBySlug(
+  db: Kysely<Database>,
+  slug: string,
+): Promise<ResolvedOrg | null> {
+  if (!DNS_LABEL_RE.test(slug)) return null;
   const row = await db
     .selectFrom('orgs')
     .where('slug', '=', slug)
