@@ -68,23 +68,7 @@ Sign in as different users to see how moderator vs. member views differ.
 
 ## Other dev modes
 
-The Quickstart above is **Mode A** — everything in containers, built locally. Three other workflows exist:
-
-**Mode A-prebuilt — pull api+web from GHCR instead of building.** Skip the ~30s Docker build by using the multi-arch images CI publishes from `main`:
-
-```bash
-docker compose -f docker-compose.yml -f docker-compose.images.yml pull
-docker compose -f docker-compose.yml -f docker-compose.images.yml up -d
-pnpm install
-pnpm bootstrap
-```
-
-Pin to a specific commit instead of the moving `:main` tag:
-
-```bash
-PRAYER_TAG=sha-<full-commit-sha> docker compose \
-  -f docker-compose.yml -f docker-compose.images.yml up -d
-```
+The Quickstart above is **Mode A** — everything in containers, built locally. Two other workflows exist:
 
 **Mode B — local web against a remote API.** UI changes without running the backend:
 

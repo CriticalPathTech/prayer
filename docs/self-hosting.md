@@ -25,24 +25,6 @@ Open <http://localhost:5173> and sign in as `hopesu@example.com` with password `
 
 ## Other dev modes
 
-### Mode A-prebuilt — pull api+web from GHCR instead of building
-
-Skip the local Docker build by using the multi-arch images CI publishes from `main`:
-
-```bash
-docker compose -f docker-compose.yml -f docker-compose.images.yml pull
-docker compose -f docker-compose.yml -f docker-compose.images.yml up -d
-pnpm install
-pnpm bootstrap
-```
-
-Pin to a specific version (recommended for production self-hosting) instead of the moving `:main` tag:
-
-```bash
-PRAYER_TAG=0.5.1 docker compose \
-  -f docker-compose.yml -f docker-compose.images.yml up -d
-```
-
 ### Mode B — local web against a remote API
 
 ```bash
@@ -79,10 +61,9 @@ The renamed `AUTH_*` and `VITE_AUTH_*` keys (since v0.5.0) are vendor-neutral �
 
 ```bash
 git fetch
-git checkout v0.X.Y
+git checkout v1.X.Y                # or `main` to track latest
 docker compose down
-docker compose -f docker-compose.yml -f docker-compose.images.yml pull
-docker compose -f docker-compose.yml -f docker-compose.images.yml up -d
+docker compose up -d --build       # rebuild images from the checked-out source
 ```
 
 Migrations run automatically when the api container boots. Postgres data persists in the named volume `prayer_pg_data`; MinIO data persists in `prayer_minio_data`.

@@ -22,8 +22,9 @@ build/
 !apps/api/test/fixtures/test-private-key-pkcs8.pem
 !docker/gotrue-jwt/private.jwk.json
 
-# Local Claude Code config (may contain personal API keys / cached creds)
+# Local Claude Code config + per-session memory (personal, never tracked)
 .claude/settings.local.json
+.claude/projects/
 
 # logs
 *.log

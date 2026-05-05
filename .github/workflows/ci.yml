@@ -45,7 +45,6 @@ jobs:
               - '.prettierrc'
             docker:
               - 'docker-compose.yml'
-              - 'docker-compose.images.yml'
               - 'docker/**'
               - 'apps/api/Dockerfile'
               - 'apps/web/Dockerfile'
@@ -152,10 +151,9 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @prayer/db test
 
-  # End-to-end smoke against locally-built images. Same spec the tag-driven
-  # release-tag.yml runs, so a feature branch breaks the test exactly the
-  # way a published release would. No GHCR push — images stay on the
-  # runner and are torn down with the stack.
+  # End-to-end smoke against locally-built images. Confirms the Dockerfiles
+  # + docker-compose.yml still produce a working OSS stack on every PR. No
+  # registry push — images stay on the runner and are torn down with the stack.
   oss-smoke:
     needs: changes
     if: needs.changes.outputs.api == 'true' || needs.changes.outputs.web == 'true' || needs.changes.outputs.db == 'true' || needs.changes.outputs.shared == 'true' || needs.changes.outputs.root == 'true' || needs.changes.outputs.docker == 'true'
