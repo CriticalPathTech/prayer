@@ -16,7 +16,7 @@ describe('comments service', () => {
   let orgId: string;
   beforeAll(async () => {
     db = initDb(process.env.TEST_DATABASE_URL!);
-    orgId = await insertOrg(db, { slug: 'lakeside-svc-comments' });
+    orgId = await insertOrg(db, { slug: 'hopechurch-svc-comments' });
   });
   afterAll(async () => {
     await db.destroy();

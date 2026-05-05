@@ -57,14 +57,14 @@ describe('MobileLoginPage', () => {
   });
 
   it('collapses a long display name to the first word (matches nav)', () => {
-    useOrgBrandingMock.mockReturnValue({ displayName: 'Lakeside Christian Church' });
+    useOrgBrandingMock.mockReturnValue({ displayName: 'HopeChurch Christian Church' });
     render(
       <MemoryRouter>
         <MobileLoginPage />
       </MemoryRouter>,
     );
-    expect(screen.getByText('Lakeside')).toBeInTheDocument();
-    expect(screen.queryByText('Lakeside Christian Church')).not.toBeInTheDocument();
+    expect(screen.getByText('HopeChurch')).toBeInTheDocument();
+    expect(screen.queryByText('HopeChurch Christian Church')).not.toBeInTheDocument();
   });
 
   it('falls back to the Prayer wordmark when the host is unknown', () => {

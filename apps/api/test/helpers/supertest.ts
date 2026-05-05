@@ -12,23 +12,23 @@ import { createLogger } from '../../src/lib/logger.js';
 import { makeInMemoryStorage, type InMemoryStorage } from './storage.js';
 
 export interface CreateTestAppOptions {
-  host?: string; // default 'lakeside.prays.online'
+  host?: string; // default 'hopechurch.prays.online'
 }
 
 export interface TestApp {
   app: import('express').Express;
-  /** Supertest agent with Host header pre-set (default lakeside.prays.online). */
+  /** Supertest agent with Host header pre-set (default hopechurch.prays.online). */
   agent: ReturnType<typeof supertest.agent>;
   db: Kysely<Database>;
   storage: InMemoryStorage;
-  /** The org ID for the default host ('lakeside'). Use this when inserting users
+  /** The org ID for the default host ('hopechurch'). Use this when inserting users
    *  that need to authenticate against the default test host. */
   orgId: string;
   close: () => Promise<void>;
 }
 
 export async function createTestApp(opts: CreateTestAppOptions = {}): Promise<TestApp> {
-  const host = opts.host ?? 'lakeside.prays.online';
+  const host = opts.host ?? 'hopechurch.prays.online';
   const db = initDb(process.env.TEST_DATABASE_URL!);
   const storage = makeInMemoryStorage();
   const env = loadApiEnv();
@@ -49,7 +49,7 @@ export async function createTestApp(opts: CreateTestAppOptions = {}): Promise<Te
   // orgContext would then invoke resolveLocalhost, which throws when the test
   // DB has multiple orgs. To keep existing tests unmodified we inject the
   // default test host in that case, so orgContext always resolves to the
-  // "lakeside" org (seeded in global-setup).
+  // "hopechurch" org (seeded in global-setup).
   const wrapper = express();
   wrapper.use((req, _res, next) => {
     const h = req.headers.host ?? '';
@@ -62,7 +62,7 @@ export async function createTestApp(opts: CreateTestAppOptions = {}): Promise<Te
 
   // Resolve the org ID for this host's slug so tests can insert users into the
   // matching org without creating a separate fixture org.
-  const hostSlug = host.split('.')[0]!; // 'lakeside.prays.online' → 'lakeside'
+  const hostSlug = host.split('.')[0]!; // 'hopechurch.prays.online' → 'hopechurch'
   const orgRow = await db
     .selectFrom('orgs')
     .select('id')

@@ -12,7 +12,7 @@ describe('createFlag', () => {
   let orgId: string;
   beforeAll(async () => {
     db = initDb(process.env.TEST_DATABASE_URL!);
-    orgId = await insertOrg(db, { slug: 'lakeside-svc-flags-create' });
+    orgId = await insertOrg(db, { slug: 'hopechurch-svc-flags-create' });
   });
   afterAll(async () => {
     await db.destroy();
@@ -187,7 +187,7 @@ describe('dismissFlags', () => {
   let orgId: string;
   beforeAll(async () => {
     db = initDb(process.env.TEST_DATABASE_URL!);
-    orgId = await insertOrg(db, { slug: 'lakeside-svc-flags-dismiss' });
+    orgId = await insertOrg(db, { slug: 'hopechurch-svc-flags-dismiss' });
   });
   afterAll(async () => {
     await db.destroy();

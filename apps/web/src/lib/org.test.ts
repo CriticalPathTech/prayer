@@ -12,7 +12,7 @@ describe('displayedOrgName', () => {
 
   it('returns the full name when under the threshold', () => {
     expect(displayedOrgName('Hope')).toBe('Hope');
-    expect(displayedOrgName('Lakeside Church')).toBe('Lakeside Church'); // 15 chars
+    expect(displayedOrgName('HopeChurch Church')).toBe('HopeChurch Church'); // 15 chars
   });
 
   it('collapses a long multi-word name to the first word', () => {
@@ -25,7 +25,7 @@ describe('displayedOrgName', () => {
   });
 
   it('respects a custom maxLen', () => {
-    expect(displayedOrgName('Lakeside Church', 10)).toBe('Lakeside');
+    expect(displayedOrgName('HopeChurch Church', 10)).toBe('HopeChurch');
     expect(displayedOrgName('Hope', 10)).toBe('Hope');
   });
 

@@ -12,7 +12,7 @@ describe('togglePrayer', () => {
   let orgId: string;
   beforeAll(async () => {
     db = initDb(process.env.TEST_DATABASE_URL!);
-    orgId = await insertOrg(db, { slug: 'lakeside-svc-prayers' });
+    orgId = await insertOrg(db, { slug: 'hopechurch-svc-prayers' });
   });
   afterAll(async () => {
     await db.destroy();

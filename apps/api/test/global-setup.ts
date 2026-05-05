@@ -20,15 +20,15 @@ export async function setup(): Promise<void> {
 
   await migrate({ direction: 'up', databaseUrl: testUrl });
 
-  // Seed a default org matching the createTestApp default Host (lakeside.prays.online).
+  // Seed a default org matching the createTestApp default Host (hopechurch.prays.online).
   // orgContext resolves host → slug; tests that use app.agent without overriding Host
   // will hit this org. Tests that insert their own orgs (with distinct slugs) are
-  // unaffected — their requests already use the lakeside host for orgContext, and the
+  // unaffected — their requests already use the hopechurch host for orgContext, and the
   // existing requireAuth join (not yet org-scoped in M2) still finds users by supabase_auth_id.
   const pool2 = new Pool({ connectionString: testUrl });
   await pool2.query(
     `INSERT INTO orgs (id, slug, display_name)
-     VALUES ($1, 'lakeside', 'Lakeside (test default)')
+     VALUES ($1, 'hopechurch', 'HopeChurch (test default)')
      ON CONFLICT (slug) DO NOTHING`,
     [newId()],
   );

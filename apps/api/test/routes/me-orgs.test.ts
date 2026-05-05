@@ -8,11 +8,11 @@ import { createTestApp, type TestApp } from '../helpers/supertest.js';
 
 describe('GET /me/orgs', () => {
   let ctx: TestApp;
-  let lakesideOrgId: string;
+  let hopechurchOrgId: string;
 
   beforeAll(async () => {
     ctx = await createTestApp();
-    lakesideOrgId = ctx.orgId;
+    hopechurchOrgId = ctx.orgId;
   });
 
   afterAll(async () => {
@@ -36,7 +36,7 @@ describe('GET /me/orgs', () => {
     // Verify we can hit /me/orgs from a hostname that does NOT resolve to any org
     // (e.g. the per-cell api endpoint). The route must answer without orgContext.
     const user = await insertUser(ctx.db, {
-      orgId: lakesideOrgId,
+      orgId: hopechurchOrgId,
       email: 'pre-pick@example.com',
       displayName: 'pre',
     });
@@ -48,8 +48,8 @@ describe('GET /me/orgs', () => {
     expect(res.status).toBe(200);
     expect(res.body.orgs).toHaveLength(1);
     expect(res.body.orgs[0]).toMatchObject({
-      org_id: lakesideOrgId,
-      slug: 'lakeside',
+      org_id: hopechurchOrgId,
+      slug: 'hopechurch',
       role: 'member',
     });
   });
@@ -65,7 +65,7 @@ describe('GET /me/orgs', () => {
   it('returns multiple memberships when the user belongs to several orgs', async () => {
     const otherOrgId = await insertOrg(ctx.db, { slug: 'aaa-other-org', displayName: 'Other' });
     const user = await insertUser(ctx.db, {
-      orgId: lakesideOrgId,
+      orgId: hopechurchOrgId,
       email: 'multi@example.com',
       displayName: 'multi',
     });
@@ -77,16 +77,16 @@ describe('GET /me/orgs', () => {
     const token = await mintTestJwt({ sub: user.supabaseAuthId, email: user.email });
     const res = await request(ctx.app).get('/me/orgs').set('Authorization', `Bearer ${token}`);
     expect(res.status).toBe(200);
-    // Sorted by slug ascending → 'aaa-other-org' first, then 'lakeside'.
+    // Sorted by slug ascending → 'aaa-other-org' first, then 'hopechurch'.
     expect(res.body.orgs.map((o: { slug: string }) => o.slug)).toEqual([
       'aaa-other-org',
-      'lakeside',
+      'hopechurch',
     ]);
   });
 
   it('exposes the user role for each membership', async () => {
     const user = await insertUser(ctx.db, {
-      orgId: lakesideOrgId,
+      orgId: hopechurchOrgId,
       email: 'mod@example.com',
       displayName: 'mod',
       role: 'moderator',

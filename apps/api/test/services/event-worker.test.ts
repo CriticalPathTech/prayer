@@ -23,7 +23,7 @@ describe('event-worker: NOTIFY happy path', () => {
 
   beforeAll(async () => {
     db = initDb(process.env.TEST_DATABASE_URL!);
-    orgId = await insertOrg(db, { slug: 'lakeside-ew-notify' });
+    orgId = await insertOrg(db, { slug: 'hopechurch-ew-notify' });
   });
   afterAll(async () => {
     await db.destroy();
@@ -114,7 +114,7 @@ describe('event-worker: backup poll + idempotency', () => {
 
   beforeAll(async () => {
     db = initDb(process.env.TEST_DATABASE_URL!);
-    orgId = await insertOrg(db, { slug: 'lakeside-ew-backup' });
+    orgId = await insertOrg(db, { slug: 'hopechurch-ew-backup' });
   });
   afterAll(async () => {
     await db.destroy();
@@ -219,7 +219,7 @@ describe('event-worker: error handling + shutdown', () => {
 
   beforeAll(async () => {
     db = initDb(process.env.TEST_DATABASE_URL!);
-    orgId = await insertOrg(db, { slug: 'lakeside-ew-errors' });
+    orgId = await insertOrg(db, { slug: 'hopechurch-ew-errors' });
   });
   afterAll(async () => {
     await db.destroy();
@@ -328,7 +328,7 @@ describe('event-worker: transactional handler pattern', () => {
 
   beforeAll(async () => {
     db = initDb(process.env.TEST_DATABASE_URL!);
-    orgId = await insertOrg(db, { slug: 'lakeside-ew-trx' });
+    orgId = await insertOrg(db, { slug: 'hopechurch-ew-trx' });
   });
   afterAll(async () => {
     await db.destroy();
@@ -491,7 +491,7 @@ describe('event-worker: reaction count recomputer routing', () => {
   let orgId: string;
   beforeAll(async () => {
     db = initDb(process.env.TEST_DATABASE_URL!);
-    orgId = await insertOrg(db, { slug: 'lakeside-ew-reactions' });
+    orgId = await insertOrg(db, { slug: 'hopechurch-ew-reactions' });
   });
   afterAll(async () => {
     await db.destroy();

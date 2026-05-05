@@ -19,10 +19,10 @@ describe('findOrgByHost', () => {
   });
 
   it('matches a known subdomain', async () => {
-    const orgId = await insertOrg(app.db, { slug: 'lakeside-find' });
-    const result = await findOrgByHost(app.db, 'lakeside-find.prays.online');
+    const orgId = await insertOrg(app.db, { slug: 'hopechurch-find' });
+    const result = await findOrgByHost(app.db, 'hopechurch-find.prays.online');
     expect(result?.id).toBe(orgId);
-    expect(result?.slug).toBe('lakeside-find');
+    expect(result?.slug).toBe('hopechurch-find');
   });
 
   it('returns null for unknown subdomain', async () => {

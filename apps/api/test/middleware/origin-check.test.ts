@@ -15,7 +15,7 @@ function buildTestApp(allowed: string[]): express.Express {
 }
 
 describe('origin-check middleware', () => {
-  const allowed = ['https://lakeside.prays.online'];
+  const allowed = ['https://hopechurch.prays.online'];
 
   it('passes a request with no Origin header (server-to-server)', async () => {
     const res = await request(buildTestApp(allowed)).post('/mutating');
@@ -25,7 +25,7 @@ describe('origin-check middleware', () => {
   it('passes a request with an allowed Origin', async () => {
     const res = await request(buildTestApp(allowed))
       .post('/mutating')
-      .set('Origin', 'https://lakeside.prays.online');
+      .set('Origin', 'https://hopechurch.prays.online');
     expect(res.status).toBe(204);
   });
 

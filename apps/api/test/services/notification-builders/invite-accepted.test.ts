@@ -21,7 +21,7 @@ describe('inviteAcceptedBuilder', () => {
   let orgId: string;
   beforeAll(async () => {
     db = initDb(process.env.TEST_DATABASE_URL!);
-    orgId = await insertOrg(db, { slug: 'lakeside-nb-invite-accepted' });
+    orgId = await insertOrg(db, { slug: 'hopechurch-nb-invite-accepted' });
   });
   afterAll(async () => {
     await db.destroy();

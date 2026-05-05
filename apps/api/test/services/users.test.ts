@@ -35,9 +35,9 @@ afterEach(async () => {
   await db.deleteFrom('invite_codes').execute();
   await db.deleteFrom('user_orgs').execute();
   await db.deleteFrom('users').execute();
-  // Preserve the 'lakeside' fixture org seeded by global-setup (needed by orgContext
+  // Preserve the 'hopechurch' fixture org seeded by global-setup (needed by orgContext
   // in concurrently-running route tests). Only clean up test-local orgs.
-  await db.deleteFrom('orgs').where('slug', '!=', 'lakeside').execute();
+  await db.deleteFrom('orgs').where('slug', '!=', 'hopechurch').execute();
 });
 
 describe('updateDisplayName', () => {

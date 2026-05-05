@@ -12,7 +12,7 @@ describe('moderatorHideBuilder', () => {
   let orgId: string;
   beforeAll(async () => {
     db = initDb(process.env.TEST_DATABASE_URL!);
-    orgId = await insertOrg(db, { slug: 'lakeside-nb-mod-hide' });
+    orgId = await insertOrg(db, { slug: 'hopechurch-nb-mod-hide' });
   });
   afterAll(async () => {
     await db.destroy();

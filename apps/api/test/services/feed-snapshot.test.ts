@@ -16,7 +16,7 @@ describe('getSnapshotId', () => {
 
   beforeAll(async () => {
     db = initDb(process.env.TEST_DATABASE_URL!);
-    orgId = await insertOrg(db, { slug: 'lakeside-svc-feed-snapshot' });
+    orgId = await insertOrg(db, { slug: 'hopechurch-svc-feed-snapshot' });
   });
   afterAll(async () => {
     await db.destroy();

@@ -11,7 +11,7 @@ describe('listCommentsForPost tombstone logic', () => {
   let orgId: string;
   beforeAll(async () => {
     db = initDb(process.env.TEST_DATABASE_URL!);
-    orgId = await insertOrg(db, { slug: 'lakeside-svc-comments-tombstone' });
+    orgId = await insertOrg(db, { slug: 'hopechurch-svc-comments-tombstone' });
   });
   afterAll(async () => {
     await db.destroy();

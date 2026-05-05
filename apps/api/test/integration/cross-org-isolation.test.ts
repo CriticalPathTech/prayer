@@ -61,15 +61,15 @@ describe('cross-org isolation', () => {
   beforeAll(async () => {
     app = await createTestApp();
 
-    // orgA is the lakeside org seeded by global-setup — its slug matches the
-    // default test Host (lakeside.prays.online), so userA's requests via the
+    // orgA is the hopechurch org seeded by global-setup — its slug matches the
+    // default test Host (hopechurch.prays.online), so userA's requests via the
     // default agent resolve correctly through orgContext + requireAuth.
-    const lakeside = await app.db
+    const hopechurch = await app.db
       .selectFrom('orgs')
-      .where('slug', '=', 'lakeside')
+      .where('slug', '=', 'hopechurch')
       .select('id')
       .executeTakeFirstOrThrow();
-    orgA = lakeside.id;
+    orgA = hopechurch.id;
     orgB = await insertOrg(app.db, { slug: 'cross-org-iso-b' });
 
     userA = await insertUser(app.db, { email: 'a@iso.com', orgId: orgA });
@@ -164,7 +164,7 @@ describe('cross-org isolation', () => {
     });
 
     it('GET /feed — userB only sees orgB posts', async () => {
-      // userB is a member of orgB only; default Host (lakeside) would 403.
+      // userB is a member of orgB only; default Host (hopechurch) would 403.
       // Set Host explicitly so orgContext resolves to orgB.
       const res = await request(app.app)
         .get('/feed?filter=all')
@@ -757,7 +757,7 @@ describe('cross-org isolation', () => {
     it('GET /me returns member role at orgA host', async () => {
       const res = await request(app.app)
         .get('/me')
-        .set('Host', 'lakeside.prays.online')
+        .set('Host', 'hopechurch.prays.online')
         .set('Authorization', `Bearer ${multiTok}`);
       expect(res.status).toBe(200);
       expect(res.body.role).toBe('member');
@@ -775,7 +775,7 @@ describe('cross-org isolation', () => {
     it('GET /feed at orgA host shows orgA posts and not orgB posts', async () => {
       const res = await request(app.app)
         .get('/feed?filter=all')
-        .set('Host', 'lakeside.prays.online')
+        .set('Host', 'hopechurch.prays.online')
         .set('Authorization', `Bearer ${multiTok}`);
       expect(res.status).toBe(200);
       const ids = (res.body.posts ?? []).map((p: { id: string }) => p.id);
@@ -824,7 +824,7 @@ describe('cross-org isolation', () => {
     it('super_user of orgA can list orgA members', async () => {
       const res = await request(app.app)
         .get('/admin/church/members')
-        .set('Host', 'lakeside.prays.online')
+        .set('Host', 'hopechurch.prays.online')
         .set('Authorization', `Bearer ${suATok}`);
       expect(res.status).toBe(200);
       const ids = res.body.members.map((m: { id: string }) => m.id).sort();
@@ -835,7 +835,7 @@ describe('cross-org isolation', () => {
     it('super_user of orgA cannot remove a user belonging to orgB', async () => {
       const res = await request(app.app)
         .delete(`/admin/church/members/${userB.id}`)
-        .set('Host', 'lakeside.prays.online')
+        .set('Host', 'hopechurch.prays.online')
         .set('Authorization', `Bearer ${suATok}`);
       expect(res.status).toBe(404);
     });
@@ -853,7 +853,7 @@ describe('cross-org isolation', () => {
     it('member of orgA cannot reach /admin/church/* even on their own host', async () => {
       const res = await request(app.app)
         .get('/admin/church/members')
-        .set('Host', 'lakeside.prays.online')
+        .set('Host', 'hopechurch.prays.online')
         .set('Authorization', `Bearer ${tokA}`);
       expect(res.status).toBe(403);
     });
@@ -861,7 +861,7 @@ describe('cross-org isolation', () => {
     it('super_user of orgA cannot PATCH a user belonging to orgB', async () => {
       const res = await request(app.app)
         .patch(`/admin/church/members/${userB.id}`)
-        .set('Host', 'lakeside.prays.online')
+        .set('Host', 'hopechurch.prays.online')
         .set('Authorization', `Bearer ${suATok}`)
         .send({ role: 'moderator' });
       expect(res.status).toBe(404);

@@ -6,7 +6,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
 import { initDb } from '../../src/db/index.js';
 import { mintTestJwt } from '../helpers/jwt.js';
-import { getLakesideOrgId, insertPost, insertUser } from '../helpers/seed.js';
+import { getHopeChurchOrgId, insertPost, insertUser } from '../helpers/seed.js';
 import { createTestApp } from '../helpers/supertest.js';
 
 describe('POST /mod/posts/:id/hide', () => {
@@ -14,7 +14,7 @@ describe('POST /mod/posts/:id/hide', () => {
   let orgId: string;
   beforeAll(async () => {
     db = initDb(process.env.TEST_DATABASE_URL!);
-    orgId = await getLakesideOrgId(db);
+    orgId = await getHopeChurchOrgId(db);
   });
   afterAll(async () => {
     await db.destroy();
@@ -72,7 +72,7 @@ describe('POST /mod/posts/:id/dismiss-flags', () => {
   let orgId: string;
   beforeAll(async () => {
     db = initDb(process.env.TEST_DATABASE_URL!);
-    orgId = await getLakesideOrgId(db);
+    orgId = await getHopeChurchOrgId(db);
   });
   afterAll(async () => {
     await db.destroy();
@@ -129,7 +129,7 @@ describe('GET /mod/queue', () => {
   let orgId: string;
   beforeAll(async () => {
     db = initDb(process.env.TEST_DATABASE_URL!);
-    orgId = await getLakesideOrgId(db);
+    orgId = await getHopeChurchOrgId(db);
   });
   afterAll(async () => {
     await db.destroy();

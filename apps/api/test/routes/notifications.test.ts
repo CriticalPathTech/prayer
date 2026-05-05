@@ -7,7 +7,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { initDb } from '../../src/db/index.js';
 import { commentCreatedBuilder } from '../../src/services/notification-builders/comment-created.js';
 import { mintTestJwt } from '../helpers/jwt.js';
-import { getLakesideOrgId, insertPost, insertUser } from '../helpers/seed.js';
+import { getHopeChurchOrgId, insertPost, insertUser } from '../helpers/seed.js';
 import { createTestApp, type TestApp } from '../helpers/supertest.js';
 
 async function insertNotification(
@@ -171,7 +171,7 @@ describe('end-to-end: comment creates notification', () => {
   beforeAll(async () => {
     db = initDb(process.env.TEST_DATABASE_URL!);
     ctx = await createTestApp();
-    orgId = await getLakesideOrgId(db);
+    orgId = await getHopeChurchOrgId(db);
   });
   afterAll(async () => {
     await ctx.close();

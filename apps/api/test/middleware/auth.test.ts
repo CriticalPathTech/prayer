@@ -86,10 +86,10 @@ describe('requireAuth', () => {
   });
 
   it('JWT for userA pointed at orgB host returns 403', async () => {
-    // Create orgA (lakeside, default) and orgB. userA is a member of orgA only.
+    // Create orgA (hopechurch, default) and orgB. userA is a member of orgA only.
     // Sending userA's JWT with a Host pointing at orgB → 403 because userA has
     // no user_orgs row for orgB.
-    const ctxA = await createTestApp({ host: 'lakeside.prays.online' });
+    const ctxA = await createTestApp({ host: 'hopechurch.prays.online' });
     try {
       // Insert orgB so orgContext can resolve it when the Host header says orgB.
       await ctxA.db
