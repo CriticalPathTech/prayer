@@ -21,13 +21,9 @@ export function MobileLoginPage(): JSX.Element {
 
   return (
     <div className="flex min-h-screen flex-col items-center bg-[var(--bg-page)] px-4 pb-6 font-sans text-[var(--fg-2)]">
-      <MobileAuthHeader />
+      <MobileAuthHeader wordmark={orgDisplayName ?? 'Prayer'} />
       <div className="w-full max-w-sm">
-        {orgDisplayName ? (
-          <p className="-mt-4 mb-4 text-[15px] font-medium text-[var(--fg-2)]">{orgDisplayName}</p>
-        ) : (
-          <p className="mb-4 text-[13px] text-[var(--fg-3)]">An invite-only community.</p>
-        )}
+        <p className="mb-4 text-[13px] text-[var(--fg-3)]">Carrying each other in prayer.</p>
         <form
           onSubmit={(e) => {
             e.preventDefault();

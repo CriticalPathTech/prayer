@@ -25,15 +25,11 @@ export function LoginPage(): JSX.Element {
         <Icon name="pray" size={32} className="opacity-[0.06] scale-[8.75]" />
       </div>
       <div className="relative z-10 mx-auto mt-24 max-w-sm rounded-lg border border-[var(--border-soft)] bg-[var(--bg-raised)] p-7 shadow-warm-sm">
-        <div className="inline-flex items-center gap-2.5 font-serif font-semibold text-[28px] tracking-[-0.02em] text-[var(--fg-1)]">
+        <div className="mb-5 inline-flex items-center gap-2.5 font-serif font-semibold text-[28px] tracking-[-0.02em] text-[var(--fg-1)]">
           <Icon name="pray" size={24} />
-          <span>Prayer</span>
+          <span>{orgDisplayName ?? 'Prayer'}</span>
         </div>
-        {orgDisplayName ? (
-          <p className="mt-1 mb-4 text-[15px] font-medium text-[var(--fg-2)]">{orgDisplayName}</p>
-        ) : (
-          <p className="mt-5 mb-4 text-[13px] text-[var(--fg-3)]">An invite-only community.</p>
-        )}
+        <p className="mb-4 text-[13px] text-[var(--fg-3)]">Carrying each other in prayer.</p>
         <form
           onSubmit={(e) => {
             e.preventDefault();

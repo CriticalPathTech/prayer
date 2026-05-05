@@ -44,7 +44,7 @@ describe('MobileLoginPage', () => {
     expect(screen.getByRole('button', { name: /sign in/i })).toBeInTheDocument();
   });
 
-  it('shows the church display name when known', () => {
+  it('uses the church display name as the wordmark when known', () => {
     useOrgBrandingMock.mockReturnValue({ displayName: 'Hope Community Church' });
     render(
       <MemoryRouter>
@@ -52,18 +52,18 @@ describe('MobileLoginPage', () => {
       </MemoryRouter>,
     );
     expect(screen.getByText('Hope Community Church')).toBeInTheDocument();
-    // The generic tagline is replaced by the church name when known.
-    expect(screen.queryByText('An invite-only community.')).not.toBeInTheDocument();
+    // "Prayer" wordmark is replaced by the church name on a known host.
+    expect(screen.queryByText('Prayer')).not.toBeInTheDocument();
   });
 
-  it('falls back to the generic tagline when the host is unknown', () => {
+  it('falls back to the Prayer wordmark when the host is unknown', () => {
     useOrgBrandingMock.mockReturnValue({ displayName: null });
     render(
       <MemoryRouter>
         <MobileLoginPage />
       </MemoryRouter>,
     );
-    expect(screen.getByText('An invite-only community.')).toBeInTheDocument();
+    expect(screen.getByText('Prayer')).toBeInTheDocument();
   });
 
   it('shows error from hook', () => {
