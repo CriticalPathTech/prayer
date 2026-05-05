@@ -20,7 +20,7 @@ describe('writePostEvent', () => {
 
   beforeAll(async () => {
     db = initDb(process.env.TEST_DATABASE_URL!);
-    orgId = await insertOrg(db, { slug: 'lakeside-svc-events-post' });
+    orgId = await insertOrg(db, { slug: 'testchurch-svc-events-post' });
   });
   afterAll(async () => {
     await db.destroy();
@@ -63,7 +63,7 @@ describe('writeReactionEvent', () => {
   let orgId: string;
   beforeAll(async () => {
     db = initDb(process.env.TEST_DATABASE_URL!);
-    orgId = await insertOrg(db, { slug: 'lakeside-svc-events-reaction' });
+    orgId = await insertOrg(db, { slug: 'testchurch-svc-events-reaction' });
   });
   afterAll(async () => {
     await db.destroy();
@@ -105,7 +105,7 @@ describe('writePrayerEvent', () => {
   let orgId: string;
   beforeAll(async () => {
     db = initDb(process.env.TEST_DATABASE_URL!);
-    orgId = await insertOrg(db, { slug: 'lakeside-svc-events-prayer' });
+    orgId = await insertOrg(db, { slug: 'testchurch-svc-events-prayer' });
   });
   afterAll(async () => {
     await db.destroy();
@@ -144,7 +144,7 @@ describe('writeFlagEvent', () => {
   let orgId: string;
   beforeAll(async () => {
     db = initDb(process.env.TEST_DATABASE_URL!);
-    orgId = await insertOrg(db, { slug: 'lakeside-svc-events-flag' });
+    orgId = await insertOrg(db, { slug: 'testchurch-svc-events-flag' });
   });
   afterAll(async () => {
     await db.destroy();
@@ -191,7 +191,7 @@ describe('writeModerationEvent', () => {
   let orgId: string;
   beforeAll(async () => {
     db = initDb(process.env.TEST_DATABASE_URL!);
-    orgId = await insertOrg(db, { slug: 'lakeside-svc-events-moderation' });
+    orgId = await insertOrg(db, { slug: 'testchurch-svc-events-moderation' });
   });
   afterAll(async () => {
     await db.destroy();
@@ -231,7 +231,7 @@ describe('writeInvitationEvent', () => {
   let orgId: string;
   beforeAll(async () => {
     db = initDb(process.env.TEST_DATABASE_URL!);
-    orgId = await insertOrg(db, { slug: 'lakeside-svc-events-invitation' });
+    orgId = await insertOrg(db, { slug: 'testchurch-svc-events-invitation' });
   });
   afterAll(async () => {
     await db.destroy();
@@ -276,7 +276,7 @@ describe('writeAdminEvent', () => {
 
   beforeAll(async () => {
     db = initDb(process.env.TEST_DATABASE_URL!);
-    orgId = await insertOrg(db, { slug: 'lakeside-svc-events-admin' });
+    orgId = await insertOrg(db, { slug: 'testchurch-svc-events-admin' });
   });
   afterAll(async () => {
     await db.destroy();

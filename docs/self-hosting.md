@@ -11,8 +11,8 @@ Generic guide for running the Prayer OSS Docker stack on any host. No cloud depe
 ## Quickstart (Mode A — everything in containers)
 
 ```bash
-git clone https://github.com/CriticalPathTech/prayer.git
-cd prayer
+git clone https://github.com/CriticalPathTech/prays.git
+cd prays
 docker compose up -d --build                  # build + start all containers
 pnpm install                                  # local node_modules for the bootstrap CLI
 pnpm admin:create-org --slug hope             # create the org (default slug)

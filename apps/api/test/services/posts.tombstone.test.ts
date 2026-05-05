@@ -11,7 +11,7 @@ describe('getPostWithUpdates tombstone logic', () => {
   let orgId: string;
   beforeAll(async () => {
     db = initDb(process.env.TEST_DATABASE_URL!);
-    orgId = await insertOrg(db, { slug: 'lakeside-svc-posts-tombstone' });
+    orgId = await insertOrg(db, { slug: 'testchurch-svc-posts-tombstone' });
   });
   afterAll(async () => {
     await db.destroy();

@@ -7,7 +7,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { initDb } from '../../src/db/index.js';
 import { clearSnapshotCache } from '../../src/services/feed-snapshot.js';
 import { mintTestJwt } from '../helpers/jwt.js';
-import { getLakesideOrgId, insertPost, insertUser } from '../helpers/seed.js';
+import { getTestchurchOrgId, insertPost, insertUser } from '../helpers/seed.js';
 import { createTestApp, type TestApp } from '../helpers/supertest.js';
 
 describe('GET /feed', () => {
@@ -328,7 +328,7 @@ describe('GET /feed — M5 prayed flag', () => {
   let orgId: string;
   beforeAll(async () => {
     db = initDb(process.env.TEST_DATABASE_URL!);
-    orgId = await getLakesideOrgId(db);
+    orgId = await getTestchurchOrgId(db);
   });
   afterAll(async () => {
     await db.destroy();

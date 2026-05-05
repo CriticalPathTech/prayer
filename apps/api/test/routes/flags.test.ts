@@ -5,7 +5,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
 import { initDb } from '../../src/db/index.js';
 import { mintTestJwt } from '../helpers/jwt.js';
-import { getLakesideOrgId, insertComment, insertPost, insertUser } from '../helpers/seed.js';
+import { getTestchurchOrgId, insertComment, insertPost, insertUser } from '../helpers/seed.js';
 import { createTestApp } from '../helpers/supertest.js';
 
 describe('POST /posts/:id/flags', () => {
@@ -13,7 +13,7 @@ describe('POST /posts/:id/flags', () => {
   let orgId: string;
   beforeAll(async () => {
     db = initDb(process.env.TEST_DATABASE_URL!);
-    orgId = await getLakesideOrgId(db);
+    orgId = await getTestchurchOrgId(db);
   });
   afterAll(async () => {
     await db.destroy();

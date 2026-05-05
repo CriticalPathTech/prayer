@@ -14,7 +14,7 @@ describe('orgContext middleware', () => {
   });
 
   it('healthz works without orgContext (mounted before middleware)', async () => {
-    const res = await supertest(app.app).get('/healthz').set('Host', 'lakeside.prays.online');
+    const res = await supertest(app.app).get('/healthz').set('Host', 'testchurch.prays.online');
     expect(res.status).toBe(200);
   });
 
