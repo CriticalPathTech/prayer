@@ -13,7 +13,7 @@ const db = createDb(process.env.DATABASE_URL!);
 let orgId: string;
 
 beforeAll(async () => {
-  orgId = await insertOrg(db, { slug: 'lakeside-svc-invite-codes' });
+  orgId = await insertOrg(db, { slug: 'testchurch-svc-invite-codes' });
 });
 
 async function insertUser(displayName: string) {

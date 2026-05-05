@@ -24,8 +24,8 @@ body:
       label: Reproduction steps
       description: Numbered steps to reproduce on a fresh local stack.
       placeholder: |
-        1. `docker compose up && pnpm bootstrap --slug example`
-        2. Sign in as examplesu@prays.online
+        1. `docker compose up && pnpm bootstrap`
+        2. Sign in as hopesu@example.com
         3. Open /admin/church
         4. ...
     validations:

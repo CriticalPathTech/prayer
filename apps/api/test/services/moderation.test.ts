@@ -13,7 +13,7 @@ describe('hideTarget / unhideTarget', () => {
   let orgId: string;
   beforeAll(async () => {
     db = initDb(process.env.TEST_DATABASE_URL!);
-    orgId = await insertOrg(db, { slug: 'lakeside-svc-moderation-hide' });
+    orgId = await insertOrg(db, { slug: 'testchurch-svc-moderation-hide' });
   });
   afterAll(async () => {
     await db.destroy();
@@ -185,7 +185,7 @@ describe('listModQueue', () => {
   let orgId: string;
   beforeAll(async () => {
     db = initDb(process.env.TEST_DATABASE_URL!);
-    orgId = await insertOrg(db, { slug: 'lakeside-svc-moderation-queue' });
+    orgId = await insertOrg(db, { slug: 'testchurch-svc-moderation-queue' });
   });
   afterAll(async () => {
     await db.destroy();

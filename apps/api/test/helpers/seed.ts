@@ -24,14 +24,14 @@ export async function insertOrg(db: Kysely<Database>, args: InsertOrgArgs): Prom
   return id;
 }
 
-/** Return the ID of the 'lakeside' org seeded by global-setup.
+/** Return the ID of the 'testchurch' org seeded by global-setup.
  *  Use this instead of insertOrg() when inserting users that will authenticate
- *  against the default test host (lakeside.prays.online). */
-export async function getLakesideOrgId(db: Kysely<Database>): Promise<string> {
+ *  against the default test host (testchurch.prays.online). */
+export async function getTestchurchOrgId(db: Kysely<Database>): Promise<string> {
   const row = await db
     .selectFrom('orgs')
     .select('id')
-    .where('slug', '=', 'lakeside')
+    .where('slug', '=', 'testchurch')
     .executeTakeFirstOrThrow();
   return row.id;
 }

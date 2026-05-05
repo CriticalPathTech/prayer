@@ -14,17 +14,17 @@ describe('GET /org', () => {
     await ctx.close();
   });
   afterEach(async () => {
-    // Drop any extra orgs this file inserted; leave the lakeside seed alone so
+    // Drop any extra orgs this file inserted; leave the testchurch seed alone so
     // other suites that share the schema reset still see it.
-    await ctx.db.deleteFrom('orgs').where('slug', '!=', 'lakeside').execute();
+    await ctx.db.deleteFrom('orgs').where('slug', '!=', 'testchurch').execute();
   });
 
   it('returns slug + displayName for the resolved host without auth', async () => {
     const res = await ctx.agent.get('/org');
     expect(res.status).toBe(200);
     expect(res.body).toEqual({
-      slug: 'lakeside',
-      displayName: 'Lakeside (test default)',
+      slug: 'testchurch',
+      displayName: 'Testchurch (test default)',
     });
   });
 

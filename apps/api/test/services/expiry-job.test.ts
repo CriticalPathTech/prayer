@@ -12,7 +12,7 @@ describe('sweepExpired', () => {
   let orgId: string;
   beforeAll(async () => {
     db = initDb(process.env.TEST_DATABASE_URL!);
-    orgId = await insertOrg(db, { slug: 'lakeside-svc-expiry' });
+    orgId = await insertOrg(db, { slug: 'testchurch-svc-expiry' });
   });
   afterAll(async () => {
     await db.destroy();

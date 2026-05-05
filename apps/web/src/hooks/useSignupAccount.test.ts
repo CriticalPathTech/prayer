@@ -34,7 +34,7 @@ describe('useSignupAccount', () => {
   });
 
   it("loads preview and sets state to 'ok' on valid code", async () => {
-    previewMock.mockResolvedValue({ status: 'valid', church_name: 'Lakeside' });
+    previewMock.mockResolvedValue({ status: 'valid', church_name: 'Testchurch' });
     const { result } = renderHook(() => useSignupAccount('abcde'));
     await waitFor(() => expect(result.current.preview.kind).toBe('ok'));
   });

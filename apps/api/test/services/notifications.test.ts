@@ -36,7 +36,7 @@ describe('listNotifications', () => {
   let orgId: string;
   beforeAll(async () => {
     db = initDb(process.env.TEST_DATABASE_URL!);
-    orgId = await insertOrg(db, { slug: 'lakeside-svc-notifs-list' });
+    orgId = await insertOrg(db, { slug: 'testchurch-svc-notifs-list' });
   });
   afterAll(async () => {
     await db.destroy();
@@ -110,7 +110,7 @@ describe('markNotificationRead', () => {
   let orgId: string;
   beforeAll(async () => {
     db = initDb(process.env.TEST_DATABASE_URL!);
-    orgId = await insertOrg(db, { slug: 'lakeside-svc-notifs-read' });
+    orgId = await insertOrg(db, { slug: 'testchurch-svc-notifs-read' });
   });
   afterAll(async () => {
     await db.destroy();
@@ -151,7 +151,7 @@ describe('markAllNotificationsRead', () => {
   let orgId: string;
   beforeAll(async () => {
     db = initDb(process.env.TEST_DATABASE_URL!);
-    orgId = await insertOrg(db, { slug: 'lakeside-svc-notifs-read-all' });
+    orgId = await insertOrg(db, { slug: 'testchurch-svc-notifs-read-all' });
   });
   afterAll(async () => {
     await db.destroy();

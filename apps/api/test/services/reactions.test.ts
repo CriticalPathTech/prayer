@@ -12,7 +12,7 @@ describe('toggleReaction: post target', () => {
   let orgId: string;
   beforeAll(async () => {
     db = initDb(process.env.TEST_DATABASE_URL!);
-    orgId = await insertOrg(db, { slug: 'lakeside-svc-reactions-post' });
+    orgId = await insertOrg(db, { slug: 'testchurch-svc-reactions-post' });
   });
   afterAll(async () => {
     await db.destroy();
@@ -96,7 +96,7 @@ describe('toggleReaction: comment target', () => {
   let orgId: string;
   beforeAll(async () => {
     db = initDb(process.env.TEST_DATABASE_URL!);
-    orgId = await insertOrg(db, { slug: 'lakeside-svc-reactions-comment' });
+    orgId = await insertOrg(db, { slug: 'testchurch-svc-reactions-comment' });
   });
   afterAll(async () => {
     await db.destroy();

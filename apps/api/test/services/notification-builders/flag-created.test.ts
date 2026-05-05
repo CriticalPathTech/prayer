@@ -12,7 +12,7 @@ describe('flagCreatedBuilder', () => {
   let orgId: string;
   beforeAll(async () => {
     db = initDb(process.env.TEST_DATABASE_URL!);
-    orgId = await insertOrg(db, { slug: 'lakeside-nb-flag-created' });
+    orgId = await insertOrg(db, { slug: 'testchurch-nb-flag-created' });
   });
   afterAll(async () => {
     await db.destroy();

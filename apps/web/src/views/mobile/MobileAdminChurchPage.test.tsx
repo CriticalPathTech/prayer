@@ -7,7 +7,7 @@ import { MobileAdminChurchPage } from './MobileAdminChurchPage';
 describe('MobileAdminChurchPage', () => {
   it('renders desktop-only message with the current host URL', () => {
     Object.defineProperty(window, 'location', {
-      value: { hostname: 'lakeside.prays.online' },
+      value: { hostname: 'testchurch.prays.online' },
       writable: true,
     });
     render(
@@ -16,6 +16,6 @@ describe('MobileAdminChurchPage', () => {
       </MemoryRouter>,
     );
     expect(screen.getByText(/desktop only/i)).toBeInTheDocument();
-    expect(screen.getByText(/lakeside\.prays\.online\/admin\/church/i)).toBeInTheDocument();
+    expect(screen.getByText(/testchurch\.prays\.online\/admin\/church/i)).toBeInTheDocument();
   });
 });
