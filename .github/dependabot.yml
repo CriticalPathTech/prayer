@@ -1,0 +1,113 @@
+# Dependabot config — see https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
+#
+# Strategy: ONE root npm entry covers all four pnpm workspaces (apps/api,
+# apps/web, packages/db, packages/shared). The `groups` config bundles
+# updates that have to move together — without grouping, Dependabot opens
+# one PR per workspace per dependency, and any package shared across
+# workspaces (kysely, vite/vitest) fails `pnpm install --frozen-lockfile`
+# in CI because the lockfile expects all workspaces consistent.
+#
+# This is what bit us with PRs #2/#3/#4 in the post-launch audit.
+
+version: 2
+
+updates:
+  # ---------- npm (pnpm workspaces) ----------
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: '09:00'
+      timezone: America/Los_Angeles
+    open-pull-requests-limit: 10
+    labels:
+      - dependencies
+    commit-message:
+      prefix: chore(deps)
+      prefix-development: chore(deps-dev)
+    groups:
+      # Kysely is in BOTH apps/api and packages/db. Bumping one workspace
+      # alone breaks the lockfile.
+      kysely:
+        patterns:
+          - 'kysely'
+
+      # Vite + Vitest + plugins are version-coupled — Vitest N transitively
+      # pulls Vite N, so bumping vite without vitest (or vice-versa) leaves
+      # two vite versions resolved and breaks tsc-b across workspaces.
+      vite-and-vitest:
+        patterns:
+          - 'vite'
+          - 'vitest'
+          - '@vitest/*'
+          - '@vitejs/*'
+          - 'vite-plugin-*'
+
+      # React + react-dom + types must move in lockstep.
+      react:
+        patterns:
+          - 'react'
+          - 'react-dom'
+          - 'react-router-dom'
+          - '@types/react'
+          - '@types/react-dom'
+
+      # ESLint family — multiple plugins pinned to the eslint major.
+      eslint:
+        patterns:
+          - 'eslint'
+          - 'eslint-*'
+          - '@eslint/*'
+          - '@typescript-eslint/*'
+          - 'typescript-eslint'
+
+      # Testing utilities — supertest + jest-dom + RTL move together.
+      testing:
+        patterns:
+          - '@testing-library/*'
+          - '@types/supertest'
+          - 'supertest'
+
+      # Catch-all for everything else, but ONLY patch + minor. Major bumps
+      # of unlisted packages still get their own PR for individual review
+      # (which is what you want for things like Express, jose, Postgres
+      # client, etc.).
+      patch-and-minor:
+        update-types:
+          - patch
+          - minor
+
+  # ---------- GitHub Actions ----------
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: '09:00'
+      timezone: America/Los_Angeles
+    labels:
+      - dependencies
+      - github-actions
+    commit-message:
+      prefix: chore(ci)
+    groups:
+      actions:
+        patterns:
+          - '*'
+
+  # ---------- Docker base images ----------
+  - package-ecosystem: docker
+    directories:
+      - /apps/api
+      - /apps/web
+    schedule:
+      interval: weekly
+      day: monday
+      time: '09:00'
+      timezone: America/Los_Angeles
+    labels:
+      - dependencies
+      - docker
+    commit-message:
+      prefix: chore(docker)
