@@ -22,7 +22,7 @@
     "admin:create-org": "tsx src/admin-create-org.ts"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.103.3",
+    "@supabase/supabase-js": "^2.105.3",
     "kysely": "^0.28.14",
     "node-pg-migrate": "^7.6.0",
     "pg": "^8.13.0",
