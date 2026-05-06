@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 # ----- builder -----
-FROM node:20-alpine AS builder
+FROM node:22-alpine AS builder
 WORKDIR /app
 RUN corepack enable && corepack prepare pnpm@9.12.0 --activate
 
