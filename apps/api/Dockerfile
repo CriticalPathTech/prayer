@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 # ----- builder -----
-FROM node:20-alpine AS builder
+FROM node:22-alpine AS builder
 WORKDIR /app
 RUN corepack enable && corepack prepare pnpm@9.12.0 --activate
 
@@ -31,7 +31,7 @@ RUN cp -r packages/db/dist /app/deploy/node_modules/@prayer/db/dist \
  && cp -r packages/shared/dist /app/deploy/node_modules/@prayer/shared/dist
 
 # ----- runtime -----
-FROM node:20-alpine AS runtime
+FROM node:22-alpine AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
 
