@@ -134,7 +134,9 @@ describe('MobileArchivePage', () => {
     await userEvent.click(screen.getByRole('button', { name: /more actions/i }));
     await userEvent.click(screen.getByRole('menuitem', { name: 'Repost' }));
 
-    expect(await screen.findByRole('alertdialog', { name: /discard your draft/i })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('alertdialog', { name: /discard your draft/i }),
+    ).toBeInTheDocument();
     expect(saveMyDraftMock).not.toHaveBeenCalled();
     expect(navigateMock).not.toHaveBeenCalled();
   });

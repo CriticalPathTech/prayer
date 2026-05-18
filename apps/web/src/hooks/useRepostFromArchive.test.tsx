@@ -89,7 +89,9 @@ describe('useRepostFromArchive', () => {
     render(<Harness />, { wrapper });
     await userEvent.click(screen.getByRole('button', { name: 'Repost' }));
 
-    expect(await screen.findByRole('alertdialog', { name: /discard your draft/i })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('alertdialog', { name: /discard your draft/i }),
+    ).toBeInTheDocument();
     expect(saveMyDraftMock).not.toHaveBeenCalled();
     expect(navigateMock).not.toHaveBeenCalled();
   });
