@@ -22,7 +22,7 @@ export interface FeedResponse {
   posts: (PostDto & {
     prayed: boolean;
     reactions: Record<string, ReactionSummary>;
-    answered_updates: PostDto[];
+    updates: PostDto[];
   })[];
   nextCursor: string | null;
   snapshotId: string;
@@ -81,7 +81,7 @@ export async function fetchFeed(
 
   let prayedSet = new Set<string>();
   const reactionsMap = new Map<string, Record<string, ReactionSummary>>();
-  const answeredUpdates = new Map<string, PostDto[]>();
+  const updatesByParent = new Map<string, PostDto[]>();
   if (page.length > 0) {
     const postIds = page.map((p) => p.id);
     const prayedRows = await db
@@ -145,9 +145,9 @@ export async function fetchFeed(
         // parent_id is non-null for update posts
         const parentId = row.parent_id!;
         const dto = toPostDto(row, { role: args.callerRole }, args.callerId);
-        const existing = answeredUpdates.get(parentId);
+        const existing = updatesByParent.get(parentId);
         if (existing) existing.push(dto);
-        else answeredUpdates.set(parentId, [dto]);
+        else updatesByParent.set(parentId, [dto]);
       }
     }
   }
@@ -182,7 +182,7 @@ export async function fetchFeed(
       ...toPostDto(r, { role: args.callerRole }, args.callerId, memberSet),
       prayed: prayedSet.has(r.id),
       reactions: reactionsMap.get(r.id) ?? {},
-      answered_updates: answeredUpdates.get(r.id) ?? [],
+      updates: updatesByParent.get(r.id) ?? [],
     })),
     nextCursor,
     snapshotId,

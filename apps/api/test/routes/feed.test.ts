@@ -230,23 +230,23 @@ describe('GET /feed', () => {
     expect(res.status).toBe(200);
     expect(res.body.posts.map((p: { id: string }) => p.id)).toEqual([answered.id]);
     expect(res.body.posts.map((p: { id: string }) => p.id)).not.toContain(pending.id);
-    const answered_updates = res.body.posts[0].answered_updates;
-    expect(answered_updates).toHaveLength(2);
+    const updates = res.body.posts[0].updates;
+    expect(updates).toHaveLength(2);
     // Chronological order: oldest → newest.
-    expect(answered_updates[0].id).toBe(earlierUpdate.id);
-    expect(answered_updates[0].body).toBe('interim');
-    expect(answered_updates[1].id).toBe(laterUpdate.id);
-    expect(answered_updates[1].body).toBe('answered!');
+    expect(updates[0].id).toBe(earlierUpdate.id);
+    expect(updates[0].body).toBe('interim');
+    expect(updates[1].id).toBe(laterUpdate.id);
+    expect(updates[1].body).toBe('answered!');
   });
 
-  it('all: answered_updates is an empty array on every row', async () => {
+  it('all: updates is an empty array when the parent has no children', async () => {
     const author = await insertUser(ctx.db, { orgId });
     const token = await mintTestJwt({ sub: author.supabaseAuthId, email: author.email });
     await insertPost(ctx.db, { authorId: author.id, orgId, status: 'published' });
     const res = await request(ctx.app)
       .get('/feed?filter=all')
       .set('Authorization', `Bearer ${token}`);
-    expect(res.body.posts[0].answered_updates).toEqual([]);
+    expect(res.body.posts[0].updates).toEqual([]);
   });
 
   it('answered: does not embed archived or hidden update posts', async () => {
@@ -258,7 +258,7 @@ describe('GET /feed', () => {
       .set({ is_answered_prayer: true })
       .where('id', '=', answered.id)
       .execute();
-    // Archived answered update — should be excluded from answered_updates embed
+    // Archived answered update — should be excluded from the updates embed
     const archivedUpdate = await insertPost(ctx.db, {
       authorId: author.id,
       orgId,
@@ -279,7 +279,7 @@ describe('GET /feed', () => {
     // child must not surface as an embedded update.
     expect(res.body.posts).toHaveLength(1);
     expect(res.body.posts[0].id).toBe(answered.id);
-    expect(res.body.posts[0].answered_updates).toEqual([]);
+    expect(res.body.posts[0].updates).toEqual([]);
   });
 });
 
