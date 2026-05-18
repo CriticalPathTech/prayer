@@ -97,6 +97,7 @@ describe('EditPostPage', () => {
   });
 
   it('persists typing to the buffer', async () => {
+    const user = userEvent.setup();
     apiFetchMock.mockResolvedValueOnce({
       post: samplePost,
       updates: [],
@@ -105,8 +106,8 @@ describe('EditPostPage', () => {
     });
     mountEditPage();
     const ta = await screen.findByLabelText(/body/i);
-    await userEvent.clear(ta);
-    await userEvent.type(ta, 'new text');
+    await user.clear(ta);
+    await user.type(ta, 'new text');
     await waitFor(() => {
       const stored = JSON.parse(localStorage.getItem('post_edit_buffer:p1') ?? 'null');
       expect(stored?.body).toBe('new text');
@@ -199,6 +200,7 @@ describe('EditPostPage', () => {
   });
 
   it('disables Save when body is empty', async () => {
+    const user = userEvent.setup();
     apiFetchMock.mockResolvedValueOnce({
       post: samplePost,
       updates: [],
@@ -207,7 +209,7 @@ describe('EditPostPage', () => {
     });
     mountEditPage();
     const ta = await screen.findByLabelText(/body/i);
-    await userEvent.clear(ta);
+    await user.clear(ta);
     expect(screen.getByRole('button', { name: /save changes/i })).toBeDisabled();
   });
 
