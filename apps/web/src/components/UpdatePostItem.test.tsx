@@ -58,4 +58,32 @@ describe('UpdatePostItem', () => {
     );
     expect(screen.queryByRole('button', { name: /show more/i })).not.toBeInTheDocument();
   });
+
+  it('renders the gold wrapper around an answered update by default', () => {
+    const { container } = render(
+      <UpdatePostItem update={{ ...base, is_answered_prayer: true }} embedded />,
+    );
+    const wrapper = container.querySelector('article');
+    expect(wrapper).not.toBeNull();
+    expect(wrapper!.className).toContain('[var(--answered-border)]');
+    expect(wrapper!.className).toContain('from-dawn-50');
+  });
+
+  it('drops the gold wrapper when suppressAnsweredWrapper is set, keeping the eyebrow', () => {
+    const { container } = render(
+      <UpdatePostItem
+        update={{ ...base, is_answered_prayer: true }}
+        embedded
+        suppressAnsweredWrapper
+      />,
+    );
+    const wrapper = container.querySelector('article');
+    expect(wrapper).not.toBeNull();
+    // Wrapper uses the neutral border + background — no gold styling.
+    expect(wrapper!.className).not.toContain('[var(--answered-border)]');
+    expect(wrapper!.className).not.toContain('from-dawn-50');
+    expect(wrapper!.className).toContain('[var(--border-soft)]');
+    // The eyebrow itself still renders as the "Answered" textual marker.
+    expect(screen.getByText('Answered')).toBeInTheDocument();
+  });
 });

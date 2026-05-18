@@ -17,19 +17,27 @@ export interface UpdatePostItemProps {
    * Used on the feed where multi-update parents need to stay scannable. The
    * post-detail page renders updates without truncation. */
   truncateThreshold?: number;
+  /** When true, drop the gold wrapper styling on answered updates (the
+   * gradient bg + answered border). The eyebrow + sunrise icon stay gold
+   * as the textual marker. Used by the wall, where the parent card carries
+   * the gold treatment instead so the whole post reads as answered. The
+   * post-detail page leaves this unset and keeps the per-update gold box. */
+  suppressAnsweredWrapper?: boolean;
 }
 
 export function UpdatePostItem({
   update,
   embedded = false,
   truncateThreshold,
+  suppressAnsweredWrapper = false,
 }: UpdatePostItemProps): JSX.Element {
   const answered = update.is_answered_prayer;
   const name = update.is_anonymous ? 'Anonymous' : (update.display_name ?? 'Anonymous');
 
-  const wrapperClass = answered
-    ? 'mb-3 rounded-md border border-[var(--answered-border)] bg-gradient-to-b from-dawn-50 to-white p-4'
-    : 'mb-3 rounded-md border border-[var(--border-soft)] bg-[var(--bg-raised)] p-4';
+  const wrapperClass =
+    answered && !suppressAnsweredWrapper
+      ? 'mb-3 rounded-md border border-[var(--answered-border)] bg-gradient-to-b from-dawn-50 to-white p-4'
+      : 'mb-3 rounded-md border border-[var(--border-soft)] bg-[var(--bg-raised)] p-4';
 
   const eyebrowClass = answered
     ? 'mb-2 inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--answered-fg)]'
