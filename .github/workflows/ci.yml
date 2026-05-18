@@ -55,7 +55,7 @@ jobs:
       - uses: actions/checkout@v6
       - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v6
-        with: { node-version: 22, cache: pnpm }
+        with: { node-version: 24, cache: pnpm }
       - run: pnpm install --frozen-lockfile
       - run: pnpm lint
       - run: pnpm format:check
@@ -95,7 +95,7 @@ jobs:
             || (docker logs minio; exit 1)
       - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v6
-        with: { node-version: 22, cache: pnpm }
+        with: { node-version: 24, cache: pnpm }
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @prayer/shared build && pnpm --filter @prayer/db build
       - run: pnpm --filter @prayer/api typecheck
@@ -116,7 +116,7 @@ jobs:
       - uses: actions/checkout@v6
       - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v6
-        with: { node-version: 22, cache: pnpm }
+        with: { node-version: 24, cache: pnpm }
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @prayer/shared build
       - run: pnpm --filter @prayer/web typecheck
@@ -147,7 +147,7 @@ jobs:
       - uses: actions/checkout@v6
       - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v6
-        with: { node-version: 22, cache: pnpm }
+        with: { node-version: 24, cache: pnpm }
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @prayer/db test
 
@@ -162,7 +162,7 @@ jobs:
       - uses: actions/checkout@v6
       - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v6
-        with: { node-version: 22, cache: pnpm }
+        with: { node-version: 24, cache: pnpm }
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @prayer/db --filter @prayer/shared build
       - run: pnpm --filter @prayer/web exec playwright install --with-deps chromium
