@@ -17,6 +17,7 @@ import MoreVertical from '../../assets/icons/more-vertical.svg?react';
 import Pencil from '../../assets/icons/pencil-line.svg?react';
 import Plus from '../../assets/icons/plus.svg?react';
 import PrayHands from '../../assets/icons/pray-hands.svg?react';
+import Refresh from '../../assets/icons/refresh-cw.svg?react';
 import Search from '../../assets/icons/search.svg?react';
 import ShieldCheck from '../../assets/icons/shield-check.svg?react';
 import SmilePlus from '../../assets/icons/smile-plus.svg?react';
@@ -43,6 +44,7 @@ const REGISTRY = {
   pen: Pencil,
   plus: Plus,
   pray: PrayHands,
+  refresh: Refresh,
   search: Search,
   shield: ShieldCheck,
   'smile-plus': SmilePlus,
