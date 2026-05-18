@@ -104,7 +104,7 @@ export async function toggleReaction(
 
     // Count read is post-toggle; counter column reflects consumer state (may lag by 1
     // until the event-worker processes the event).
-    let reactionCount = 0;
+    let reactionCount: number;
     if (input.targetType === 'post') {
       const row = await trx
         .selectFrom('posts')

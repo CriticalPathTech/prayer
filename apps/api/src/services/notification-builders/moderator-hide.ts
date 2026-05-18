@@ -11,8 +11,8 @@ interface ModerationPayload {
 export const moderatorHideBuilder: EventHandler = async (event, trx) => {
   const payload = event.payload as ModerationPayload;
   const orgId = event.org_id;
-  let authorId: string | null = null;
-  let postId: string | null = null;
+  let authorId: string;
+  let postId: string;
 
   if (payload.target_type === 'post') {
     const row = await trx

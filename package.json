@@ -26,7 +26,7 @@
     "admin:create-org": "pnpm --filter @prayer/db admin:create-org"
   },
   "devDependencies": {
-    "@eslint/js": "^9",
+    "@eslint/js": "^10",
     "@types/node": "^20.0.0",
     "eslint": "^10",
     "eslint-config-prettier": "^9",
@@ -38,5 +38,10 @@
     "prettier": "^3",
     "typescript": "^5.6.0",
     "typescript-eslint": "^8"
+  },
+  "pnpm": {
+    "patchedDependencies": {
+      "eslint-plugin-react@7.37.5": "patches/eslint-plugin-react@7.37.5.patch"
+    }
   }
 }
