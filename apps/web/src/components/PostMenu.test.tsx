@@ -56,9 +56,43 @@ describe('PostMenu', () => {
     expect(container.firstChild).toBeNull();
   });
 
-  it('renders nothing when own post is archived (no actions apply)', () => {
+  it('archived own post with no onRepost still renders nothing', () => {
     const { container } = renderMenu({ status: 'archived' });
     expect(container.firstChild).toBeNull();
+  });
+
+  it('archived own post with onRepost shows the Repost menuitem only', async () => {
+    const onRepost = vi.fn();
+    renderMenu({ status: 'archived', onRepost });
+    await userEvent.click(screen.getByRole('button', { name: /more actions/i }));
+    expect(screen.getByRole('menuitem', { name: 'Repost' })).toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: 'Edit' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: 'Delete' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: 'Report' })).not.toBeInTheDocument();
+  });
+
+  it('Repost calls onRepost and closes the menu', async () => {
+    const onRepost = vi.fn();
+    renderMenu({ status: 'archived', onRepost });
+    await userEvent.click(screen.getByRole('button', { name: /more actions/i }));
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Repost' }));
+    expect(onRepost).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole('menuitem', { name: 'Repost' })).not.toBeInTheDocument();
+  });
+
+  it('non-archived posts do not show Repost even when onRepost is provided', async () => {
+    const onRepost = vi.fn();
+    renderMenu({ status: 'published', onRepost });
+    await userEvent.click(screen.getByRole('button', { name: /more actions/i }));
+    expect(screen.queryByRole('menuitem', { name: 'Repost' })).not.toBeInTheDocument();
+  });
+
+  it('non-own archived posts do not show Repost (Report still available)', async () => {
+    const onRepost = vi.fn();
+    renderMenu({ status: 'archived', isOwnPost: false, onRepost });
+    await userEvent.click(screen.getByRole('button', { name: /more actions/i }));
+    expect(screen.queryByRole('menuitem', { name: 'Repost' })).not.toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: 'Report' })).toBeInTheDocument();
   });
 
   it('own post shows Edit + Delete, not Report', async () => {
