@@ -1,5 +1,5 @@
 import type { RequestHandler } from 'express';
-import rateLimit, { type Options } from 'express-rate-limit';
+import rateLimit, { ipKeyGenerator, type Options } from 'express-rate-limit';
 
 import { TooManyRequestsError } from './error.js';
 
@@ -11,6 +11,10 @@ export interface LimiterScope {
 }
 
 export function buildLimiter(scope: LimiterScope): RequestHandler {
+  // ipKeyGenerator must appear literally inside the keyGenerator function body —
+  // express-rate-limit v8 validates by `keyGenerator.toString().includes("ipKeyGenerator")`,
+  // so wrapping through a helper trips ERR_ERL_KEY_GEN_IPV6 at startup. Wrapping
+  // groups IPv6 callers by /64 instead of /128 (avoids per-address bypass).
   const opts: Partial<Options> = {
     windowMs: scope.windowMs,
     max: scope.max,
@@ -19,8 +23,8 @@ export function buildLimiter(scope: LimiterScope): RequestHandler {
     handler: (_req, _res, next) => next(new TooManyRequestsError()),
     keyGenerator:
       scope.keyBy === 'user'
-        ? (req) => req.user?.id ?? req.ip ?? 'anonymous'
-        : (req) => req.ip ?? 'anonymous',
+        ? (req) => req.user?.id ?? (req.ip ? ipKeyGenerator(req.ip) : 'anonymous')
+        : (req) => (req.ip ? ipKeyGenerator(req.ip) : 'anonymous'),
   };
   return rateLimit(opts);
 }
