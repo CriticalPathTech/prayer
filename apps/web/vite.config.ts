@@ -46,7 +46,8 @@ export default defineConfig(({ mode }) => {
         ? {
             proxy: {
               [PROXY_PREFIX]: {
-                target: process.env.PROD_API_URL,
+                // Guarded above (line 13): in `remote` mode this is required.
+                target: process.env.PROD_API_URL!,
                 changeOrigin: true,
                 rewrite: (p) => p.replace(new RegExp(`^${PROXY_PREFIX}`), ''),
                 configure: (proxy) => {
