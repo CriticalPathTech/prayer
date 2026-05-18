@@ -117,14 +117,144 @@ describe('PostCard Answered Prayer', () => {
     expect(screen.getByText('first witness')).toBeInTheDocument();
     expect(screen.getByText('thank you Lord')).toBeInTheDocument();
     // Embedded mode: the "Prayer answered" ribbon is suppressed when any
-    // updates render (the embedded cards carry the answered treatment
-    // on their own). The "Answered" eyebrow inside each embedded card stays.
+    // inline update carries the answered flag (the embedded cards carry
+    // the treatment themselves). The "Answered" eyebrow inside each
+    // embedded card stays.
     expect(screen.queryByText('Prayer answered')).not.toBeInTheDocument();
     expect(screen.getAllByText('Answered')).toHaveLength(2);
     // Embedded mode: the child's author name is hidden because updates are
     // always authored by the parent post's author. `base.display_name` is
     // 'Mary', which appears once in the parent card header.
     expect(screen.getAllByText('Mary')).toHaveLength(1);
+  });
+});
+
+describe('PostCard inline updates', () => {
+  const base = {
+    id: 'parent',
+    parent_id: null,
+    author_id: 'other',
+    display_name: 'Mary',
+    avatar_url: null,
+    status: 'published' as const,
+    is_anonymous: false,
+    is_answered_prayer: false,
+    body: 'Please pray.',
+    reaction_count: 0,
+    prayer_count: 0,
+    updates: [],
+    expires_at: null,
+    edit_deadline: new Date(Date.now() + 3600_000).toISOString(),
+    created_at: new Date().toISOString(),
+    prayed: false,
+    reactions: {},
+    is_own_post: false,
+    hidden_by: null,
+    hidden_source: null,
+    is_former_member: false,
+  };
+
+  function makeUpdate(id: string, body: string) {
+    return { ...base, id, parent_id: 'parent', body, updates: [] };
+  }
+
+  it('renders all updates inline when there are 1–3', () => {
+    const updates = [
+      makeUpdate('u1', 'first update'),
+      makeUpdate('u2', 'second update'),
+      makeUpdate('u3', 'third update'),
+    ];
+    render(
+      <MemoryRouter>
+        <PostCard post={{ ...base, updates }} />
+      </MemoryRouter>,
+    );
+    expect(screen.getByText('first update')).toBeInTheDocument();
+    expect(screen.getByText('second update')).toBeInTheDocument();
+    expect(screen.getByText('third update')).toBeInTheDocument();
+    expect(screen.queryByText(/older update/i)).not.toBeInTheDocument();
+  });
+
+  it('renders the 3 most recent updates plus "+N older updates" link when there are 4+', () => {
+    const updates = [
+      makeUpdate('u1', 'oldest'),
+      makeUpdate('u2', 'older'),
+      makeUpdate('u3', 'recent-3'),
+      makeUpdate('u4', 'recent-2'),
+      makeUpdate('u5', 'newest'),
+    ];
+    render(
+      <MemoryRouter>
+        <PostCard post={{ ...base, updates }} />
+      </MemoryRouter>,
+    );
+    expect(screen.queryByText('oldest')).not.toBeInTheDocument();
+    expect(screen.queryByText('older')).not.toBeInTheDocument();
+    expect(screen.getByText('recent-3')).toBeInTheDocument();
+    expect(screen.getByText('recent-2')).toBeInTheDocument();
+    expect(screen.getByText('newest')).toBeInTheDocument();
+    const link = screen.getByRole('link', { name: /\+2 older updates/i });
+    expect(link).toHaveAttribute('href', '/posts/parent');
+  });
+
+  it('renders "+1 older update" (singular) when there are exactly 4 updates', () => {
+    const updates = [
+      makeUpdate('u0', 'old'),
+      makeUpdate('u1', 'a'),
+      makeUpdate('u2', 'b'),
+      makeUpdate('u3', 'c'),
+    ];
+    render(
+      <MemoryRouter>
+        <PostCard post={{ ...base, updates }} />
+      </MemoryRouter>,
+    );
+    const link = screen.getByRole('link', { name: /\+1 older update\b/i });
+    expect(link).toBeInTheDocument();
+    expect(link).not.toHaveAccessibleName(/updates/);
+  });
+
+  it('truncates a long update body and "Show more" expands it', async () => {
+    const user = userEvent.setup();
+    const longBody = 'L'.repeat(500);
+    const updates = [makeUpdate('u1', longBody)];
+    render(
+      <MemoryRouter>
+        <PostCard post={{ ...base, updates }} />
+      </MemoryRouter>,
+    );
+    const showMore = screen.getByRole('button', { name: /show more/i });
+    expect(showMore).toBeInTheDocument();
+    expect(screen.getByText(/L{250}…/)).toBeInTheDocument();
+    await user.click(showMore);
+    expect(screen.getByText(longBody)).toBeInTheDocument();
+  });
+
+  it('hides the "Prayer answered" ribbon when an inline update carries is_answered_prayer=true', () => {
+    const answeredUpdate = {
+      ...makeUpdate('u1', 'answer'),
+      is_answered_prayer: true,
+    };
+    render(
+      <MemoryRouter>
+        <PostCard
+          post={{ ...base, is_answered_prayer: true, updates: [answeredUpdate] }}
+        />
+      </MemoryRouter>,
+    );
+    expect(screen.queryByText('Prayer answered')).not.toBeInTheDocument();
+  });
+
+  it('shows the "Prayer answered" ribbon when answered=true and no inline update is answered', () => {
+    const inline = makeUpdate('u1', 'just an update');
+    render(
+      <MemoryRouter>
+        <PostCard
+          post={{ ...base, is_answered_prayer: true, updates: [inline] }}
+        />
+      </MemoryRouter>,
+    );
+    expect(screen.getByText('Prayer answered')).toBeInTheDocument();
   });
 });
 
