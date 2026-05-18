@@ -69,10 +69,18 @@ export function PostCard({ post, onChange }: PostCardProps): JSX.Element {
   const showModeratorHiddenBanner = post.status === 'hidden' && isPrivileged && !isAuthor;
   const flagCount = post.flag_count ?? 0;
   const showFlagPill = isPrivileged && flagCount > 0;
-  // `answered_updates` is only populated by the feed answered-filter path; the
-  // archive endpoint (`/posts/me/archive`) returns the raw PostDto without it.
-  // Default to empty so PostCard renders cleanly in both places.
-  const answeredUpdates = post.answered_updates ?? [];
+  // /feed always populates `updates`; /posts/me/archive returns the raw
+  // PostDto without it. Default to empty so PostCard renders cleanly in
+  // both places.
+  const updates = post.updates ?? [];
+  const MAX_INLINE = 3;
+  const inlineUpdates = updates.slice(-MAX_INLINE);
+  const olderCount = Math.max(0, updates.length - MAX_INLINE);
+  // Show the ribbon when the parent is flagged answered AND none of the
+  // inline updates is itself an answered-prayer update (those carry their
+  // own "Answered" treatment via UpdatePostItem). Stays visible when the
+  // answered moment is older than the 3 most-recent slice.
+  const showRibbon = answered && inlineUpdates.every((u) => !u.is_answered_prayer);
 
   const cardClass = [
     'rounded-md border bg-[var(--bg-raised)] p-5 shadow-warm-sm mb-4',
@@ -126,17 +134,25 @@ export function PostCard({ post, onChange }: PostCardProps): JSX.Element {
         textClassName="m-0 font-serif text-[18px] leading-relaxed text-[var(--fg-2)] whitespace-pre-wrap [text-wrap:pretty]"
       />
 
-      {answered && answeredUpdates.length === 0 ? (
+      {showRibbon ? (
         <div className="mt-4 -mx-5 px-5 py-2.5 border-t border-[var(--answered-border)] bg-gradient-to-r from-dawn-50 to-transparent flex items-center gap-2 text-[13px] font-semibold text-[var(--answered-fg)] tracking-[0.02em]">
           <Icon name="sunrise" size={16} />
           <span>Prayer answered</span>
         </div>
       ) : null}
-      {answeredUpdates.length > 0 ? (
+      {inlineUpdates.length > 0 ? (
         <div className="mt-4">
-          {answeredUpdates.map((u) => (
-            <UpdatePostItem key={u.id} update={u} embedded />
+          {inlineUpdates.map((u) => (
+            <UpdatePostItem key={u.id} update={u} embedded truncateThreshold={250} />
           ))}
+          {olderCount > 0 ? (
+            <Link
+              to={`/posts/${post.id}`}
+              className="mt-1.5 inline-flex items-center text-[13px] font-medium text-[var(--fg-3)] hover:text-[var(--fg-1)]"
+            >
+              +{olderCount} older {olderCount === 1 ? 'update' : 'updates'} — view all
+            </Link>
+          ) : null}
         </div>
       ) : null}
       <footer className="mt-4 flex flex-wrap items-center gap-3">

@@ -24,7 +24,7 @@ const makeDraft = (overrides: Record<string, unknown> = {}): Record<string, unkn
   body: '',
   reaction_count: 0,
   prayer_count: 0,
-  answered_updates: [],
+  updates: [],
   expires_at: null,
   edit_deadline: new Date(Date.now() + 3600_000).toISOString(),
   created_at: new Date().toISOString(),
