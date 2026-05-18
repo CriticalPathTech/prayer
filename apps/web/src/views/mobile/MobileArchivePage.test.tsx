@@ -1,4 +1,5 @@
 import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -6,9 +7,22 @@ import { MobileArchivePage } from './MobileArchivePage';
 import { makeFeedPost } from './__fixtures__/feedPost';
 
 const apiFetchMock = vi.fn();
+const getMyDraftMock = vi.fn();
+const saveMyDraftMock = vi.fn();
 vi.mock('../../lib/api', async () => {
   const actual = await vi.importActual<typeof import('../../lib/api')>('../../lib/api');
-  return { ...actual, apiFetch: (...args: unknown[]) => apiFetchMock(...args) };
+  return {
+    ...actual,
+    apiFetch: (...args: unknown[]) => apiFetchMock(...args),
+    getMyDraft: (...args: unknown[]) => getMyDraftMock(...args),
+    saveMyDraft: (...args: unknown[]) => saveMyDraftMock(...args),
+  };
+});
+
+const navigateMock = vi.fn();
+vi.mock('react-router-dom', async () => {
+  const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom');
+  return { ...actual, useNavigate: () => navigateMock };
 });
 
 const useAuthMock = vi.fn();
@@ -28,9 +42,13 @@ describe('MobileArchivePage', () => {
       loading: false,
       signOut: vi.fn(),
     });
+    saveMyDraftMock.mockResolvedValue({ draft: makeFeedPost() });
   });
   afterEach(() => {
     apiFetchMock.mockReset();
+    getMyDraftMock.mockReset();
+    saveMyDraftMock.mockReset();
+    navigateMock.mockReset();
   });
 
   it('fetches /posts/me/archive on mount and renders posts', async () => {
@@ -75,5 +93,49 @@ describe('MobileArchivePage', () => {
       </MemoryRouter>,
     );
     await waitFor(() => expect(screen.getByText(/boom/i)).toBeInTheDocument());
+  });
+
+  it('Repost on archived own post with empty draft writes to /me/draft and navigates', async () => {
+    const archived = makeFeedPost({
+      body: 'mobile reuse',
+      is_anonymous: true,
+      is_own_post: true,
+      status: 'archived',
+    });
+    apiFetchMock.mockResolvedValue({ posts: [archived] });
+    getMyDraftMock.mockResolvedValue({ draft: null });
+
+    render(
+      <MemoryRouter>
+        <MobileArchivePage />
+      </MemoryRouter>,
+    );
+    await waitFor(() => expect(screen.getByText('mobile reuse')).toBeInTheDocument());
+    await userEvent.click(screen.getByRole('button', { name: /more actions/i }));
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Repost' }));
+
+    await waitFor(() =>
+      expect(saveMyDraftMock).toHaveBeenCalledWith({ body: 'mobile reuse', is_anonymous: true }),
+    );
+    expect(navigateMock).toHaveBeenCalledWith('/compose');
+  });
+
+  it('Repost with non-empty draft opens the discard confirm dialog', async () => {
+    const archived = makeFeedPost({ body: 'reuse', is_own_post: true, status: 'archived' });
+    apiFetchMock.mockResolvedValue({ posts: [archived] });
+    getMyDraftMock.mockResolvedValue({ draft: makeFeedPost({ body: 'in progress' }) });
+
+    render(
+      <MemoryRouter>
+        <MobileArchivePage />
+      </MemoryRouter>,
+    );
+    await waitFor(() => expect(screen.getByText('reuse')).toBeInTheDocument());
+    await userEvent.click(screen.getByRole('button', { name: /more actions/i }));
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Repost' }));
+
+    expect(await screen.findByRole('alertdialog', { name: /discard your draft/i })).toBeInTheDocument();
+    expect(saveMyDraftMock).not.toHaveBeenCalled();
+    expect(navigateMock).not.toHaveBeenCalled();
   });
 });

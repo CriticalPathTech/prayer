@@ -1,6 +1,7 @@
 import type { JSX } from 'react';
 import { useEffect, useState } from 'react';
 
+import { useRepostFromArchive } from '../../hooks/useRepostFromArchive';
 import type { FeedPost } from '../../hooks/useFeed';
 import { apiFetch } from '../../lib/api';
 
@@ -10,6 +11,7 @@ import { MobilePostCard } from './MobilePostCard';
 export function MobileArchivePage(): JSX.Element {
   const [posts, setPosts] = useState<FeedPost[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const { repost, confirmDialog } = useRepostFromArchive();
 
   useEffect(() => {
     apiFetch<{ posts: FeedPost[] }>('/posts/me/archive')
@@ -32,10 +34,11 @@ export function MobileArchivePage(): JSX.Element {
         ) : null}
         {posts?.map((p) => (
           <div key={p.id} className="opacity-60">
-            <MobilePostCard post={p} />
+            <MobilePostCard post={p} onRepost={() => repost(p)} />
           </div>
         ))}
       </div>
+      {confirmDialog}
     </>
   );
 }
