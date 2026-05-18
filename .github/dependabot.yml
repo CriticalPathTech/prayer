@@ -78,6 +78,18 @@ updates:
           - patch
           - minor
 
+    # Block eslint 10.x — eslint-plugin-react has no v10-compatible release
+    # yet (peerDeps cap at ^9.7), and shipping eslint 10 requires a pnpm
+    # patch on the plugin, which is upstream-maintenance debt. Revisit
+    # when eslint-plugin-react publishes a v10-compat release; until then,
+    # patch + minor eslint updates still come through via the eslint group.
+    # Context: PR #31 (closed).
+    ignore:
+      - dependency-name: 'eslint'
+        update-types: ['version-update:semver-major']
+      - dependency-name: '@eslint/js'
+        update-types: ['version-update:semver-major']
+
   # ---------- GitHub Actions ----------
   - package-ecosystem: github-actions
     directory: /
