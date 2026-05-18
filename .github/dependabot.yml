@@ -92,12 +92,24 @@ updates:
     #   Node-25-only API call would crash at runtime but slip past tsc
     #   if types are ahead of the engine. Bump when the runtime moves to
     #   Node 25. Context: PR #47.
+    #
+    # - tailwindcss: v4 is a ground-up rewrite — CSS entry rewrite
+    #   (`@tailwind base/components/utilities` → `@import "tailwindcss"`),
+    #   PostCSS plugin swap to `@tailwindcss/postcss`, `tailwind.config.js`
+    #   migration to a CSS `@theme` block, plus utility-class renames to
+    #   audit across every component (the codebase uses lots of
+    #   `theme(colors.…)` and arbitrary `[…]` values that need spot-checks).
+    #   v3.4 is still security-supported and no third-party dep requires v4.
+    #   Defer until we want a focused migration effort, not a chore-deps
+    #   bump. Context: PR #36 (closed).
     ignore:
       - dependency-name: 'eslint'
         update-types: ['version-update:semver-major']
       - dependency-name: '@eslint/js'
         update-types: ['version-update:semver-major']
       - dependency-name: '@types/node'
+        update-types: ['version-update:semver-major']
+      - dependency-name: 'tailwindcss'
         update-types: ['version-update:semver-major']
 
   # ---------- GitHub Actions ----------
