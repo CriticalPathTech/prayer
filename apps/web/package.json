@@ -22,7 +22,7 @@
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-easy-crop": "^5.0.0",
-    "react-router-dom": "^6.26.0"
+    "react-router-dom": "^7.15.1"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.11.3",
