@@ -250,6 +250,60 @@ describe('PostCard inline updates', () => {
     );
     expect(screen.getByText('Prayer answered')).toBeInTheDocument();
   });
+
+  it('gives the parent card the gold border when an inline update is answered, even if parent.is_answered_prayer is false', () => {
+    const answeredUpdate = { ...makeUpdate('u1', 'answer'), is_answered_prayer: true };
+    const { container } = render(
+      <MemoryRouter>
+        <PostCard post={{ ...base, is_answered_prayer: false, updates: [answeredUpdate] }} />
+      </MemoryRouter>,
+    );
+    const card = container.querySelector('article');
+    expect(card).not.toBeNull();
+    expect(card!.className).toContain('[var(--answered-border)]');
+  });
+
+  it('gives the parent card the gold border when an answered update is in the older bucket (not inline)', () => {
+    const oldAnswered = { ...makeUpdate('u-old', 'answered moment'), is_answered_prayer: true };
+    const inline1 = makeUpdate('u1', 'a');
+    const inline2 = makeUpdate('u2', 'b');
+    const inline3 = makeUpdate('u3', 'c');
+    const { container } = render(
+      <MemoryRouter>
+        <PostCard
+          post={{
+            ...base,
+            is_answered_prayer: false,
+            updates: [oldAnswered, inline1, inline2, inline3],
+          }}
+        />
+      </MemoryRouter>,
+    );
+    const card = container.querySelector('article');
+    expect(card!.className).toContain('[var(--answered-border)]');
+    // Sanity: the answered update is hidden behind the older-updates link.
+    expect(screen.queryByText('answered moment')).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /\+1 older update\b/i })).toBeInTheDocument();
+  });
+
+  it('renders the inline answered update without its own gold wrapper', () => {
+    const answeredUpdate = { ...makeUpdate('u1', 'answered body'), is_answered_prayer: true };
+    const { container } = render(
+      <MemoryRouter>
+        <PostCard post={{ ...base, updates: [answeredUpdate] }} />
+      </MemoryRouter>,
+    );
+    // The inline update article (the second <article> in the card; the
+    // parent post is the first).
+    const articles = container.querySelectorAll('article');
+    const updateArticle = articles[1];
+    expect(updateArticle).toBeDefined();
+    // Wrapper is the neutral variant — no gold bg/border on the inner item.
+    expect(updateArticle!.className).not.toContain('from-dawn-50');
+    expect(updateArticle!.className).toContain('[var(--border-soft)]');
+    // The textual "Answered" eyebrow is still there.
+    expect(screen.getByText('Answered')).toBeInTheDocument();
+  });
 });
 
 describe('PostCard kebab menu', () => {
