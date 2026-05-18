@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -87,7 +88,7 @@ describe('MobilePostCard', () => {
     expect(screen.getByText(/^comment$/i)).toBeInTheDocument();
   });
 
-  it('embeds answered_updates and suppresses the Prayer answered ribbon', () => {
+  it('embeds updates and suppresses the Prayer answered ribbon', () => {
     const child = makeFeedPost({
       id: 'child-1',
       parent_id: 'parent-1',
@@ -97,7 +98,7 @@ describe('MobilePostCard', () => {
     const parent = makeFeedPost({
       id: 'parent-1',
       is_answered_prayer: true,
-      answered_updates: [child],
+      updates: [child],
     });
     render(
       <MemoryRouter>
@@ -108,7 +109,7 @@ describe('MobilePostCard', () => {
     expect(screen.queryByText(/prayer answered/i)).not.toBeInTheDocument();
   });
 
-  it('shows Prayer answered ribbon when is_answered_prayer is true and answered_updates is empty', () => {
+  it('shows Prayer answered ribbon when is_answered_prayer is true and updates is empty', () => {
     render(
       <MemoryRouter>
         <MobilePostCard post={makeFeedPost({ is_answered_prayer: true })} />
@@ -117,10 +118,10 @@ describe('MobilePostCard', () => {
     expect(screen.getByText(/prayer answered/i)).toBeInTheDocument();
   });
 
-  it('handles missing answered_updates defensively (archive endpoint case)', () => {
+  it('handles missing updates defensively (archive endpoint case)', () => {
     const post = makeFeedPost();
     // @ts-expect-error simulate missing field at runtime
-    delete post.answered_updates;
+    delete post.updates;
     render(
       <MemoryRouter>
         <MobilePostCard post={post} />
@@ -136,5 +137,111 @@ describe('MobilePostCard', () => {
       </MemoryRouter>,
     );
     expect(screen.getByText(/hidden/i)).toBeInTheDocument();
+  });
+
+  it('renders all updates inline when there are 1–3', () => {
+    const updates = [
+      makeFeedPost({ parent_id: 'parent', body: 'first update' }),
+      makeFeedPost({ parent_id: 'parent', body: 'second update' }),
+      makeFeedPost({ parent_id: 'parent', body: 'third update' }),
+    ];
+    render(
+      <MemoryRouter>
+        <MobilePostCard post={makeFeedPost({ id: 'parent', updates })} />
+      </MemoryRouter>,
+    );
+    expect(screen.getByText('first update')).toBeInTheDocument();
+    expect(screen.getByText('second update')).toBeInTheDocument();
+    expect(screen.getByText('third update')).toBeInTheDocument();
+    expect(screen.queryByText(/older update/i)).not.toBeInTheDocument();
+  });
+
+  it('renders the 3 most recent updates plus "+N older updates" link when there are 4+', () => {
+    const updates = [
+      makeFeedPost({ parent_id: 'parent', body: 'oldest' }),
+      makeFeedPost({ parent_id: 'parent', body: 'older' }),
+      makeFeedPost({ parent_id: 'parent', body: 'recent-3' }),
+      makeFeedPost({ parent_id: 'parent', body: 'recent-2' }),
+      makeFeedPost({ parent_id: 'parent', body: 'newest' }),
+    ];
+    render(
+      <MemoryRouter>
+        <MobilePostCard post={makeFeedPost({ id: 'parent', updates })} />
+      </MemoryRouter>,
+    );
+    expect(screen.queryByText('oldest')).not.toBeInTheDocument();
+    expect(screen.queryByText('older')).not.toBeInTheDocument();
+    expect(screen.getByText('recent-3')).toBeInTheDocument();
+    expect(screen.getByText('recent-2')).toBeInTheDocument();
+    expect(screen.getByText('newest')).toBeInTheDocument();
+    const link = screen.getByRole('link', { name: /\+2 older updates/i });
+    expect(link).toHaveAttribute('href', '/posts/parent');
+  });
+
+  it('renders "+1 older update" (singular) when there are exactly 4 updates', () => {
+    const updates = [
+      makeFeedPost({ parent_id: 'parent', body: 'old' }),
+      makeFeedPost({ parent_id: 'parent', body: 'a' }),
+      makeFeedPost({ parent_id: 'parent', body: 'b' }),
+      makeFeedPost({ parent_id: 'parent', body: 'c' }),
+    ];
+    render(
+      <MemoryRouter>
+        <MobilePostCard post={makeFeedPost({ id: 'parent', updates })} />
+      </MemoryRouter>,
+    );
+    expect(screen.getByRole('link', { name: /\+1 older update\b/i })).toBeInTheDocument();
+  });
+
+  it('truncates a long update body and "Show more" expands it', async () => {
+    const user = userEvent.setup();
+    const longBody = 'L'.repeat(500);
+    const updates = [makeFeedPost({ parent_id: 'parent', body: longBody })];
+    render(
+      <MemoryRouter>
+        <MobilePostCard post={makeFeedPost({ id: 'parent', updates })} />
+      </MemoryRouter>,
+    );
+    const showMore = screen.getByRole('button', { name: /show more/i });
+    expect(showMore).toBeInTheDocument();
+    expect(screen.getByText(/L{250}…/)).toBeInTheDocument();
+    await user.click(showMore);
+    expect(screen.getByText(longBody)).toBeInTheDocument();
+  });
+
+  it('hides the "Prayer answered" ribbon when an inline update carries is_answered_prayer=true', () => {
+    const answeredUpdate = makeFeedPost({
+      parent_id: 'parent',
+      is_answered_prayer: true,
+      body: 'thank you',
+    });
+    render(
+      <MemoryRouter>
+        <MobilePostCard
+          post={makeFeedPost({
+            id: 'parent',
+            is_answered_prayer: true,
+            updates: [answeredUpdate],
+          })}
+        />
+      </MemoryRouter>,
+    );
+    expect(screen.queryByText(/prayer answered/i)).not.toBeInTheDocument();
+  });
+
+  it('shows the "Prayer answered" ribbon when answered=true and no inline update is answered', () => {
+    const inline = makeFeedPost({ parent_id: 'parent', body: 'just an update' });
+    render(
+      <MemoryRouter>
+        <MobilePostCard
+          post={makeFeedPost({
+            id: 'parent',
+            is_answered_prayer: true,
+            updates: [inline],
+          })}
+        />
+      </MemoryRouter>,
+    );
+    expect(screen.getByText(/prayer answered/i)).toBeInTheDocument();
   });
 });

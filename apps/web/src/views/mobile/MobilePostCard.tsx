@@ -63,7 +63,14 @@ export function MobilePostCard({ post, onChange }: MobilePostCardProps): JSX.Ele
   const isAuthor = !!me && post.is_own_post;
   const showHiddenBanner = post.status === 'hidden' && isAuthor;
   const showModeratorHiddenBanner = post.status === 'hidden' && isPrivileged && !isAuthor;
-  const answeredUpdates = post.answered_updates ?? [];
+  const updates = post.updates ?? [];
+  const MAX_INLINE = 3;
+  const inlineUpdates = updates.slice(-MAX_INLINE);
+  const olderCount = Math.max(0, updates.length - MAX_INLINE);
+  // Ribbon stays visible when answered=true and no inline update itself
+  // carries the answered flag — preserves the answered moment even when
+  // it's older than the 3 most-recent slice.
+  const showRibbon = answered && inlineUpdates.every((u) => !u.is_answered_prayer);
 
   const cardClass = [
     'flex flex-col gap-3 rounded-lg border bg-[var(--bg-raised)] p-4 shadow-warm-sm',
@@ -126,17 +133,25 @@ export function MobilePostCard({ post, onChange }: MobilePostCardProps): JSX.Ele
         onToggle={(e) => void reactions.toggle(e).catch(() => {})}
       />
 
-      {answered && answeredUpdates.length === 0 ? (
+      {showRibbon ? (
         <div className="-mx-4 mt-1 flex items-center gap-2 border-t border-[var(--answered-border)] bg-gradient-to-r from-dawn-50 to-transparent px-4 py-2.5 text-[13px] font-semibold tracking-[0.02em] text-[var(--answered-fg)]">
           <Icon name="sunrise" size={16} />
           <span>Prayer answered</span>
         </div>
       ) : null}
-      {answeredUpdates.length > 0 ? (
+      {inlineUpdates.length > 0 ? (
         <div>
-          {answeredUpdates.map((u) => (
-            <UpdatePostItem key={u.id} update={u} embedded />
+          {inlineUpdates.map((u) => (
+            <UpdatePostItem key={u.id} update={u} embedded truncateThreshold={250} />
           ))}
+          {olderCount > 0 ? (
+            <Link
+              to={`/posts/${post.id}`}
+              className="mt-1.5 inline-flex items-center text-[13px] font-medium text-[var(--fg-3)] active:bg-parchment-100"
+            >
+              +{olderCount} older {olderCount === 1 ? 'update' : 'updates'} — view all
+            </Link>
+          ) : null}
         </div>
       ) : null}
 

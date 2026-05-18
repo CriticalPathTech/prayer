@@ -55,7 +55,7 @@ const basePost = (over: Record<string, unknown> = {}) => ({
   body: 'Please pray',
   reaction_count: 0,
   prayer_count: 0,
-  answered_updates: [],
+  updates: [],
   parent_id: null,
   expires_at: new Date(Date.now() + 30 * 24 * 3600_000).toISOString(),
   edit_deadline: new Date(Date.now() + 3600_000).toISOString(),
