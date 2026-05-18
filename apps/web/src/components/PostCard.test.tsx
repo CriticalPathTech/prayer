@@ -108,9 +108,7 @@ describe('PostCard Answered Prayer', () => {
     };
     render(
       <MemoryRouter>
-        <PostCard
-          post={{ ...base, is_answered_prayer: true, updates: [earlier, later] }}
-        />
+        <PostCard post={{ ...base, is_answered_prayer: true, updates: [earlier, later] }} />
       </MemoryRouter>,
     );
     // Both updates render.
@@ -237,9 +235,7 @@ describe('PostCard inline updates', () => {
     };
     render(
       <MemoryRouter>
-        <PostCard
-          post={{ ...base, is_answered_prayer: true, updates: [answeredUpdate] }}
-        />
+        <PostCard post={{ ...base, is_answered_prayer: true, updates: [answeredUpdate] }} />
       </MemoryRouter>,
     );
     expect(screen.queryByText('Prayer answered')).not.toBeInTheDocument();
@@ -249,9 +245,7 @@ describe('PostCard inline updates', () => {
     const inline = makeUpdate('u1', 'just an update');
     render(
       <MemoryRouter>
-        <PostCard
-          post={{ ...base, is_answered_prayer: true, updates: [inline] }}
-        />
+        <PostCard post={{ ...base, is_answered_prayer: true, updates: [inline] }} />
       </MemoryRouter>,
     );
     expect(screen.getByText('Prayer answered')).toBeInTheDocument();

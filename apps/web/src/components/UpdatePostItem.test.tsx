@@ -54,11 +54,7 @@ describe('UpdatePostItem', () => {
 
   it('does not truncate when body is shorter than threshold', () => {
     render(
-      <UpdatePostItem
-        update={{ ...base, body: 'short body' }}
-        embedded
-        truncateThreshold={250}
-      />,
+      <UpdatePostItem update={{ ...base, body: 'short body' }} embedded truncateThreshold={250} />,
     );
     expect(screen.queryByRole('button', { name: /show more/i })).not.toBeInTheDocument();
   });

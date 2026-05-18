@@ -143,9 +143,7 @@ export async function fetchFeed(
       .execute()) as unknown as PostRow[];
 
     if (isPrivileged) {
-      const hiddenChildIds = updateRows
-        .filter((r) => r.status === 'hidden')
-        .map((r) => r.id);
+      const hiddenChildIds = updateRows.filter((r) => r.status === 'hidden').map((r) => r.id);
       if (hiddenChildIds.length > 0) {
         const childHideInfo = await fetchHideInfo(db, hiddenChildIds, args.orgId);
         for (const row of updateRows) {
