@@ -78,16 +78,26 @@ updates:
           - patch
           - minor
 
-    # Block eslint 10.x — eslint-plugin-react has no v10-compatible release
-    # yet (peerDeps cap at ^9.7), and shipping eslint 10 requires a pnpm
-    # patch on the plugin, which is upstream-maintenance debt. Revisit
-    # when eslint-plugin-react publishes a v10-compat release; until then,
-    # patch + minor eslint updates still come through via the eslint group.
-    # Context: PR #31 (closed).
+    # Pin a few packages to majors that match runtime / ecosystem reality.
+    # Patch + minor updates still flow through via the relevant groups.
+    #
+    # - eslint / @eslint/js: eslint-plugin-react has no v10-compat release
+    #   yet (peerDeps cap at ^9.7); shipping eslint 10 needs a pnpm-patch
+    #   on the plugin, which is upstream-maintenance debt. Revisit when
+    #   eslint-plugin-react publishes a v10-compat release. Context: PR #31.
+    #
+    # - @types/node: runtime is Node 24 (engines.node = ">=24", Docker
+    #   uses node:24-alpine). @types/node majors track Node majors, so
+    #   pinning to ^24 keeps types aligned with the runtime — a stray
+    #   Node-25-only API call would crash at runtime but slip past tsc
+    #   if types are ahead of the engine. Bump when the runtime moves to
+    #   Node 25. Context: PR #47.
     ignore:
       - dependency-name: 'eslint'
         update-types: ['version-update:semver-major']
       - dependency-name: '@eslint/js'
+        update-types: ['version-update:semver-major']
+      - dependency-name: '@types/node'
         update-types: ['version-update:semver-major']
 
   # ---------- GitHub Actions ----------
