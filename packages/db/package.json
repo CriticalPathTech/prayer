@@ -23,7 +23,7 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.105.4",
-    "kysely": "^0.28.14",
+    "kysely": "^0.29.2",
     "node-pg-migrate": "^7.6.0",
     "pg": "^8.13.0",
     "uuidv7": "^1.0.2"

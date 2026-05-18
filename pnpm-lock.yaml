@@ -72,8 +72,8 @@ importers:
         specifier: ^5.9.0
         version: 5.10.0
       kysely:
-        specifier: ^0.28.14
-        version: 0.28.17
+        specifier: ^0.29.2
+        version: 0.29.2
       lru-cache:
         specifier: ^11.3.6
         version: 11.3.6
@@ -209,8 +209,8 @@ importers:
         specifier: ^2.105.4
         version: 2.105.4
       kysely:
-        specifier: ^0.28.14
-        version: 0.28.17
+        specifier: ^0.29.2
+        version: 0.29.2
       node-pg-migrate:
         specifier: ^7.6.0
         version: 7.9.1(@types/pg@8.20.0)(pg@8.20.0)
@@ -2732,9 +2732,9 @@ packages:
   keyv@4.5.4:
     resolution: {integrity: sha512-oxVHkHR/EJf2CNXnWxRLW6mg7JyCCUcG0DtEGmL2ctUo1PNTin1PUil+r/+4r5MpVgC/fn1kjsx7mjSujKqIpw==}
 
-  kysely@0.28.17:
-    resolution: {integrity: sha512-nbD8lB9EB3wNdMhOCdx5Li8DxnLbvKByylRLcJ1h+4SkrowVeECAyZlyiKMThF7xFdRz0jSQ2MoJr+wXux2y0Q==}
-    engines: {node: '>=20.0.0'}
+  kysely@0.29.2:
+    resolution: {integrity: sha512-s6WVJyEZrbm6jhBpiKHsGHyePMrVQKJ85wZCFCr9W4QHv6WTjWIrdvTmO9hDEA3bNK0xkrE2DqrHsXMLWuZpQg==}
+    engines: {node: '>=22.0.0'}
 
   language-subtag-registry@0.3.23:
     resolution: {integrity: sha512-0K65Lea881pHotoGEa5gDlMxt3pctLi2RplBb7Ezh4rRdLEOtgi7n4EwK9lamnUCkKBqaeKRVebTq6BAxSkpXQ==}
@@ -6765,7 +6765,7 @@ snapshots:
     dependencies:
       json-buffer: 3.0.1
 
-  kysely@0.28.17: {}
+  kysely@0.29.2: {}
 
   language-subtag-registry@0.3.23: {}
 
