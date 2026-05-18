@@ -17,6 +17,7 @@ export interface PostMenuProps {
   editDeadline: string;
   isTombstone: boolean;
   onDelete: () => Promise<void>;
+  onRepost?: () => void | Promise<void>;
   className?: string;
 }
 
@@ -27,6 +28,7 @@ export function PostMenu({
   editDeadline,
   isTombstone,
   onDelete,
+  onRepost,
   className,
 }: PostMenuProps): JSX.Element | null {
   const navigate = useNavigate();
@@ -46,7 +48,8 @@ export function PostMenu({
     new Date(editDeadline).getTime() > Date.now();
   const canDelete = isOwnPost && status !== 'archived';
   const canReport = !isOwnPost;
-  const hasAnyItem = canEdit || canDelete || canReport;
+  const canRepost = isOwnPost && status === 'archived' && !!onRepost;
+  const hasAnyItem = canEdit || canDelete || canReport || canRepost;
 
   const close = useCallback(() => {
     setOpen(false);
@@ -163,6 +166,20 @@ export function PostMenu({
             >
               <Icon name="flag" size={16} />
               <span>{flagSubmitted ? 'Reported' : 'Report'}</span>
+            </button>
+          ) : null}
+          {canRepost ? (
+            <button
+              role="menuitem"
+              type="button"
+              onClick={() => {
+                setOpen(false);
+                void onRepost?.();
+              }}
+              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-[var(--fg-1)] hover:bg-parchment-100"
+            >
+              <Icon name="refresh" size={16} />
+              <span>Repost</span>
             </button>
           ) : null}
         </div>
