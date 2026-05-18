@@ -12,7 +12,7 @@
     "typecheck": "tsc -b --dry"
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.1045.0",
+    "@aws-sdk/client-s3": "^3.1048.0",
     "@prayer/db": "workspace:*",
     "@prayer/shared": "workspace:*",
     "cors": "^2.8.5",
@@ -24,8 +24,8 @@
     "lru-cache": "^11.3.6",
     "node-cron": "^3.0.3",
     "pg": "^8.13.0",
-    "pino": "^9.5.0",
-    "pino-http": "^10.3.0",
+    "pino": "^10.3.1",
+    "pino-http": "^11.0.0",
     "zod": "^3.23.0"
   },
   "devDependencies": {
@@ -37,7 +37,7 @@
     "@types/supertest": "^7.2.0",
     "pino-pretty": "^11.3.0",
     "supertest": "^7.0.0",
-    "tsx": "^4.19.0",
+    "tsx": "^4.22.1",
     "vitest": "^4.0.0"
   }
 }
