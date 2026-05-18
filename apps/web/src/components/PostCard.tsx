@@ -69,10 +69,10 @@ export function PostCard({ post, onChange }: PostCardProps): JSX.Element {
   const showModeratorHiddenBanner = post.status === 'hidden' && isPrivileged && !isAuthor;
   const flagCount = post.flag_count ?? 0;
   const showFlagPill = isPrivileged && flagCount > 0;
-  // `answered_updates` is only populated by the feed answered-filter path; the
-  // archive endpoint (`/posts/me/archive`) returns the raw PostDto without it.
-  // Default to empty so PostCard renders cleanly in both places.
-  const answeredUpdates = post.answered_updates ?? [];
+  // /feed always populates `updates`; /posts/me/archive returns the raw
+  // PostDto without it. Default to empty so PostCard renders cleanly in
+  // both places.
+  const updates = post.updates ?? [];
 
   const cardClass = [
     'rounded-md border bg-[var(--bg-raised)] p-5 shadow-warm-sm mb-4',
@@ -126,15 +126,15 @@ export function PostCard({ post, onChange }: PostCardProps): JSX.Element {
         textClassName="m-0 font-serif text-[18px] leading-relaxed text-[var(--fg-2)] whitespace-pre-wrap [text-wrap:pretty]"
       />
 
-      {answered && answeredUpdates.length === 0 ? (
+      {answered && updates.length === 0 ? (
         <div className="mt-4 -mx-5 px-5 py-2.5 border-t border-[var(--answered-border)] bg-gradient-to-r from-dawn-50 to-transparent flex items-center gap-2 text-[13px] font-semibold text-[var(--answered-fg)] tracking-[0.02em]">
           <Icon name="sunrise" size={16} />
           <span>Prayer answered</span>
         </div>
       ) : null}
-      {answeredUpdates.length > 0 ? (
+      {updates.length > 0 ? (
         <div className="mt-4">
-          {answeredUpdates.map((u) => (
+          {updates.map((u) => (
             <UpdatePostItem key={u.id} update={u} embedded />
           ))}
         </div>

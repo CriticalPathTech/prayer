@@ -87,7 +87,7 @@ describe('MobilePostCard', () => {
     expect(screen.getByText(/^comment$/i)).toBeInTheDocument();
   });
 
-  it('embeds answered_updates and suppresses the Prayer answered ribbon', () => {
+  it('embeds updates and suppresses the Prayer answered ribbon', () => {
     const child = makeFeedPost({
       id: 'child-1',
       parent_id: 'parent-1',
@@ -97,7 +97,7 @@ describe('MobilePostCard', () => {
     const parent = makeFeedPost({
       id: 'parent-1',
       is_answered_prayer: true,
-      answered_updates: [child],
+      updates: [child],
     });
     render(
       <MemoryRouter>
@@ -108,7 +108,7 @@ describe('MobilePostCard', () => {
     expect(screen.queryByText(/prayer answered/i)).not.toBeInTheDocument();
   });
 
-  it('shows Prayer answered ribbon when is_answered_prayer is true and answered_updates is empty', () => {
+  it('shows Prayer answered ribbon when is_answered_prayer is true and updates is empty', () => {
     render(
       <MemoryRouter>
         <MobilePostCard post={makeFeedPost({ is_answered_prayer: true })} />
@@ -117,10 +117,10 @@ describe('MobilePostCard', () => {
     expect(screen.getByText(/prayer answered/i)).toBeInTheDocument();
   });
 
-  it('handles missing answered_updates defensively (archive endpoint case)', () => {
+  it('handles missing updates defensively (archive endpoint case)', () => {
     const post = makeFeedPost();
     // @ts-expect-error simulate missing field at runtime
-    delete post.answered_updates;
+    delete post.updates;
     render(
       <MemoryRouter>
         <MobilePostCard post={post} />

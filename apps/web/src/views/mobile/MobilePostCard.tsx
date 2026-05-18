@@ -63,7 +63,7 @@ export function MobilePostCard({ post, onChange }: MobilePostCardProps): JSX.Ele
   const isAuthor = !!me && post.is_own_post;
   const showHiddenBanner = post.status === 'hidden' && isAuthor;
   const showModeratorHiddenBanner = post.status === 'hidden' && isPrivileged && !isAuthor;
-  const answeredUpdates = post.answered_updates ?? [];
+  const updates = post.updates ?? [];
 
   const cardClass = [
     'flex flex-col gap-3 rounded-lg border bg-[var(--bg-raised)] p-4 shadow-warm-sm',
@@ -126,15 +126,15 @@ export function MobilePostCard({ post, onChange }: MobilePostCardProps): JSX.Ele
         onToggle={(e) => void reactions.toggle(e).catch(() => {})}
       />
 
-      {answered && answeredUpdates.length === 0 ? (
+      {answered && updates.length === 0 ? (
         <div className="-mx-4 mt-1 flex items-center gap-2 border-t border-[var(--answered-border)] bg-gradient-to-r from-dawn-50 to-transparent px-4 py-2.5 text-[13px] font-semibold tracking-[0.02em] text-[var(--answered-fg)]">
           <Icon name="sunrise" size={16} />
           <span>Prayer answered</span>
         </div>
       ) : null}
-      {answeredUpdates.length > 0 ? (
+      {updates.length > 0 ? (
         <div>
-          {answeredUpdates.map((u) => (
+          {updates.map((u) => (
             <UpdatePostItem key={u.id} update={u} embedded />
           ))}
         </div>

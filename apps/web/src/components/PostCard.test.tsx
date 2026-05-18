@@ -40,7 +40,7 @@ describe('PostCard Answered Prayer', () => {
     body: 'Please pray.',
     reaction_count: 0,
     prayer_count: 0,
-    answered_updates: [],
+    updates: [],
     expires_at: null,
     edit_deadline: new Date(Date.now() + 3600_000).toISOString(),
     created_at: new Date().toISOString(),
@@ -96,7 +96,7 @@ describe('PostCard Answered Prayer', () => {
       parent_id: 'p1',
       is_answered_prayer: true,
       body: 'first witness',
-      answered_updates: [],
+      updates: [],
     };
     const later = {
       ...base,
@@ -104,12 +104,12 @@ describe('PostCard Answered Prayer', () => {
       parent_id: 'p1',
       is_answered_prayer: true,
       body: 'thank you Lord',
-      answered_updates: [],
+      updates: [],
     };
     render(
       <MemoryRouter>
         <PostCard
-          post={{ ...base, is_answered_prayer: true, answered_updates: [earlier, later] }}
+          post={{ ...base, is_answered_prayer: true, updates: [earlier, later] }}
         />
       </MemoryRouter>,
     );
@@ -117,7 +117,7 @@ describe('PostCard Answered Prayer', () => {
     expect(screen.getByText('first witness')).toBeInTheDocument();
     expect(screen.getByText('thank you Lord')).toBeInTheDocument();
     // Embedded mode: the "Prayer answered" ribbon is suppressed when any
-    // answered_updates render (the embedded cards carry the answered treatment
+    // updates render (the embedded cards carry the answered treatment
     // on their own). The "Answered" eyebrow inside each embedded card stays.
     expect(screen.queryByText('Prayer answered')).not.toBeInTheDocument();
     expect(screen.getAllByText('Answered')).toHaveLength(2);
@@ -141,7 +141,7 @@ describe('PostCard kebab menu', () => {
     body: 'Please pray.',
     reaction_count: 0,
     prayer_count: 0,
-    answered_updates: [],
+    updates: [],
     expires_at: null,
     edit_deadline: new Date(Date.now() + 3600_000).toISOString(),
     created_at: new Date().toISOString(),

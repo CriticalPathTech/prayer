@@ -42,7 +42,7 @@ function basePost(over: Record<string, unknown> = {}) {
     hidden_source: null,
     prayed: false,
     reactions: {},
-    answered_updates: [],
+    updates: [],
     ...over,
   };
 }
