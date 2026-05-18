@@ -106,6 +106,10 @@ describe('EditPostPage', () => {
     });
     mountEditPage();
     const ta = await screen.findByLabelText(/body/i);
+    // Wait for the hydration useEffect to populate the textarea before clearing.
+    // Otherwise clear can race with hydration: clear runs, hydration then
+    // overwrites the empty state with the server body, and type() appends to it.
+    await waitFor(() => expect(ta).toHaveValue('original body\nwith newline'));
     await user.clear(ta);
     await user.type(ta, 'new text');
     await waitFor(() => {
@@ -209,8 +213,12 @@ describe('EditPostPage', () => {
     });
     mountEditPage();
     const ta = await screen.findByLabelText(/body/i);
+    // Wait for hydration before clearing — see "persists typing to the buffer".
+    await waitFor(() => expect(ta).toHaveValue('original body\nwith newline'));
     await user.clear(ta);
-    expect(screen.getByRole('button', { name: /save changes/i })).toBeDisabled();
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /save changes/i })).toBeDisabled();
+    });
   });
 
   it('disables Save when edit deadline has passed', async () => {
