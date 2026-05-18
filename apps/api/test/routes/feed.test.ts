@@ -281,6 +281,54 @@ describe('GET /feed', () => {
     expect(res.body.posts[0].id).toBe(answered.id);
     expect(res.body.posts[0].updates).toEqual([]);
   });
+
+  it('all: returns inline updates for every parent in chronological order', async () => {
+    const author = await insertUser(ctx.db, { orgId });
+    const token = await mintTestJwt({ sub: author.supabaseAuthId, email: author.email });
+    const parent = await insertPost(ctx.db, { authorId: author.id, orgId, status: 'published' });
+    const u1 = await insertPost(ctx.db, {
+      authorId: author.id,
+      orgId,
+      status: 'published',
+      parentId: parent.id,
+      body: 'first',
+    });
+    const u2 = await insertPost(ctx.db, {
+      authorId: author.id,
+      orgId,
+      status: 'published',
+      parentId: parent.id,
+      body: 'second',
+    });
+    const res = await request(ctx.app)
+      .get('/feed?filter=all')
+      .set('Authorization', `Bearer ${token}`);
+    expect(res.status).toBe(200);
+    const updates = res.body.posts[0].updates;
+    expect(updates).toHaveLength(2);
+    expect(updates[0].id).toBe(u1.id);
+    expect(updates[0].body).toBe('first');
+    expect(updates[1].id).toBe(u2.id);
+    expect(updates[1].body).toBe('second');
+  });
+
+  it('mine: updates field is populated for own posts too', async () => {
+    const author = await insertUser(ctx.db, { orgId });
+    const token = await mintTestJwt({ sub: author.supabaseAuthId, email: author.email });
+    const parent = await insertPost(ctx.db, { authorId: author.id, orgId, status: 'published' });
+    await insertPost(ctx.db, {
+      authorId: author.id,
+      orgId,
+      status: 'published',
+      parentId: parent.id,
+      body: 'mine update',
+    });
+    const res = await request(ctx.app)
+      .get('/feed?filter=mine')
+      .set('Authorization', `Bearer ${token}`);
+    expect(res.body.posts[0].updates).toHaveLength(1);
+    expect(res.body.posts[0].updates[0].body).toBe('mine update');
+  });
 });
 
 describe('GET /feed/snapshot', () => {

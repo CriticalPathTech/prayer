@@ -111,44 +111,42 @@ export async function fetchFeed(
       reactionsMap.get(row.target_id)![row.emoji] = { count: Number(row.count), mine: row.mine };
     }
 
-    if (args.filter === 'answered') {
-      // For each parent, fetch every child where is_answered_prayer=TRUE.
-      // Chronological order (id ASC ≈ created_at ASC with UUIDv7) reads as
-      // a narrative of how the prayer got answered over time.
-      const updateRows = (await db
-        .selectFrom('posts')
-        .innerJoin('users', 'users.id', 'posts.author_id')
-        .select([
-          'posts.id',
-          'posts.parent_id',
-          'posts.author_id',
-          'users.display_name as author_display_name',
-          'users.avatar_url as author_avatar_url',
-          'posts.status',
-          'posts.is_anonymous',
-          'posts.is_answered_prayer',
-          'posts.body',
-          'posts.reaction_count',
-          'posts.prayer_count',
-          'posts.expires_at',
-          'posts.edit_deadline',
-          'posts.created_at',
-        ])
-        .where('posts.org_id', '=', args.orgId)
-        .where('posts.parent_id', 'in', postIds)
-        .where('posts.is_answered_prayer', '=', true)
-        .where('posts.status', '=', 'published')
-        .orderBy('posts.parent_id')
-        .orderBy('posts.id', 'asc')
-        .execute()) as unknown as PostRow[];
-      for (const row of updateRows) {
-        // parent_id is non-null for update posts
-        const parentId = row.parent_id!;
-        const dto = toPostDto(row, { role: args.callerRole }, args.callerId);
-        const existing = updatesByParent.get(parentId);
-        if (existing) existing.push(dto);
-        else updatesByParent.set(parentId, [dto]);
-      }
+    // Inline every published child update under its parent. Chronological
+    // order (id ASC ≈ created_at ASC with UUIDv7) reads as a narrative of
+    // how the prayer evolved over time. Role-aware status filter + hide
+    // attribution are layered on in a later step.
+    const updateRows = (await db
+      .selectFrom('posts')
+      .innerJoin('users', 'users.id', 'posts.author_id')
+      .select([
+        'posts.id',
+        'posts.parent_id',
+        'posts.author_id',
+        'users.display_name as author_display_name',
+        'users.avatar_url as author_avatar_url',
+        'posts.status',
+        'posts.is_anonymous',
+        'posts.is_answered_prayer',
+        'posts.body',
+        'posts.reaction_count',
+        'posts.prayer_count',
+        'posts.expires_at',
+        'posts.edit_deadline',
+        'posts.created_at',
+      ])
+      .where('posts.org_id', '=', args.orgId)
+      .where('posts.parent_id', 'in', postIds)
+      .where('posts.status', '=', 'published')
+      .orderBy('posts.parent_id')
+      .orderBy('posts.id', 'asc')
+      .execute()) as unknown as PostRow[];
+    for (const row of updateRows) {
+      // parent_id is non-null for update posts
+      const parentId = row.parent_id!;
+      const dto = toPostDto(row, { role: args.callerRole }, args.callerId);
+      const existing = updatesByParent.get(parentId);
+      if (existing) existing.push(dto);
+      else updatesByParent.set(parentId, [dto]);
     }
   }
 
