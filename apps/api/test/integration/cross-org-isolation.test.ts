@@ -117,6 +117,21 @@ describe('cross-org isolation', () => {
   });
 
   afterAll(async () => {
+    // Vitest with `singleFork: true` runs files serially in one process, but
+    // they all share the same TEST_DATABASE_URL. If we leave the orgA / orgB
+    // fixtures behind, the next file's first test sees `postIdA` / `postIdB`
+    // as bonus published posts under the testchurch org (orgA === testchurch),
+    // breaking assertions like `expect(posts).toHaveLength(1)`.
+    //
+    // The order matters here: events / comments reference posts, posts +
+    // user_orgs reference users, user_orgs references orgs, and we must NOT
+    // drop the seed testchurch org (global-setup owns it).
+    await app.db.deleteFrom('events').execute();
+    await app.db.deleteFrom('comments').execute();
+    await app.db.deleteFrom('posts').execute();
+    await app.db.deleteFrom('user_orgs').execute();
+    await app.db.deleteFrom('users').execute();
+    await app.db.deleteFrom('orgs').where('slug', '!=', 'testchurch').execute();
     await app.close();
   });
 
