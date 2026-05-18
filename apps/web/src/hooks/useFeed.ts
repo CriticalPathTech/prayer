@@ -32,11 +32,12 @@ export interface FeedPost {
   is_former_member: boolean;
   is_tombstone?: boolean;
   flag_count?: number;
-  /** Populated only when filter === 'answered'. Every child update
-   * with is_answered_prayer=true for this parent, in chronological
-   * order (oldest → newest). Empty array on other filters or when no
-   * answered updates exist. */
-  answered_updates: FeedPost[];
+  /** Every published child update for this parent, oldest → newest.
+   * Empty array when the parent has no children. Always present on
+   * /feed responses; absent on /posts/me/archive (PostCard handles
+   * the undefined case defensively). Privileged callers (mods /
+   * super_user) also see hidden updates with hidden_by attribution. */
+  updates: FeedPost[];
 }
 
 export interface FeedResponse {
