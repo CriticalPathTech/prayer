@@ -1,8 +1,8 @@
 import type { JSX } from 'react';
 import { useEffect, useState } from 'react';
 
-import { useRepostFromArchive } from '../../hooks/useRepostFromArchive';
 import type { FeedPost } from '../../hooks/useFeed';
+import { useRepostFromArchive } from '../../hooks/useRepostFromArchive';
 import { apiFetch } from '../../lib/api';
 
 import { MobilePageHeader } from './MobilePageHeader';
