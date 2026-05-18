@@ -2,12 +2,14 @@ import type { JSX } from 'react';
 import { useEffect, useState } from 'react';
 
 import { PostCard } from '../components/PostCard';
+import { useRepostFromArchive } from '../hooks/useRepostFromArchive';
 import type { FeedPost } from '../hooks/useFeed';
 import { apiFetch } from '../lib/api';
 
 export function MyArchivePage(): JSX.Element {
   const [posts, setPosts] = useState<FeedPost[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const { repost, confirmDialog } = useRepostFromArchive();
 
   useEffect(() => {
     apiFetch<{ posts: FeedPost[] }>('/posts/me/archive')
@@ -44,11 +46,12 @@ export function MyArchivePage(): JSX.Element {
         <ul>
           {posts.map((p) => (
             <li key={p.id} className="opacity-60">
-              <PostCard post={p} />
+              <PostCard post={p} onRepost={() => repost(p)} />
             </li>
           ))}
         </ul>
       )}
+      {confirmDialog}
     </div>
   );
 }
