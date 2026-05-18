@@ -26,9 +26,11 @@ export interface PostCardProps {
   /** Called after a successful post mutation (delete). Optional — pages that
    * don't re-render the list on mutation may omit it. */
   onChange?: () => void;
+  /** Called when the user clicks "Repost" on an archived own post. */
+  onRepost?: () => void | Promise<void>;
 }
 
-export function PostCard({ post, onChange }: PostCardProps): JSX.Element {
+export function PostCard({ post, onChange, onRepost }: PostCardProps): JSX.Element {
   const { me } = useAuth();
   const prayer = usePrayer({
     postId: post.id,
@@ -122,6 +124,7 @@ export function PostCard({ post, onChange }: PostCardProps): JSX.Element {
           editDeadline={post.edit_deadline}
           isTombstone={!!post.is_tombstone}
           onDelete={handleDelete}
+          {...(onRepost !== undefined ? { onRepost } : {})}
         />
       </header>
       {showHiddenBanner ? <HiddenBanner kind="post" /> : null}
