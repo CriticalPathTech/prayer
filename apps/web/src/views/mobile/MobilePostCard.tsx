@@ -21,9 +21,11 @@ import { expiringSoon, formatAgo } from '../../lib/time';
 export interface MobilePostCardProps {
   post: FeedPost;
   onChange?: () => void;
+  /** Called when the user clicks "Repost" on an archived own post. */
+  onRepost?: () => void | Promise<void>;
 }
 
-export function MobilePostCard({ post, onChange }: MobilePostCardProps): JSX.Element {
+export function MobilePostCard({ post, onChange, onRepost }: MobilePostCardProps): JSX.Element {
   const { me } = useAuth();
   const navigate = useNavigate();
   const prayer = usePrayer({
@@ -114,6 +116,7 @@ export function MobilePostCard({ post, onChange }: MobilePostCardProps): JSX.Ele
           editDeadline={post.edit_deadline}
           isTombstone={!!post.is_tombstone}
           onDelete={handleDelete}
+          {...(onRepost !== undefined ? { onRepost } : {})}
         />
       </header>
 
