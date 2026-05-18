@@ -244,4 +244,63 @@ describe('MobilePostCard', () => {
     );
     expect(screen.getByText(/prayer answered/i)).toBeInTheDocument();
   });
+
+  it('gives the parent card the gold border when an inline update is answered, even if parent.is_answered_prayer is false', () => {
+    const answeredUpdate = makeFeedPost({
+      parent_id: 'parent',
+      is_answered_prayer: true,
+      body: 'thank you',
+    });
+    const { container } = render(
+      <MemoryRouter>
+        <MobilePostCard
+          post={makeFeedPost({
+            id: 'parent',
+            is_answered_prayer: false,
+            updates: [answeredUpdate],
+          })}
+        />
+      </MemoryRouter>,
+    );
+    const card = container.querySelector('article');
+    expect(card).not.toBeNull();
+    expect(card!.className).toContain('[var(--answered-border)]');
+  });
+
+  it('gives the parent card the gold border when an answered update is in the older bucket (not inline)', () => {
+    const updates = [
+      makeFeedPost({ parent_id: 'parent', is_answered_prayer: true, body: 'answered moment' }),
+      makeFeedPost({ parent_id: 'parent', body: 'a' }),
+      makeFeedPost({ parent_id: 'parent', body: 'b' }),
+      makeFeedPost({ parent_id: 'parent', body: 'c' }),
+    ];
+    const { container } = render(
+      <MemoryRouter>
+        <MobilePostCard post={makeFeedPost({ id: 'parent', is_answered_prayer: false, updates })} />
+      </MemoryRouter>,
+    );
+    const card = container.querySelector('article');
+    expect(card!.className).toContain('[var(--answered-border)]');
+    expect(screen.queryByText('answered moment')).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /\+1 older update\b/i })).toBeInTheDocument();
+  });
+
+  it('renders the inline answered update without its own gold wrapper', () => {
+    const answeredUpdate = makeFeedPost({
+      parent_id: 'parent',
+      is_answered_prayer: true,
+      body: 'answered body',
+    });
+    const { container } = render(
+      <MemoryRouter>
+        <MobilePostCard post={makeFeedPost({ id: 'parent', updates: [answeredUpdate] })} />
+      </MemoryRouter>,
+    );
+    const articles = container.querySelectorAll('article');
+    const updateArticle = articles[1];
+    expect(updateArticle).toBeDefined();
+    expect(updateArticle!.className).not.toContain('from-dawn-50');
+    expect(updateArticle!.className).toContain('[var(--border-soft)]');
+    expect(screen.getByText('Answered')).toBeInTheDocument();
+  });
 });

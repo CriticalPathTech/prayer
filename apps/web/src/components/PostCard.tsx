@@ -76,16 +76,21 @@ export function PostCard({ post, onChange }: PostCardProps): JSX.Element {
   const MAX_INLINE = 3;
   const inlineUpdates = updates.slice(-MAX_INLINE);
   const olderCount = Math.max(0, updates.length - MAX_INLINE);
-  // Show the ribbon when the parent is flagged answered AND none of the
-  // inline updates is itself an answered-prayer update (those carry their
-  // own "Answered" treatment via UpdatePostItem). Stays visible when the
-  // answered moment is older than the 3 most-recent slice.
+  // The whole card reads as "answered" when the parent itself is flagged
+  // OR any of its updates is. The gold border carries that signal; per-update
+  // gold wrappers are suppressed (`suppressAnsweredWrapper` below) so the
+  // treatment doesn't double up.
+  const hasAnsweredUpdate = updates.some((u) => u.is_answered_prayer);
+  const cardIsAnswered = answered || hasAnsweredUpdate;
+  // Ribbon shows when the parent is flagged answered AND none of the inline
+  // updates carries the answered flag — preserves the answered moment when
+  // it's older than the 3 most-recent slice.
   const showRibbon = answered && inlineUpdates.every((u) => !u.is_answered_prayer);
 
   const cardClass = [
     'rounded-md border bg-[var(--bg-raised)] p-5 shadow-warm-sm mb-4',
     'transition-all duration-200 motion-safe:hover:-translate-y-[1px] motion-safe:hover:shadow-warm-md',
-    answered ? 'border-[var(--answered-border)]' : 'border-[var(--border-soft)]',
+    cardIsAnswered ? 'border-[var(--answered-border)]' : 'border-[var(--border-soft)]',
   ].join(' ');
 
   return (
@@ -143,7 +148,13 @@ export function PostCard({ post, onChange }: PostCardProps): JSX.Element {
       {inlineUpdates.length > 0 ? (
         <div className="mt-4">
           {inlineUpdates.map((u) => (
-            <UpdatePostItem key={u.id} update={u} embedded truncateThreshold={250} />
+            <UpdatePostItem
+              key={u.id}
+              update={u}
+              embedded
+              truncateThreshold={250}
+              suppressAnsweredWrapper
+            />
           ))}
           {olderCount > 0 ? (
             <Link

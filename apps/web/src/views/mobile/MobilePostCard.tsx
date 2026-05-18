@@ -67,6 +67,12 @@ export function MobilePostCard({ post, onChange }: MobilePostCardProps): JSX.Ele
   const MAX_INLINE = 3;
   const inlineUpdates = updates.slice(-MAX_INLINE);
   const olderCount = Math.max(0, updates.length - MAX_INLINE);
+  // The whole card reads as "answered" when the parent itself is flagged
+  // OR any of its updates is. The gold border carries that signal; per-
+  // update gold wrappers are suppressed below so the treatment doesn't
+  // double up.
+  const hasAnsweredUpdate = updates.some((u) => u.is_answered_prayer);
+  const cardIsAnswered = answered || hasAnsweredUpdate;
   // Ribbon stays visible when answered=true and no inline update itself
   // carries the answered flag — preserves the answered moment even when
   // it's older than the 3 most-recent slice.
@@ -74,7 +80,7 @@ export function MobilePostCard({ post, onChange }: MobilePostCardProps): JSX.Ele
 
   const cardClass = [
     'flex flex-col gap-3 rounded-lg border bg-[var(--bg-raised)] p-4 shadow-warm-sm',
-    answered ? 'border-[var(--answered-border)]' : 'border-[var(--border-soft)]',
+    cardIsAnswered ? 'border-[var(--answered-border)]' : 'border-[var(--border-soft)]',
   ].join(' ');
 
   return (
@@ -142,7 +148,13 @@ export function MobilePostCard({ post, onChange }: MobilePostCardProps): JSX.Ele
       {inlineUpdates.length > 0 ? (
         <div>
           {inlineUpdates.map((u) => (
-            <UpdatePostItem key={u.id} update={u} embedded truncateThreshold={250} />
+            <UpdatePostItem
+              key={u.id}
+              update={u}
+              embedded
+              truncateThreshold={250}
+              suppressAnsweredWrapper
+            />
           ))}
           {olderCount > 0 ? (
             <Link
