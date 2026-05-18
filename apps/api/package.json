@@ -19,7 +19,7 @@
     "dotenv": "^16.4.0",
     "express": "^5.2.1",
     "express-rate-limit": "^8",
-    "jose": "^5.9.0",
+    "jose": "^6.2.3",
     "kysely": "^0.29.2",
     "lru-cache": "^11.3.6",
     "node-cron": "^3.0.3",
@@ -31,7 +31,7 @@
   "devDependencies": {
     "@types/cors": "^2.8.17",
     "@types/express": "^5.0.6",
-    "@types/node": "^20.16.0",
+    "@types/node": "^24",
     "@types/node-cron": "^3.0.11",
     "@types/pg": "^8.11.0",
     "@types/supertest": "^7.2.0",
