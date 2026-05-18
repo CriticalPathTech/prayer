@@ -15,7 +15,7 @@ docs/             self-hosting.md
 
 ## Stack
 
-- Node 20, pnpm 9, TypeScript 5 (strict, `noUncheckedIndexedAccess`, project references)
+- Node 24 (`engines.node: ">=24"`), pnpm 9, TypeScript 5 (strict, `noUncheckedIndexedAccess`, project references)
 - ESM + `"module": "NodeNext"` everywhere → **relative imports MUST use `.js` extensions** (e.g., `import { x } from './foo.js'`), even though source is `.ts`. The web app is the exception: Vite uses Bundler resolution, so web source code does NOT use `.js` suffixes.
 - Postgres 16, node-pg-migrate (raw SQL migrations), Kysely as query builder
 - Supabase for auth only (no Supabase DB client on server; verify JWTs via JWKS with `jose`)
