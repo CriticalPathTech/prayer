@@ -329,6 +329,73 @@ describe('GET /feed', () => {
     expect(res.body.posts[0].updates).toHaveLength(1);
     expect(res.body.posts[0].updates[0].body).toBe('mine update');
   });
+
+  it('member does not see a hidden child update inline', async () => {
+    const author = await insertUser(ctx.db, { orgId });
+    const viewer = await insertUser(ctx.db, { orgId });
+    const token = await mintTestJwt({ sub: viewer.supabaseAuthId, email: viewer.email });
+    const parent = await insertPost(ctx.db, { authorId: author.id, orgId, status: 'published' });
+    await insertPost(ctx.db, {
+      authorId: author.id,
+      orgId,
+      status: 'hidden',
+      parentId: parent.id,
+      body: 'should not appear',
+    });
+    await insertPost(ctx.db, {
+      authorId: author.id,
+      orgId,
+      status: 'published',
+      parentId: parent.id,
+      body: 'visible update',
+    });
+    const res = await request(ctx.app)
+      .get('/feed?filter=all')
+      .set('Authorization', `Bearer ${token}`);
+    expect(res.body.posts[0].updates).toHaveLength(1);
+    expect(res.body.posts[0].updates[0].body).toBe('visible update');
+  });
+
+  it('moderator sees a hidden child update inline with hidden_by attribution', async () => {
+    const author = await insertUser(ctx.db, { orgId });
+    const moderator = await insertUser(ctx.db, { orgId, role: 'moderator' });
+    const token = await mintTestJwt({ sub: moderator.supabaseAuthId, email: moderator.email });
+    const parent = await insertPost(ctx.db, { authorId: author.id, orgId, status: 'published' });
+    const hiddenUpdate = await insertPost(ctx.db, {
+      authorId: author.id,
+      orgId,
+      status: 'hidden',
+      parentId: parent.id,
+      body: 'hidden body',
+    });
+    await ctx.db
+      .insertInto('events')
+      .values({
+        id: newId(),
+        org_id: orgId,
+        type: 'moderator.hide',
+        post_id: hiddenUpdate.id,
+        actor_id: moderator.id,
+        payload: {
+          target_type: 'post',
+          target_id: hiddenUpdate.id,
+          source: 'manual',
+        } as never,
+      })
+      .execute();
+    const res = await request(ctx.app)
+      .get('/feed?filter=all')
+      .set('Authorization', `Bearer ${token}`);
+    const updates = res.body.posts[0].updates;
+    expect(updates).toHaveLength(1);
+    expect(updates[0].id).toBe(hiddenUpdate.id);
+    expect(updates[0].status).toBe('hidden');
+    expect(updates[0].hidden_source).toBe('manual');
+    expect(updates[0].hidden_by).toEqual({
+      id: moderator.id,
+      display_name: moderator.email.split('@')[0],
+    });
+  });
 });
 
 describe('GET /feed/snapshot', () => {

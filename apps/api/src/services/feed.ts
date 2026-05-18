@@ -113,8 +113,8 @@ export async function fetchFeed(
 
     // Inline every published child update under its parent. Chronological
     // order (id ASC ≈ created_at ASC with UUIDv7) reads as a narrative of
-    // how the prayer evolved over time. Role-aware status filter + hide
-    // attribution are layered on in a later step.
+    // how the prayer evolved over time. Privileged viewers also see hidden
+    // children, with hide attribution merged in from the events outbox.
     const updateRows = (await db
       .selectFrom('posts')
       .innerJoin('users', 'users.id', 'posts.author_id')
@@ -136,10 +136,29 @@ export async function fetchFeed(
       ])
       .where('posts.org_id', '=', args.orgId)
       .where('posts.parent_id', 'in', postIds)
-      .where('posts.status', '=', 'published')
+      .$if(!isPrivileged, (b) => b.where('posts.status', '=', 'published'))
+      .$if(isPrivileged, (b) => b.where('posts.status', 'in', ['published', 'hidden']))
       .orderBy('posts.parent_id')
       .orderBy('posts.id', 'asc')
       .execute()) as unknown as PostRow[];
+
+    if (isPrivileged) {
+      const hiddenChildIds = updateRows
+        .filter((r) => r.status === 'hidden')
+        .map((r) => r.id);
+      if (hiddenChildIds.length > 0) {
+        const childHideInfo = await fetchHideInfo(db, hiddenChildIds, args.orgId);
+        for (const row of updateRows) {
+          const info = childHideInfo.get(row.id);
+          if (info) {
+            row.hidden_by_id = info.actorId;
+            row.hidden_by_display_name = info.displayName;
+            row.hidden_source = info.source;
+          }
+        }
+      }
+    }
+
     for (const row of updateRows) {
       // parent_id is non-null for update posts
       const parentId = row.parent_id!;
