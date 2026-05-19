@@ -7,7 +7,9 @@ export type PostEventKind =
   | 'post.update_created'
   | 'post.submitted'
   | 'post.approved'
-  | 'post.rejected';
+  | 'post.rejected'
+  | 'post.pinned'
+  | 'post.unpinned';
 
 export type CommentEventKind = 'comment.created';
 
