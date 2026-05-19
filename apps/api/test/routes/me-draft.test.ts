@@ -298,7 +298,10 @@ describe('/me/draft', () => {
       try {
         const member = await insertUser(db, { orgId, role: 'member' });
         const token = await mintTestJwt({ sub: member.supabaseAuthId, email: member.email });
-        await agent.put('/me/draft').set('Authorization', `Bearer ${token}`).send({ body: 'Pray for me.' });
+        await agent
+          .put('/me/draft')
+          .set('Authorization', `Bearer ${token}`)
+          .send({ body: 'Pray for me.' });
         const res = await agent.post('/me/draft/publish').set('Authorization', `Bearer ${token}`);
         expect(res.status).toBe(200);
         expect(res.body.post.status).toBe('published');
@@ -310,10 +313,17 @@ describe('/me/draft', () => {
     it('flag ON + member: status=pending, post.submitted event written', async () => {
       const { agent, db, orgId, close } = await createTestApp();
       try {
-        await db.updateTable('orgs').set({ requires_post_approval: true }).where('id', '=', orgId).execute();
+        await db
+          .updateTable('orgs')
+          .set({ requires_post_approval: true })
+          .where('id', '=', orgId)
+          .execute();
         const member = await insertUser(db, { orgId, role: 'member' });
         const token = await mintTestJwt({ sub: member.supabaseAuthId, email: member.email });
-        await agent.put('/me/draft').set('Authorization', `Bearer ${token}`).send({ body: 'Pray for me.' });
+        await agent
+          .put('/me/draft')
+          .set('Authorization', `Bearer ${token}`)
+          .send({ body: 'Pray for me.' });
         const res = await agent.post('/me/draft/publish').set('Authorization', `Bearer ${token}`);
         expect(res.status).toBe(200);
         expect(res.body.post.status).toBe('pending');
@@ -332,10 +342,17 @@ describe('/me/draft', () => {
     it('flag ON + moderator: bypass → status=published', async () => {
       const { agent, db, orgId, close } = await createTestApp();
       try {
-        await db.updateTable('orgs').set({ requires_post_approval: true }).where('id', '=', orgId).execute();
+        await db
+          .updateTable('orgs')
+          .set({ requires_post_approval: true })
+          .where('id', '=', orgId)
+          .execute();
         const mod = await insertUser(db, { orgId, role: 'moderator' });
         const token = await mintTestJwt({ sub: mod.supabaseAuthId, email: mod.email });
-        await agent.put('/me/draft').set('Authorization', `Bearer ${token}`).send({ body: 'mod post' });
+        await agent
+          .put('/me/draft')
+          .set('Authorization', `Bearer ${token}`)
+          .send({ body: 'mod post' });
         const res = await agent.post('/me/draft/publish').set('Authorization', `Bearer ${token}`);
         expect(res.status).toBe(200);
         expect(res.body.post.status).toBe('published');
@@ -347,10 +364,17 @@ describe('/me/draft', () => {
     it('flag ON + super_user: bypass → status=published', async () => {
       const { agent, db, orgId, close } = await createTestApp();
       try {
-        await db.updateTable('orgs').set({ requires_post_approval: true }).where('id', '=', orgId).execute();
+        await db
+          .updateTable('orgs')
+          .set({ requires_post_approval: true })
+          .where('id', '=', orgId)
+          .execute();
         const su = await insertUser(db, { orgId, role: 'super_user' });
         const token = await mintTestJwt({ sub: su.supabaseAuthId, email: su.email });
-        await agent.put('/me/draft').set('Authorization', `Bearer ${token}`).send({ body: 'su post' });
+        await agent
+          .put('/me/draft')
+          .set('Authorization', `Bearer ${token}`)
+          .send({ body: 'su post' });
         const res = await agent.post('/me/draft/publish').set('Authorization', `Bearer ${token}`);
         expect(res.status).toBe(200);
         expect(res.body.post.status).toBe('published');

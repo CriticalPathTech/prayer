@@ -50,7 +50,8 @@ export async function updateChurchSettings(
 ): Promise<UpdateChurchSettingsResult> {
   const displayName = sanitizeOrgName(input.displayName);
   if (displayName.length === 0) throw new ValidationError('displayName is required');
-  if (displayName.length > 60) throw new ValidationError('displayName must be 60 characters or fewer');
+  if (displayName.length > 60)
+    throw new ValidationError('displayName must be 60 characters or fewer');
 
   return db.transaction().execute(async (trx) => {
     const before = await trx

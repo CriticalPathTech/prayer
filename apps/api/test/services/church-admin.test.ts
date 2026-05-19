@@ -1,11 +1,11 @@
 import { createDb, newId } from '@prayer/db';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
+import { initDb } from '../../src/db/index.js';
 import {
   ForbiddenError,
   LastSuperUserError,
   NotFoundError,
-  PendingPostsExistError,
   TooManySuperUsersError,
 } from '../../src/middleware/error.js';
 import {
@@ -13,7 +13,6 @@ import {
   removeMember,
   updateChurchSettings,
 } from '../../src/services/church-admin.js';
-import { initDb } from '../../src/db/index.js';
 import { mintInviteCode } from '../../src/services/invite-codes.js';
 import { getTestchurchOrgId, insertOrg, insertPost, insertUser } from '../helpers/seed.js';
 
@@ -223,34 +222,63 @@ describe('updateChurchSettings — requires_post_approval', () => {
   it('toggles false → true with no precondition', async () => {
     const actor = await insertUser(db, { orgId, role: 'super_user' });
     await updateChurchSettings(db, {
-      orgId, actorId: actor.id, displayName: 'Test', requiresPostApproval: true,
+      orgId,
+      actorId: actor.id,
+      displayName: 'Test',
+      requiresPostApproval: true,
     });
-    const row = await db.selectFrom('orgs').select('requires_post_approval').where('id', '=', orgId).executeTakeFirstOrThrow();
+    const row = await db
+      .selectFrom('orgs')
+      .select('requires_post_approval')
+      .where('id', '=', orgId)
+      .executeTakeFirstOrThrow();
     expect(row.requires_post_approval).toBe(true);
   });
 
   it('toggles true → false with no pending posts', async () => {
     const actor = await insertUser(db, { orgId, role: 'super_user' });
-    await db.updateTable('orgs').set({ requires_post_approval: true }).where('id', '=', orgId).execute();
+    await db
+      .updateTable('orgs')
+      .set({ requires_post_approval: true })
+      .where('id', '=', orgId)
+      .execute();
     await updateChurchSettings(db, {
-      orgId, actorId: actor.id, displayName: 'Test', requiresPostApproval: false,
+      orgId,
+      actorId: actor.id,
+      displayName: 'Test',
+      requiresPostApproval: false,
     });
-    const row = await db.selectFrom('orgs').select('requires_post_approval').where('id', '=', orgId).executeTakeFirstOrThrow();
+    const row = await db
+      .selectFrom('orgs')
+      .select('requires_post_approval')
+      .where('id', '=', orgId)
+      .executeTakeFirstOrThrow();
     expect(row.requires_post_approval).toBe(false);
   });
 
   it('refuses true → false with PendingPostsExistError when pending posts exist', async () => {
     const actor = await insertUser(db, { orgId, role: 'super_user' });
     const member = await insertUser(db, { orgId, role: 'member' });
-    await db.updateTable('orgs').set({ requires_post_approval: true }).where('id', '=', orgId).execute();
+    await db
+      .updateTable('orgs')
+      .set({ requires_post_approval: true })
+      .where('id', '=', orgId)
+      .execute();
     await insertPost(db, { authorId: member.id, orgId, status: 'pending' });
     await insertPost(db, { authorId: member.id, orgId, status: 'pending' });
     await expect(
       updateChurchSettings(db, {
-        orgId, actorId: actor.id, displayName: 'Test', requiresPostApproval: false,
+        orgId,
+        actorId: actor.id,
+        displayName: 'Test',
+        requiresPostApproval: false,
       }),
     ).rejects.toMatchObject({ name: 'PendingPostsExistError', count: 2 });
-    const row = await db.selectFrom('orgs').select('requires_post_approval').where('id', '=', orgId).executeTakeFirstOrThrow();
+    const row = await db
+      .selectFrom('orgs')
+      .select('requires_post_approval')
+      .where('id', '=', orgId)
+      .executeTakeFirstOrThrow();
     expect(row.requires_post_approval).toBe(true);
   });
 });

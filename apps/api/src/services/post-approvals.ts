@@ -86,10 +86,7 @@ export interface ApprovePostInput {
   callerRole: UserRole;
 }
 
-export async function approvePost(
-  db: Kysely<Database>,
-  input: ApprovePostInput,
-): Promise<PostDto> {
+export async function approvePost(db: Kysely<Database>, input: ApprovePostInput): Promise<PostDto> {
   requireModerator(input.callerRole);
   return db.transaction().execute(async (trx) => {
     const existing = await trx
@@ -106,7 +103,11 @@ export async function approvePost(
 
     const now = new Date();
     const newPostId = newId();
-    await trx.deleteFrom('posts').where('id', '=', existing.id).where('org_id', '=', input.orgId).execute();
+    await trx
+      .deleteFrom('posts')
+      .where('id', '=', existing.id)
+      .where('org_id', '=', input.orgId)
+      .execute();
     await trx
       .insertInto('posts')
       .values({
@@ -141,10 +142,7 @@ export interface SkipReviewInput {
   callerRole: UserRole;
 }
 
-export async function skipPostReview(
-  db: Kysely<Database>,
-  input: SkipReviewInput,
-): Promise<void> {
+export async function skipPostReview(db: Kysely<Database>, input: SkipReviewInput): Promise<void> {
   requireModerator(input.callerRole);
   await db.transaction().execute(async (trx) => {
     const existing = await trx
@@ -183,10 +181,7 @@ export interface RejectPostInput {
   note?: string;
 }
 
-export async function rejectPost(
-  db: Kysely<Database>,
-  input: RejectPostInput,
-): Promise<PostDto> {
+export async function rejectPost(db: Kysely<Database>, input: RejectPostInput): Promise<PostDto> {
   requireModerator(input.callerRole);
   const note = input.note?.trim() ? input.note.trim() : null;
   if (note !== null && note.length > REJECT_NOTE_MAX) {

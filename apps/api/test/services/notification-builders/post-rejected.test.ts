@@ -23,19 +23,35 @@ describe('postRejectedBuilder', () => {
     const orgId = await getTestchurchOrgId(db);
     const author = await insertUser(db, { orgId, role: 'member' });
     const mod = await insertUser(db, { orgId, role: 'moderator' });
-    const p = await insertPost(db, { authorId: author.id, orgId, status: 'rejected', body: 'a request' });
+    const p = await insertPost(db, {
+      authorId: author.id,
+      orgId,
+      status: 'rejected',
+      body: 'a request',
+    });
 
     await db.transaction().execute(async (trx) => {
       await postRejectedBuilder(
         {
-          id: 'evt-1', org_id: orgId, type: 'post.rejected',
-          post_id: p.id, actor_id: mod.id,
-          payload: { moderation_note: 'please reword', moderated_by: mod.id, body_preview: 'a request' },
+          id: 'evt-1',
+          org_id: orgId,
+          type: 'post.rejected',
+          post_id: p.id,
+          actor_id: mod.id,
+          payload: {
+            moderation_note: 'please reword',
+            moderated_by: mod.id,
+            body_preview: 'a request',
+          },
         },
         trx,
       );
     });
-    const rows = await db.selectFrom('notifications').selectAll().where('user_id', '=', author.id).execute();
+    const rows = await db
+      .selectFrom('notifications')
+      .selectAll()
+      .where('user_id', '=', author.id)
+      .execute();
     expect(rows.length).toBe(1);
     expect(rows[0]!.type).toBe('post.rejected');
     const payload = rows[0]!.payload as { moderation_note?: string; body_preview?: string };

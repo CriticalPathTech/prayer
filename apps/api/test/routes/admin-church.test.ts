@@ -78,7 +78,10 @@ describe('GET /admin/church/members', () => {
       .set('Host', 'admin-church-routes.prays.online')
       .set('Authorization', `Bearer ${suToken}`);
     expect(res.status).toBe(200);
-    expect(res.body.org).toEqual({ displayName: 'Admin Church Routes', requiresPostApproval: false });
+    expect(res.body.org).toEqual({
+      displayName: 'Admin Church Routes',
+      requiresPostApproval: false,
+    });
     expect(typeof res.body.superUserCount).toBe('number');
     expect(res.body.superUserCount).toBe(1); // only su@acr.com is super_user
   });
@@ -307,7 +310,11 @@ it('PATCH /admin/church/settings → 409 when toggling off with pending posts', 
   try {
     const su = await insertUser(db, { orgId, role: 'super_user' });
     const member = await insertUser(db, { orgId, role: 'member' });
-    await db.updateTable('orgs').set({ requires_post_approval: true }).where('id', '=', orgId).execute();
+    await db
+      .updateTable('orgs')
+      .set({ requires_post_approval: true })
+      .where('id', '=', orgId)
+      .execute();
     await insertPost(db, { authorId: member.id, orgId, status: 'pending' });
     const token = await mintTestJwt({ sub: su.supabaseAuthId, email: su.email });
     const res = await agent

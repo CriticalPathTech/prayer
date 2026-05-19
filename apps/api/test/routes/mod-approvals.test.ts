@@ -1,8 +1,9 @@
 import { describe, it, expect, afterAll } from 'vitest';
+
 import { initDb } from '../../src/db/index.js';
-import { createTestApp } from '../helpers/supertest.js';
 import { mintTestJwt } from '../helpers/jwt.js';
 import { insertPost, insertUser } from '../helpers/seed.js';
+import { createTestApp } from '../helpers/supertest.js';
 
 const cleanupDb = initDb(process.env.TEST_DATABASE_URL!);
 afterAll(async () => {
@@ -37,7 +38,9 @@ describe('mod-approvals routes', () => {
       const author = await insertUser(db, { orgId, role: 'member' });
       const p = await insertPost(db, { authorId: author.id, orgId, status: 'pending' });
       const token = await mintTestJwt({ sub: mod.supabaseAuthId, email: mod.email });
-      const res = await agent.post(`/mod/posts/${p.id}/approve`).set('Authorization', `Bearer ${token}`);
+      const res = await agent
+        .post(`/mod/posts/${p.id}/approve`)
+        .set('Authorization', `Bearer ${token}`);
       expect(res.status).toBe(200);
       expect(res.body.post.status).toBe('published');
     } finally {
@@ -70,9 +73,13 @@ describe('mod-approvals routes', () => {
       const author = await insertUser(db, { orgId, role: 'member' });
       const p = await insertPost(db, { authorId: author.id, orgId, status: 'pending' });
       const token = await mintTestJwt({ sub: mod.supabaseAuthId, email: mod.email });
-      const skipRes = await agent.post(`/mod/posts/${p.id}/skip`).set('Authorization', `Bearer ${token}`);
+      const skipRes = await agent
+        .post(`/mod/posts/${p.id}/skip`)
+        .set('Authorization', `Bearer ${token}`);
       expect(skipRes.status).toBe(204);
-      const unskipRes = await agent.delete(`/mod/posts/${p.id}/skip`).set('Authorization', `Bearer ${token}`);
+      const unskipRes = await agent
+        .delete(`/mod/posts/${p.id}/skip`)
+        .set('Authorization', `Bearer ${token}`);
       expect(unskipRes.status).toBe(204);
     } finally {
       await close();
@@ -88,7 +95,9 @@ describe('mod-approvals routes', () => {
       const token = await mintTestJwt({ sub: member.supabaseAuthId, email: member.email });
       const list = await agent.get('/mod/approvals').set('Authorization', `Bearer ${token}`);
       expect(list.status).toBe(403);
-      const approve = await agent.post(`/mod/posts/${p.id}/approve`).set('Authorization', `Bearer ${token}`);
+      const approve = await agent
+        .post(`/mod/posts/${p.id}/approve`)
+        .set('Authorization', `Bearer ${token}`);
       expect(approve.status).toBe(403);
     } finally {
       await close();
