@@ -1,9 +1,9 @@
 import { newId } from '@prayer/db';
 import request from 'supertest';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
 import { mintTestJwt } from '../helpers/jwt.js';
-import { insertOrg, insertUser } from '../helpers/seed.js';
+import { insertOrg, insertPost, insertUser } from '../helpers/seed.js';
 import { createTestApp, type TestApp } from '../helpers/supertest.js';
 
 describe('GET /admin/church/members', () => {
@@ -78,7 +78,10 @@ describe('GET /admin/church/members', () => {
       .set('Host', 'admin-church-routes.prays.online')
       .set('Authorization', `Bearer ${suToken}`);
     expect(res.status).toBe(200);
-    expect(res.body.org).toEqual({ displayName: 'Admin Church Routes' });
+    expect(res.body.org).toEqual({
+      displayName: 'Admin Church Routes',
+      requiresPostApproval: false,
+    });
     expect(typeof res.body.superUserCount).toBe('number');
     expect(res.body.superUserCount).toBe(1); // only su@acr.com is super_user
   });
@@ -283,5 +286,68 @@ describe('PATCH /admin/church/settings', () => {
       .set('Authorization', `Bearer ${suToken}`)
       .send({ displayName: '   ' });
     expect(res.status).toBe(400);
+  });
+});
+
+describe('PATCH /admin/church/settings — approval gate', () => {
+  // Reset the testchurch row + clear any leftover posts/events after every
+  // test in this block so subsequent test files don't trip the
+  // posts_author_id_fkey constraint on their `deleteFrom('users')` cleanups.
+  afterEach(async () => {
+    const { db, orgId, close } = await createTestApp();
+    try {
+      await db.deleteFrom('posts').where('org_id', '=', orgId).execute();
+      await db.deleteFrom('events').where('org_id', '=', orgId).execute();
+      await db
+        .updateTable('orgs')
+        .set({ requires_post_approval: false, display_name: 'Testchurch (test default)' })
+        .where('id', '=', orgId)
+        .execute();
+    } finally {
+      await close();
+    }
+  });
+
+  it('flips requires_post_approval', async () => {
+    const { agent, db, orgId, close } = await createTestApp();
+    try {
+      const su = await insertUser(db, { orgId, role: 'super_user' });
+      const token = await mintTestJwt({ sub: su.supabaseAuthId, email: su.email });
+      // Use the seeded displayName verbatim so this test doesn't mutate the
+      // global "testchurch" org row that other test files depend on
+      // (org.test.ts asserts on the seeded displayName).
+      const res = await agent
+        .patch('/admin/church/settings')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ displayName: 'Testchurch (test default)', requiresPostApproval: true });
+      expect(res.status).toBe(200);
+      expect(res.body.org.requiresPostApproval).toBe(true);
+    } finally {
+      await close();
+    }
+  });
+
+  it('→ 409 when toggling off with pending posts', async () => {
+    const { agent, db, orgId, close } = await createTestApp();
+    try {
+      const su = await insertUser(db, { orgId, role: 'super_user' });
+      const member = await insertUser(db, { orgId, role: 'member' });
+      await db
+        .updateTable('orgs')
+        .set({ requires_post_approval: true })
+        .where('id', '=', orgId)
+        .execute();
+      await insertPost(db, { authorId: member.id, orgId, status: 'pending' });
+      const token = await mintTestJwt({ sub: su.supabaseAuthId, email: su.email });
+      const res = await agent
+        .patch('/admin/church/settings')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ displayName: 'Testchurch (test default)', requiresPostApproval: false });
+      expect(res.status).toBe(409);
+      expect(res.body.error.code).toBe('PENDING_POSTS_EXIST');
+      expect(res.body.error.count).toBe(1);
+    } finally {
+      await close();
+    }
   });
 });

@@ -76,15 +76,28 @@ export function adminChurchRouter(deps: {
   router.patch('/admin/church/settings', async (req, res, next) => {
     try {
       if (!req.user) throw new UnauthorizedError();
-      const { displayName } = req.body ?? {};
-      if (typeof displayName !== 'string') {
+      const body = (req.body ?? {}) as {
+        displayName?: unknown;
+        requiresPostApproval?: unknown;
+      };
+      if (typeof body.displayName !== 'string') {
         res.status(400).json({ error: 'displayName must be a string' });
+        return;
+      }
+      if (
+        body.requiresPostApproval !== undefined &&
+        typeof body.requiresPostApproval !== 'boolean'
+      ) {
+        res.status(400).json({ error: 'requiresPostApproval must be a boolean' });
         return;
       }
       const result = await updateChurchSettings(deps.db, {
         orgId: req.user.orgId,
         actorId: req.user.id,
-        displayName,
+        displayName: body.displayName,
+        ...(body.requiresPostApproval !== undefined
+          ? { requiresPostApproval: body.requiresPostApproval }
+          : {}),
       });
       // Drop any cached org rows pointing at this orgId so subsequent requests
       // re-read the new display_name instead of serving the previous value for
@@ -95,6 +108,7 @@ export function adminChurchRouter(deps: {
           id: result.id,
           slug: req.org!.slug,
           displayName: result.displayName,
+          requiresPostApproval: result.requiresPostApproval,
         },
       });
     } catch (err) {

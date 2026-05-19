@@ -35,6 +35,7 @@ import { publicInviteCodesRouter } from './routes/invite-codes.js';
 import { meDraftRouter } from './routes/me-draft.js';
 import { meOrgsRouter } from './routes/me-orgs.js';
 import { meRouter } from './routes/me.js';
+import { modApprovalsRouter } from './routes/mod-approvals.js';
 import { modInviteCodesRouter } from './routes/mod-invite-codes.js';
 import { moderationRouter } from './routes/moderation.js';
 import { notificationsRouter } from './routes/notifications.js';
@@ -47,6 +48,7 @@ import { commentCreatedBuilder } from './services/notification-builders/comment-
 import { flagCreatedBuilder } from './services/notification-builders/flag-created.js';
 import { inviteAcceptedBuilder } from './services/notification-builders/invite-accepted.js';
 import { moderatorHideBuilder } from './services/notification-builders/moderator-hide.js';
+import { postRejectedBuilder } from './services/notification-builders/post-rejected.js';
 import { createOrgResolver } from './services/orgs.js';
 import { prayerCountRecomputer } from './services/prayer-consumer.js';
 import { reactionCountRecomputer } from './services/reaction-consumer.js';
@@ -158,6 +160,7 @@ export function buildApp(deps: AppDependencies): Express {
   app.use(auth, commentsRouter({ db: deps.db }));
   app.use(auth, notificationsRouter({ db: deps.db }));
   app.use(auth, requireModerator(), moderationRouter({ db: deps.db }));
+  app.use(auth, requireModerator(), modApprovalsRouter({ db: deps.db }));
   app.use(auth, requireModerator(), modInviteCodesRouter({ db: deps.db }));
   app.use(auth, requireSuperUser(), adminChurchRouter({ db: deps.db, orgResolver }));
 
@@ -193,6 +196,9 @@ export function buildApp(deps: AppDependencies): Express {
         'moderator.hide': moderatorHideBuilder,
         'moderator.unhide': async () => {},
         'invite.accepted': inviteAcceptedBuilder,
+        'post.rejected': postRejectedBuilder,
+        'post.submitted': async () => {}, // no-op; reserved for future moderator-side notif
+        'post.approved': async () => {}, // no-op; reserved for future audit consumer
       },
     });
     void eventWorker

@@ -57,6 +57,7 @@ export function meDraftRouter(deps: { db: Kysely<Database> }): Router {
         userId: req.user.id,
         orgId: req.user.orgId,
         callerRole: req.user.role,
+        requiresPostApproval: req.org!.requiresPostApproval,
       });
       res.status(200).json({ post });
     } catch (err) {

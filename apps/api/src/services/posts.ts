@@ -333,9 +333,17 @@ export async function upsertOwnDraft(
 
 export async function publishOwnDraft(
   db: Kysely<Database>,
-  args: { userId: string; orgId: string; callerRole: UserRole },
+  args: {
+    userId: string;
+    orgId: string;
+    callerRole: UserRole;
+    requiresPostApproval: boolean;
+  },
 ): Promise<PostDto> {
   const now = new Date();
+  const goPending = args.requiresPostApproval && !isPrivilegedRole(args.callerRole);
+  const targetStatus: PostStatus = goPending ? 'pending' : 'published';
+
   return db.transaction().execute(async (trx) => {
     const existing = await trx
       .selectFrom('posts')
@@ -351,7 +359,7 @@ export async function publishOwnDraft(
     }
     const expiresAt = existing.expires_at ?? new Date(now.getTime() + DEFAULT_EXPIRY_MS);
 
-    // DELETE old draft + INSERT a fresh published row (atomic: same trx).
+    // DELETE old draft + INSERT a fresh row (atomic: same trx).
     // Drafts can't accumulate child rows (comments/reactions/prayers all
     // gate on status='published'), so the DELETE has no FK side effects.
     // The new row gets a fresh UUIDv7 id and a fresh column-default
@@ -371,11 +379,22 @@ export async function publishOwnDraft(
         author_id: args.userId,
         body: existing.body,
         is_anonymous: existing.is_anonymous,
-        status: 'published',
+        status: targetStatus,
         expires_at: expiresAt,
         edit_deadline: new Date(now.getTime() + EDIT_WINDOW_MS),
       })
       .execute();
+
+    if (goPending) {
+      await writePostEvent(trx, {
+        kind: 'post.submitted',
+        orgId: args.orgId,
+        postId: newPostId,
+        actorId: args.userId,
+        payload: {},
+      });
+    }
+
     const row = await fetchPostRow(trx, { postId: newPostId, orgId: args.orgId });
     return toPostDto(row, { role: args.callerRole }, args.userId);
   });
