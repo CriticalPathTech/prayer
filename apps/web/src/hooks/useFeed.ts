@@ -10,7 +10,7 @@ export interface FeedPost {
   author_id: string | null;
   display_name: string | null;
   avatar_url: string | null;
-  status: 'draft' | 'published' | 'archived' | 'hidden';
+  status: 'draft' | 'published' | 'archived' | 'hidden' | 'pending';
   is_anonymous: boolean;
   is_answered_prayer: boolean;
   body: string;

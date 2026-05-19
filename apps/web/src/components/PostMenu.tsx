@@ -12,7 +12,7 @@ import { Icon } from './ui/Icon';
 export interface PostMenuProps {
   postId: string;
   isOwnPost: boolean;
-  status: 'draft' | 'published' | 'archived' | 'hidden';
+  status: 'draft' | 'published' | 'archived' | 'hidden' | 'pending';
   /** ISO timestamp */
   editDeadline: string;
   isTombstone: boolean;

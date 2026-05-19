@@ -56,6 +56,52 @@ export function PostCard({ post, onChange, onRepost }: PostCardProps): JSX.Eleme
     );
   }
 
+  if (post.status === 'pending') {
+    const pendingName = post.is_anonymous
+      ? 'Anonymous'
+      : post.is_former_member
+        ? 'Former member'
+        : (post.display_name ?? 'Anonymous');
+    const pendingIsOrphan = post.is_anonymous || post.is_former_member;
+    return (
+      <article className="rounded-md border border-[var(--border-soft)] bg-parchment-100 p-5 shadow-warm-sm mb-4 opacity-75">
+        <header className="mb-2.5 flex items-center gap-3">
+          <Avatar
+            name={pendingName}
+            avatarUrl={post.avatar_url}
+            anonymous={pendingIsOrphan}
+            size="md"
+          />
+          <div className="min-w-0 flex-1">
+            <div className="font-serif text-[15px] font-medium text-[var(--fg-2)]">
+              {pendingName}
+            </div>
+            <div className="flex items-center gap-1.5 text-xs text-[var(--fg-3)]">
+              <span>{formatAgo(post.created_at)}</span>
+              <span aria-hidden>·</span>
+              <Pill kind="default" leadingIcon="clock">
+                Pending review
+              </Pill>
+            </div>
+          </div>
+          <PostMenu
+            postId={post.id}
+            isOwnPost={!!me && post.is_own_post}
+            status={post.status}
+            editDeadline={post.edit_deadline}
+            isTombstone={false}
+            onDelete={handleDelete}
+          />
+        </header>
+        <ExpandableText
+          text={post.body}
+          threshold={600}
+          textClassName="m-0 font-serif text-[18px] leading-relaxed text-[var(--fg-3)] whitespace-pre-wrap [text-wrap:pretty]"
+        />
+      </article>
+    );
+  }
+
   // Anonymity mask wins over former-member treatment for display.
   const name = post.is_anonymous
     ? 'Anonymous'

@@ -52,6 +52,54 @@ export function MobilePostCard({ post, onChange, onRepost }: MobilePostCardProps
     );
   }
 
+  if (post.status === 'pending') {
+    const pendingName = post.is_anonymous
+      ? 'Anonymous'
+      : post.is_former_member
+        ? 'Former member'
+        : (post.display_name ?? 'Anonymous');
+    const pendingIsOrphan = post.is_anonymous || post.is_former_member;
+    return (
+      <article className="flex flex-col gap-3 rounded-lg border border-[var(--border-soft)] bg-parchment-100 p-4 shadow-warm-sm opacity-75">
+        <header className="flex items-start gap-2.5">
+          <Avatar
+            name={pendingName}
+            avatarUrl={post.avatar_url}
+            anonymous={pendingIsOrphan}
+            size="md"
+          />
+          <div className="min-w-0 flex-1">
+            <div className="font-serif text-[15px] font-semibold leading-tight text-[var(--fg-2)]">
+              {pendingName}
+            </div>
+            <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-[var(--fg-3)]">
+              <span>{formatAgo(post.created_at)}</span>
+              <span aria-hidden className="text-[var(--fg-4)]">
+                ·
+              </span>
+              <Pill kind="default" leadingIcon="clock">
+                Pending review
+              </Pill>
+            </div>
+          </div>
+          <PostMenu
+            postId={post.id}
+            isOwnPost={!!me && post.is_own_post}
+            status={post.status}
+            editDeadline={post.edit_deadline}
+            isTombstone={false}
+            onDelete={handleDelete}
+          />
+        </header>
+        <ExpandableText
+          text={post.body}
+          threshold={280}
+          textClassName="m-0 font-serif text-[16px] leading-[1.55] text-[var(--fg-3)] whitespace-pre-wrap [text-wrap:pretty]"
+        />
+      </article>
+    );
+  }
+
   // Anonymity mask wins over former-member treatment for display.
   const name = post.is_anonymous
     ? 'Anonymous'
