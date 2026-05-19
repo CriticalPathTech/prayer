@@ -12,6 +12,12 @@ const zPutDraft = z.object({
   is_anonymous: z.boolean().optional(),
 });
 
+const zPublishDraft = z.object({
+  pin_duration_days: z
+    .union([z.literal(1), z.literal(3), z.literal(7), z.literal(14), z.literal(30)])
+    .optional(),
+});
+
 export function meDraftRouter(deps: { db: Kysely<Database> }): Router {
   const router = Router();
 
@@ -53,10 +59,16 @@ export function meDraftRouter(deps: { db: Kysely<Database> }): Router {
   router.post('/me/draft/publish', async (req, res, next) => {
     try {
       if (!req.user) throw new UnauthorizedError();
+      const parsed = zPublishDraft.safeParse(req.body ?? {});
+      if (!parsed.success) throw new ValidationError(parsed.error.message);
       const post = await publishOwnDraft(deps.db, {
         userId: req.user.id,
         orgId: req.user.orgId,
         callerRole: req.user.role,
+        requiresPostApproval: req.org!.requiresPostApproval,
+        ...(parsed.data.pin_duration_days !== undefined
+          ? { pinDurationDays: parsed.data.pin_duration_days }
+          : {}),
       });
       res.status(200).json({ post });
     } catch (err) {

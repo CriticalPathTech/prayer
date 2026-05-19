@@ -62,6 +62,7 @@ describe('MobileFeedPage', () => {
     });
     useFeedMock.mockReturnValue({
       posts: [makeFeedPost({ display_name: 'Alice', body: 'hi' })],
+      pinned: [],
       filter: 'all',
       setFilter: vi.fn(),
       loading: false,
@@ -83,6 +84,7 @@ describe('MobileFeedPage', () => {
   it('shows empty-state copy when no posts', () => {
     useFeedMock.mockReturnValue({
       posts: [],
+      pinned: [],
       filter: 'all',
       setFilter: vi.fn(),
       loading: false,

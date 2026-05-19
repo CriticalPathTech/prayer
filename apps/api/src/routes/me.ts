@@ -66,7 +66,12 @@ export function meRouter(deps: {
   router.get('/me', (req, res) => {
     res.json({
       ...req.user,
-      org: req.org ? { displayName: req.org.displayName } : null,
+      org: req.org
+        ? {
+            displayName: req.org.displayName,
+            requiresPostApproval: req.org.requiresPostApproval,
+          }
+        : null,
     });
   });
 

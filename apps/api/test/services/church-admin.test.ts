@@ -1,6 +1,7 @@
 import { createDb, newId } from '@prayer/db';
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
+import { initDb } from '../../src/db/index.js';
 import {
   ForbiddenError,
   LastSuperUserError,
@@ -13,7 +14,7 @@ import {
   updateChurchSettings,
 } from '../../src/services/church-admin.js';
 import { mintInviteCode } from '../../src/services/invite-codes.js';
-import { insertOrg, insertUser } from '../helpers/seed.js';
+import { getTestchurchOrgId, insertOrg, insertPost, insertUser } from '../helpers/seed.js';
 
 const db = createDb(process.env.DATABASE_URL!);
 
@@ -184,6 +185,101 @@ describe('church-admin — updateChurchSettings', () => {
       .where('type', '=', 'admin.org_settings_updated')
       .executeTakeFirstOrThrow();
     expect(Number(eventCount.count)).toBe(0);
+  });
+});
+
+describe('updateChurchSettings — requires_post_approval', () => {
+  const db = initDb(process.env.TEST_DATABASE_URL!);
+  let orgId: string;
+
+  beforeEach(async () => {
+    orgId = await getTestchurchOrgId(db);
+    // Reset flag + display_name so later tests in this suite start clean.
+    await db
+      .updateTable('orgs')
+      .set({ requires_post_approval: false, display_name: 'Testchurch (test default)' })
+      .where('id', '=', orgId)
+      .execute();
+  });
+
+  afterEach(async () => {
+    // Remove posts + users inserted by this suite (scoped to testchurch org).
+    await db.deleteFrom('posts').where('org_id', '=', orgId).execute();
+    await db.deleteFrom('events').where('org_id', '=', orgId).execute();
+    await db.deleteFrom('user_orgs').where('org_id', '=', orgId).execute();
+    await db
+      .deleteFrom('users')
+      .where('id', 'not in', db.selectFrom('user_orgs').select('user_id'))
+      .execute();
+    // Restore org state so subsequent test files see a clean testchurch.
+    await db
+      .updateTable('orgs')
+      .set({ requires_post_approval: false, display_name: 'Testchurch (test default)' })
+      .where('id', '=', orgId)
+      .execute();
+  });
+
+  it('toggles false → true with no precondition', async () => {
+    const actor = await insertUser(db, { orgId, role: 'super_user' });
+    await updateChurchSettings(db, {
+      orgId,
+      actorId: actor.id,
+      displayName: 'Test',
+      requiresPostApproval: true,
+    });
+    const row = await db
+      .selectFrom('orgs')
+      .select('requires_post_approval')
+      .where('id', '=', orgId)
+      .executeTakeFirstOrThrow();
+    expect(row.requires_post_approval).toBe(true);
+  });
+
+  it('toggles true → false with no pending posts', async () => {
+    const actor = await insertUser(db, { orgId, role: 'super_user' });
+    await db
+      .updateTable('orgs')
+      .set({ requires_post_approval: true })
+      .where('id', '=', orgId)
+      .execute();
+    await updateChurchSettings(db, {
+      orgId,
+      actorId: actor.id,
+      displayName: 'Test',
+      requiresPostApproval: false,
+    });
+    const row = await db
+      .selectFrom('orgs')
+      .select('requires_post_approval')
+      .where('id', '=', orgId)
+      .executeTakeFirstOrThrow();
+    expect(row.requires_post_approval).toBe(false);
+  });
+
+  it('refuses true → false with PendingPostsExistError when pending posts exist', async () => {
+    const actor = await insertUser(db, { orgId, role: 'super_user' });
+    const member = await insertUser(db, { orgId, role: 'member' });
+    await db
+      .updateTable('orgs')
+      .set({ requires_post_approval: true })
+      .where('id', '=', orgId)
+      .execute();
+    await insertPost(db, { authorId: member.id, orgId, status: 'pending' });
+    await insertPost(db, { authorId: member.id, orgId, status: 'pending' });
+    await expect(
+      updateChurchSettings(db, {
+        orgId,
+        actorId: actor.id,
+        displayName: 'Test',
+        requiresPostApproval: false,
+      }),
+    ).rejects.toMatchObject({ name: 'PendingPostsExistError', count: 2 });
+    const row = await db
+      .selectFrom('orgs')
+      .select('requires_post_approval')
+      .where('id', '=', orgId)
+      .executeTakeFirstOrThrow();
+    expect(row.requires_post_approval).toBe(true);
   });
 });
 

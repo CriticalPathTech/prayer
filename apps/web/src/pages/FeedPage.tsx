@@ -10,8 +10,18 @@ import { useFeed } from '../hooks/useFeed';
 import { useFeedSnapshot } from '../hooks/useFeedSnapshot';
 
 export function FeedPage(): JSX.Element {
-  const { posts, filter, setFilter, loading, error, hasMore, loadMore, snapshotId, refresh } =
-    useFeed();
+  const {
+    posts,
+    pinned,
+    filter,
+    setFilter,
+    loading,
+    error,
+    hasMore,
+    loadMore,
+    snapshotId,
+    refresh,
+  } = useFeed();
   const [hasNew, setHasNew] = useState(false);
 
   useFeedSnapshot({
@@ -54,6 +64,11 @@ export function FeedPage(): JSX.Element {
         </div>
       ) : null}
       <ul className="space-y-0">
+        {pinned.map((p) => (
+          <li key={p.id}>
+            <PostCard post={p} onChange={() => void refresh()} />
+          </li>
+        ))}
         {posts.map((p) => (
           <li key={p.id}>
             <PostCard post={p} onChange={() => void refresh()} />

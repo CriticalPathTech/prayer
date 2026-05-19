@@ -52,6 +52,36 @@ describe('GET /me', () => {
     expect(res.status).toBe(200);
     expect(res.body.avatarUrl).toBeNull();
   });
+
+  it('includes org.requiresPostApproval', async () => {
+    // Use a fresh app instance — the shared `ctx` has a populated orgResolver
+    // cache from earlier tests, and the 5-min TTL would mask the DB change.
+    const ctx2 = await createTestApp();
+    try {
+      await ctx2.db
+        .updateTable('orgs')
+        .set({ requires_post_approval: true })
+        .where('id', '=', ctx2.orgId)
+        .execute();
+      const user = await insertUser(ctx2.db, {
+        orgId: ctx2.orgId,
+        email: 'gate@e.com',
+        displayName: 'G',
+      });
+      const jwt = await mintTestJwt({ sub: user.supabaseAuthId, email: user.email });
+      const res = await request(ctx2.app).get('/me').set('Authorization', `Bearer ${jwt}`);
+      expect(res.status).toBe(200);
+      expect(res.body.org?.requiresPostApproval).toBe(true);
+    } finally {
+      // restore the orgs row so later tests aren't poisoned
+      await ctx2.db
+        .updateTable('orgs')
+        .set({ requires_post_approval: false })
+        .where('id', '=', ctx2.orgId)
+        .execute();
+      await ctx2.close();
+    }
+  });
 });
 
 describe('GET /me/invites', () => {

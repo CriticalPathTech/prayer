@@ -37,6 +37,8 @@ function basePost(over: Record<string, unknown> = {}) {
     expires_at: null,
     edit_deadline: farFuture,
     created_at: new Date().toISOString(),
+    pinned_at: null,
+    pinned_by: null,
     is_own_post: false,
     hidden_by: null,
     hidden_source: null,

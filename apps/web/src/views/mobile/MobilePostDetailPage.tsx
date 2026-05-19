@@ -2,13 +2,16 @@ import type { JSX } from 'react';
 import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 
+import { PinDialog } from '../../components/PinDialog';
+import { PinnedByRibbon } from '../../components/PinnedByRibbon';
+import { PostMenu } from '../../components/PostMenu';
 import { UpdatePostItem } from '../../components/UpdatePostItem';
 import { Avatar } from '../../components/ui/Avatar';
 import { Icon } from '../../components/ui/Icon';
 import { useAuth } from '../../hooks/useAuth';
 import { usePost } from '../../hooks/usePost';
 import { usePostComments } from '../../hooks/usePostComments';
-import { apiFetch } from '../../lib/api';
+import { apiFetch, pinPost, unpinPost } from '../../lib/api';
 import { isPrivilegedRole } from '../../lib/roles';
 import { formatAgo } from '../../lib/time';
 
@@ -21,6 +24,7 @@ export function MobilePostDetailPage(): JSX.Element {
   const { data, loading, notFound, error, reload } = usePost(id);
   const { threads, reload: reloadComments } = usePostComments(id);
   const { me } = useAuth();
+  const [pinDialogOpen, setPinDialogOpen] = useState(false);
 
   if (notFound) {
     return (
@@ -57,7 +61,17 @@ export function MobilePostDetailPage(): JSX.Element {
       <div className="flex flex-col gap-4 px-4 pb-6 pt-3">
         {error ? <p className="text-sm text-ember-600">{error}</p> : null}
 
-        <article className="rounded-lg border border-[var(--border-soft)] bg-[var(--bg-raised)] p-4">
+        <article
+          className={[
+            'rounded-lg border bg-[var(--bg-raised)] p-4',
+            post.pinned_at !== null
+              ? 'border-vesper-300/50 bg-gradient-to-b from-vesper-50/60 to-[var(--bg-raised)] shadow-[inset_0_2px_0_theme(colors.vesper.200)]'
+              : 'border-[var(--border-soft)]',
+          ].join(' ')}
+        >
+          {post.pinned_at !== null ? (
+            <PinnedByRibbon pinnedBy={post.pinned_by} className="-mx-4 -mt-4 px-4 pt-2 pb-1 mb-2" />
+          ) : null}
           <header className="flex items-start gap-2.5">
             <Avatar
               name={post.is_anonymous ? 'Anonymous' : (post.display_name ?? 'Anonymous')}
@@ -71,6 +85,23 @@ export function MobilePostDetailPage(): JSX.Element {
               </div>
               <div className="mt-0.5 text-xs text-[var(--fg-3)]">{formatAgo(post.created_at)}</div>
             </div>
+            <PostMenu
+              postId={post.id}
+              isOwnPost={isAuthor}
+              status={post.status}
+              editDeadline={post.edit_deadline}
+              isTombstone={!!post.is_tombstone}
+              {...(me?.role !== undefined ? { viewerRole: me.role } : {})}
+              isPinned={post.pinned_at !== null}
+              onPin={() => setPinDialogOpen(true)}
+              onUnpin={async () => {
+                await unpinPost(post.id);
+                await reload();
+              }}
+              onDelete={async () => {
+                await apiFetch(`/posts/${post.id}`, { method: 'DELETE' });
+              }}
+            />
           </header>
           <p className="mt-3 whitespace-pre-wrap font-serif text-[16px] leading-[1.55] text-[var(--fg-2)] [text-wrap:pretty]">
             {post.body}
@@ -121,6 +152,16 @@ export function MobilePostDetailPage(): JSX.Element {
           onSent={handleDataChange}
         />
       ) : null}
+
+      <PinDialog
+        open={pinDialogOpen}
+        onCancel={() => setPinDialogOpen(false)}
+        onConfirm={async (days) => {
+          await pinPost(post.id, days as 1 | 3 | 7 | 14 | 30);
+          setPinDialogOpen(false);
+          await reload();
+        }}
+      />
     </div>
   );
 }

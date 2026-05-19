@@ -3,7 +3,13 @@ import { newId } from '@prayer/db';
 import type { Emoji } from '@prayer/shared';
 import type { Kysely, Transaction } from 'kysely';
 
-export type PostEventKind = 'post.update_created';
+export type PostEventKind =
+  | 'post.update_created'
+  | 'post.submitted'
+  | 'post.approved'
+  | 'post.rejected'
+  | 'post.pinned'
+  | 'post.unpinned';
 
 export type CommentEventKind = 'comment.created';
 

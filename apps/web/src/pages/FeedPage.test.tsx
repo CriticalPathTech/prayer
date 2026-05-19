@@ -57,6 +57,8 @@ const post = (over: Record<string, unknown> = {}) => ({
   expires_at: new Date(Date.now() + 30 * 24 * 3600_000).toISOString(),
   edit_deadline: new Date(Date.now() + 3600_000).toISOString(),
   created_at: new Date().toISOString(),
+  pinned_at: null,
+  pinned_by: null,
   prayed: false,
   reactions: {},
   is_own_post: false,
@@ -142,6 +144,49 @@ describe('FeedPage', () => {
     await userEvent.click(screen.getByRole('button', { name: /load more/i }));
     expect(await screen.findByText('second')).toBeInTheDocument();
     expect(feedFetch.mock.calls[1]![0]).toContain('cursor=abc');
+  });
+
+  it('renders pinned posts above chronological posts', async () => {
+    feedFetch.mockResolvedValueOnce({
+      posts: [post({ id: 'chrono-1', body: 'chrono content' })],
+      pinned: [
+        post({
+          id: 'pinned-1',
+          body: 'pinned content',
+          pinned_at: new Date().toISOString(),
+          pinned_by: { id: 'mod1', display_name: 'Mod One' },
+        }),
+      ],
+      nextCursor: null,
+      snapshotId: 's1',
+    });
+    render(
+      <MemoryRouter>
+        <FeedPage />
+      </MemoryRouter>,
+    );
+    await screen.findByText('pinned content');
+    await screen.findByText('chrono content');
+
+    const allText = document.body.textContent ?? '';
+    expect(allText.indexOf('pinned content')).toBeLessThan(allText.indexOf('chrono content'));
+    expect(screen.getByText(/Mod One/i)).toBeInTheDocument();
+  });
+
+  it('does not show "Pinned by" text when pinned is empty', async () => {
+    feedFetch.mockResolvedValueOnce({
+      posts: [post({ body: 'regular post' })],
+      pinned: [],
+      nextCursor: null,
+      snapshotId: 's1',
+    });
+    render(
+      <MemoryRouter>
+        <FeedPage />
+      </MemoryRouter>,
+    );
+    await screen.findByText('regular post');
+    expect(screen.queryByText(/pinned by/i)).not.toBeInTheDocument();
   });
 
   it('shows NewActivityBanner when remote snapshotId differs, and refreshes on click', async () => {

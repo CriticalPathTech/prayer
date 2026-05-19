@@ -1,7 +1,7 @@
 import type { ColumnType, Generated } from 'kysely';
 
 export type UserRole = 'member' | 'moderator' | 'super_user';
-export type PostStatus = 'draft' | 'published' | 'archived' | 'hidden';
+export type PostStatus = 'draft' | 'published' | 'archived' | 'hidden' | 'pending' | 'rejected';
 export type ReactionTargetType = 'post' | 'comment';
 
 type Timestamp = ColumnType<Date, Date | string | undefined, Date | string>;
@@ -11,6 +11,7 @@ export interface OrgsTable {
   slug: string;
   display_name: string;
   status: Generated<string>;
+  requires_post_approval: Generated<boolean>;
   created_at: Generated<Timestamp>;
 }
 
@@ -44,7 +45,13 @@ export interface PostsTable {
   flag_count: Generated<number>;
   expires_at: Date | null;
   edit_deadline: Date;
+  moderation_note: string | null;
+  moderated_by: string | null;
+  moderated_at: Date | null;
   created_at: Generated<Timestamp>;
+  pinned_at: Date | null;
+  pin_until: Date | null;
+  pinned_by: string | null;
 }
 
 export interface CommentsTable {
@@ -133,6 +140,13 @@ export interface NotificationsTable {
   created_at: Generated<Timestamp>;
 }
 
+export interface ModPostSkipsTable {
+  post_id: string;
+  moderator_id: string;
+  org_id: string;
+  skipped_at: Generated<Timestamp>;
+}
+
 export interface Database {
   orgs: OrgsTable;
   user_orgs: UserOrgsTable;
@@ -146,4 +160,5 @@ export interface Database {
   invite_codes: InviteCodesTable;
   events: EventsTable;
   notifications: NotificationsTable;
+  mod_post_skips: ModPostSkipsTable;
 }

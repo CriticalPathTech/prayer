@@ -7,6 +7,8 @@ import { CommentThread } from '../components/CommentThread';
 import { FlagCountPill } from '../components/FlagCountPill';
 import { HiddenBanner } from '../components/HiddenBanner';
 import { HideTombstone } from '../components/HideTombstone';
+import { PinDialog } from '../components/PinDialog';
+import { PinnedByRibbon } from '../components/PinnedByRibbon';
 import { PostMenu } from '../components/PostMenu';
 import { PrayButton } from '../components/PrayButton';
 import { UpdatePostItem } from '../components/UpdatePostItem';
@@ -21,7 +23,7 @@ import { usePost } from '../hooks/usePost';
 import { usePostComments } from '../hooks/usePostComments';
 import { usePrayer } from '../hooks/usePrayer';
 import { useReactions } from '../hooks/useReactions';
-import { ApiError, apiFetch } from '../lib/api';
+import { ApiError, apiFetch, pinPost, unpinPost } from '../lib/api';
 import { isPrivilegedRole } from '../lib/roles';
 import { formatAgo, expiringSoon } from '../lib/time';
 
@@ -60,6 +62,7 @@ function PostDetailView({ data, reload, error }: PostDetailViewProps): JSX.Eleme
   const [updateComposerOpen, setUpdateComposerOpen] = useState(false);
   const [updateBody, setUpdateBody] = useState('');
   const [isAnswered, setIsAnswered] = useState(false);
+  const [pinDialogOpen, setPinDialogOpen] = useState(false);
 
   const { post, updates } = data;
   const postId = post.id;
@@ -116,14 +119,23 @@ function PostDetailView({ data, reload, error }: PostDetailViewProps): JSX.Eleme
     }
   }
 
+  const isPinned = post.pinned_at !== null;
   const articleClass = [
     'rounded-md border bg-[var(--bg-raised)] p-6 shadow-warm-sm mb-6',
     answered ? 'border-[var(--answered-border)]' : 'border-[var(--border-soft)]',
-  ].join(' ');
+    isPinned
+      ? 'border-vesper-300/50 bg-gradient-to-b from-vesper-50/60 to-[var(--bg-raised)] shadow-[inset_0_2px_0_theme(colors.vesper.200),var(--shadow-warm-sm)]'
+      : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
 
   return (
     <div className="mx-auto max-w-detail">
       <article className={articleClass}>
+        {isPinned ? (
+          <PinnedByRibbon pinnedBy={post.pinned_by} className="-mx-6 -mt-6 px-6 pt-3 pb-1 mb-2" />
+        ) : null}
         <header className="mb-3 flex items-center gap-3">
           <Avatar name={name} avatarUrl={post.avatar_url} anonymous={post.is_anonymous} size="md" />
           <div className="min-w-0 flex-1">
@@ -146,6 +158,13 @@ function PostDetailView({ data, reload, error }: PostDetailViewProps): JSX.Eleme
             status={post.status}
             editDeadline={post.edit_deadline}
             isTombstone={!!post.is_tombstone}
+            {...(me?.role !== undefined ? { viewerRole: me.role } : {})}
+            isPinned={post.pinned_at !== null}
+            onPin={() => setPinDialogOpen(true)}
+            onUnpin={async () => {
+              await unpinPost(post.id);
+              await reload();
+            }}
             onDelete={async () => {
               await apiFetch(`/posts/${post.id}`, { method: 'DELETE' });
               navigate('/');
@@ -286,6 +305,16 @@ function PostDetailView({ data, reload, error }: PostDetailViewProps): JSX.Eleme
         ) : null}
       </section>
       {error ? <p className="mb-4 text-sm text-ember-600">{error}</p> : null}
+
+      <PinDialog
+        open={pinDialogOpen}
+        onCancel={() => setPinDialogOpen(false)}
+        onConfirm={async (days) => {
+          await pinPost(post.id, days as 1 | 3 | 7 | 14 | 30);
+          setPinDialogOpen(false);
+          await reload();
+        }}
+      />
 
       <section className="border-t border-[var(--border-soft)] pt-5">
         <div className="mb-4 flex items-center justify-between">

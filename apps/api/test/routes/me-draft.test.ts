@@ -227,6 +227,37 @@ describe('/me/draft', () => {
       expect(postRows).toHaveLength(2);
     });
 
+    it('mod can publish with pin_duration_days=7 → pinned_at is non-null', async () => {
+      const mod = await insertUser(ctx.db, { orgId, role: 'moderator' });
+      const token = await mintTestJwt({ sub: mod.supabaseAuthId, email: mod.email });
+      await request(ctx.app)
+        .put('/me/draft')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ body: 'please pray for my family' });
+
+      const pub = await request(ctx.app)
+        .post('/me/draft/publish')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ pin_duration_days: 7 });
+      expect(pub.status).toBe(200);
+      expect(pub.body.post.pinned_at).not.toBeNull();
+    });
+
+    it('member publishing with pin_duration_days → 403', async () => {
+      const member = await insertUser(ctx.db, { orgId });
+      const token = await mintTestJwt({ sub: member.supabaseAuthId, email: member.email });
+      await request(ctx.app)
+        .put('/me/draft')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ body: 'please pray for me' });
+
+      const pub = await request(ctx.app)
+        .post('/me/draft/publish')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ pin_duration_days: 7 });
+      expect(pub.status).toBe(403);
+    });
+
     it('publish refreshes id and created_at to the publish moment (not the draft moment)', async () => {
       // Reproduces the draft-staleness bug: opening compose creates a draft
       // row with id+created_at set to "now". If the user comes back hours or
@@ -289,6 +320,110 @@ describe('/me/draft', () => {
 
       // Assertion 4: the body and is_anonymous carried over correctly
       expect(pub.body.post.body).toBe('first written long ago');
+    });
+  });
+
+  describe('publishOwnDraft — approval gate', () => {
+    afterEach(async () => {
+      // Each test in this block creates posts (published or pending) and may
+      // flip the org flag. Clean both so later tests / later files start fresh.
+      await ctx.db.deleteFrom('posts').execute();
+      await ctx.db.deleteFrom('events').execute();
+      await ctx.db
+        .updateTable('orgs')
+        .set({ requires_post_approval: false })
+        .where('id', '=', orgId)
+        .execute();
+    });
+
+    it('flag OFF: member publish → status=published', async () => {
+      const { agent, db, orgId, close } = await createTestApp();
+      try {
+        const member = await insertUser(db, { orgId, role: 'member' });
+        const token = await mintTestJwt({ sub: member.supabaseAuthId, email: member.email });
+        await agent
+          .put('/me/draft')
+          .set('Authorization', `Bearer ${token}`)
+          .send({ body: 'Pray for me.' });
+        const res = await agent.post('/me/draft/publish').set('Authorization', `Bearer ${token}`);
+        expect(res.status).toBe(200);
+        expect(res.body.post.status).toBe('published');
+      } finally {
+        await close();
+      }
+    });
+
+    it('flag ON + member: status=pending, post.submitted event written', async () => {
+      const { agent, db, orgId, close } = await createTestApp();
+      try {
+        await db
+          .updateTable('orgs')
+          .set({ requires_post_approval: true })
+          .where('id', '=', orgId)
+          .execute();
+        const member = await insertUser(db, { orgId, role: 'member' });
+        const token = await mintTestJwt({ sub: member.supabaseAuthId, email: member.email });
+        await agent
+          .put('/me/draft')
+          .set('Authorization', `Bearer ${token}`)
+          .send({ body: 'Pray for me.' });
+        const res = await agent.post('/me/draft/publish').set('Authorization', `Bearer ${token}`);
+        expect(res.status).toBe(200);
+        expect(res.body.post.status).toBe('pending');
+        const events = await db
+          .selectFrom('events')
+          .select('type')
+          .where('org_id', '=', orgId)
+          .where('type', '=', 'post.submitted')
+          .execute();
+        expect(events.length).toBe(1);
+      } finally {
+        await close();
+      }
+    });
+
+    it('flag ON + moderator: bypass → status=published', async () => {
+      const { agent, db, orgId, close } = await createTestApp();
+      try {
+        await db
+          .updateTable('orgs')
+          .set({ requires_post_approval: true })
+          .where('id', '=', orgId)
+          .execute();
+        const mod = await insertUser(db, { orgId, role: 'moderator' });
+        const token = await mintTestJwt({ sub: mod.supabaseAuthId, email: mod.email });
+        await agent
+          .put('/me/draft')
+          .set('Authorization', `Bearer ${token}`)
+          .send({ body: 'mod post' });
+        const res = await agent.post('/me/draft/publish').set('Authorization', `Bearer ${token}`);
+        expect(res.status).toBe(200);
+        expect(res.body.post.status).toBe('published');
+      } finally {
+        await close();
+      }
+    });
+
+    it('flag ON + super_user: bypass → status=published', async () => {
+      const { agent, db, orgId, close } = await createTestApp();
+      try {
+        await db
+          .updateTable('orgs')
+          .set({ requires_post_approval: true })
+          .where('id', '=', orgId)
+          .execute();
+        const su = await insertUser(db, { orgId, role: 'super_user' });
+        const token = await mintTestJwt({ sub: su.supabaseAuthId, email: su.email });
+        await agent
+          .put('/me/draft')
+          .set('Authorization', `Bearer ${token}`)
+          .send({ body: 'su post' });
+        const res = await agent.post('/me/draft/publish').set('Authorization', `Bearer ${token}`);
+        expect(res.status).toBe(200);
+        expect(res.body.post.status).toBe('published');
+      } finally {
+        await close();
+      }
     });
   });
 });
