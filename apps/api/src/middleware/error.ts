@@ -108,12 +108,30 @@ export class LastSuperUserError extends AppError {
   }
 }
 
+export class PendingPostsExistError extends AppError {
+  public readonly count: number;
+  constructor(count: number) {
+    super(
+      409,
+      'PENDING_POSTS_EXIST',
+      `${count} pending post${count === 1 ? '' : 's'} must be approved or rejected before the gate can be turned off`,
+    );
+    this.count = count;
+  }
+}
+
 export const errorHandler: ErrorRequestHandler = (
   err,
   req: Request,
   res: Response,
   _next: NextFunction,
 ) => {
+  if (err instanceof PendingPostsExistError) {
+    res.status(err.statusCode).json({
+      error: { code: err.code, message: err.message, count: err.count },
+    });
+    return;
+  }
   if (err instanceof AppError) {
     res.status(err.statusCode).json({ error: { code: err.code, message: err.message } });
     return;
