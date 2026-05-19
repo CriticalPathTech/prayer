@@ -1,6 +1,6 @@
 import type { Database } from '@prayer/db';
 import type { Kysely } from 'kysely';
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it, expectTypeOf } from 'vitest';
 
 import { initDb } from '../../src/db/index.js';
 import {
@@ -11,6 +11,7 @@ import {
   writeModerationEvent,
   writeInvitationEvent,
   writeAdminEvent,
+  type PostEventKind,
 } from '../../src/services/events.js';
 import { insertOrg, insertPost, insertUser } from '../helpers/seed.js';
 
@@ -355,5 +356,13 @@ describe('writeAdminEvent', () => {
       before_role: 'member',
       after_role: 'moderator',
     });
+  });
+});
+
+describe('PostEventKind', () => {
+  it('includes the three new approval-gate kinds', () => {
+    expectTypeOf<'post.submitted'>().toMatchTypeOf<PostEventKind>();
+    expectTypeOf<'post.approved'>().toMatchTypeOf<PostEventKind>();
+    expectTypeOf<'post.rejected'>().toMatchTypeOf<PostEventKind>();
   });
 });
