@@ -94,6 +94,30 @@ export function NotificationItem({ notification, onClick }: NotificationItemProp
     );
   }
 
+  if (notification.type === 'post.rejected') {
+    const p = notification.payload as unknown as {
+      post_id: string;
+      moderation_note: string | null;
+      moderated_by: string;
+      body_preview: string;
+    };
+    const border = unread ? 'border-l-warm-300' : 'border-l-transparent';
+    const bg = unread ? 'bg-warm-100/40' : '';
+    return (
+      <Link
+        to="/me/archive"
+        onClick={() => onClick(notification.id)}
+        className={`${BASE} ${border} ${bg}`}
+      >
+        <div className={titleClass}>A moderator declined your prayer request</div>
+        <div className={metaClass}>
+          &ldquo;{p.body_preview}&rdquo;
+          {p.moderation_note ? ` · ${p.moderation_note}` : ''} · {relativeTime(notification.created_at)}
+        </div>
+      </Link>
+    );
+  }
+
   if (notification.type === 'invite.accepted') {
     const p = notification.payload as unknown as {
       invitation_id: string;
