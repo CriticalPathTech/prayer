@@ -19,6 +19,11 @@ export const zFeedQuery = z.object({
 export type FeedQuery = z.infer<typeof zFeedQuery>;
 
 export interface FeedResponse {
+  pinned: (PostDto & {
+    prayed: boolean;
+    reactions: Record<string, ReactionSummary>;
+    updates: PostDto[];
+  })[];
   posts: (PostDto & {
     prayed: boolean;
     reactions: Record<string, ReactionSummary>;
@@ -37,6 +42,7 @@ export async function fetchFeed(
   let q = db
     .selectFrom('posts')
     .innerJoin('users', 'users.id', 'posts.author_id')
+    .leftJoin('users as pinner', 'pinner.id', 'posts.pinned_by')
     .select([
       'posts.id',
       'posts.parent_id',
@@ -52,6 +58,9 @@ export async function fetchFeed(
       'posts.expires_at',
       'posts.edit_deadline',
       'posts.created_at',
+      'posts.pinned_at',
+      'posts.pinned_by as pinned_by_id',
+      'pinner.display_name as pinned_by_display_name',
     ])
     .where('posts.org_id', '=', args.orgId)
     .where('posts.parent_id', 'is', null)
@@ -72,6 +81,10 @@ export async function fetchFeed(
     const c = decodeCursor(args.cursor, args.filter);
     q = q.where('posts.id', '<', c.id);
   }
+  // Exclude currently-pinned posts from the chronological list — they ride in `pinned[]`.
+  q = q.where((eb) =>
+    eb.or([eb('posts.pinned_at', 'is', null), eb('posts.pin_until', '<=', new Date())]),
+  );
   q = q.orderBy('posts.id', 'desc');
 
   const rows = (await q.execute()) as unknown as PostRow[];
@@ -118,6 +131,7 @@ export async function fetchFeed(
     const updateRows = (await db
       .selectFrom('posts')
       .innerJoin('users', 'users.id', 'posts.author_id')
+      .leftJoin('users as pinner', 'pinner.id', 'posts.pinned_by')
       .select([
         'posts.id',
         'posts.parent_id',
@@ -133,6 +147,9 @@ export async function fetchFeed(
         'posts.expires_at',
         'posts.edit_deadline',
         'posts.created_at',
+        'posts.pinned_at',
+        'posts.pinned_by as pinned_by_id',
+        'pinner.display_name as pinned_by_display_name',
       ])
       .where('posts.org_id', '=', args.orgId)
       .where('posts.parent_id', 'in', postIds)
@@ -184,6 +201,125 @@ export async function fetchFeed(
     }
   }
 
+  // Pinned posts ride alongside the first page (no cursor). On subsequent pages,
+  // `pinned` is an empty array. Reuse the same enrichment shape as chronological.
+  let pinnedDtos: FeedResponse['pinned'] = [];
+  if (!args.cursor) {
+    const pinnedRows = (await db
+      .selectFrom('posts')
+      .innerJoin('users', 'users.id', 'posts.author_id')
+      .leftJoin('users as pinner', 'pinner.id', 'posts.pinned_by')
+      .select([
+        'posts.id',
+        'posts.parent_id',
+        'posts.author_id',
+        'users.display_name as author_display_name',
+        'users.avatar_url as author_avatar_url',
+        'posts.status',
+        'posts.is_anonymous',
+        'posts.is_answered_prayer',
+        'posts.body',
+        'posts.reaction_count',
+        'posts.prayer_count',
+        'posts.expires_at',
+        'posts.edit_deadline',
+        'posts.created_at',
+        'posts.pinned_at',
+        'posts.pinned_by as pinned_by_id',
+        'pinner.display_name as pinned_by_display_name',
+      ])
+      .where('posts.org_id', '=', args.orgId)
+      .where('posts.parent_id', 'is', null)
+      .where('posts.status', '=', 'published')
+      .where('posts.pinned_at', 'is not', null)
+      .where('posts.pin_until', '>', new Date())
+      .orderBy('posts.pinned_at', 'desc')
+      .execute()) as unknown as PostRow[];
+
+    if (pinnedRows.length > 0) {
+      const pinnedIds = pinnedRows.map((p) => p.id);
+      const pinnedPrayedRows = await db
+        .selectFrom('prayers')
+        .select('post_id')
+        .where('org_id', '=', args.orgId)
+        .where('user_id', '=', args.callerId)
+        .where('post_id', 'in', pinnedIds)
+        .execute();
+      const pinnedPrayedSet = new Set(pinnedPrayedRows.map((r) => r.post_id));
+
+      const pinnedReactionRows = await db
+        .selectFrom('reactions')
+        .select([
+          'target_id',
+          'emoji',
+          (eb) => eb.fn.count<number>('id').as('count'),
+          (eb) => sql<boolean>`bool_or(${eb.ref('author_id')} = ${args.callerId})`.as('mine'),
+        ])
+        .where('org_id', '=', args.orgId)
+        .where('target_type', '=', 'post')
+        .where('target_id', 'in', pinnedIds)
+        .groupBy(['target_id', 'emoji'])
+        .execute();
+      const pinnedReactionsMap = new Map<string, Record<string, ReactionSummary>>();
+      for (const row of pinnedReactionRows) {
+        if (!pinnedReactionsMap.has(row.target_id)) pinnedReactionsMap.set(row.target_id, {});
+        pinnedReactionsMap.get(row.target_id)![row.emoji] = {
+          count: Number(row.count),
+          mine: row.mine,
+        };
+      }
+
+      const pinnedUpdateRows = (await db
+        .selectFrom('posts')
+        .innerJoin('users', 'users.id', 'posts.author_id')
+        .leftJoin('users as pinner', 'pinner.id', 'posts.pinned_by')
+        .select([
+          'posts.id',
+          'posts.parent_id',
+          'posts.author_id',
+          'users.display_name as author_display_name',
+          'users.avatar_url as author_avatar_url',
+          'posts.status',
+          'posts.is_anonymous',
+          'posts.is_answered_prayer',
+          'posts.body',
+          'posts.reaction_count',
+          'posts.prayer_count',
+          'posts.expires_at',
+          'posts.edit_deadline',
+          'posts.created_at',
+          'posts.pinned_at',
+          'posts.pinned_by as pinned_by_id',
+          'pinner.display_name as pinned_by_display_name',
+        ])
+        .where('posts.org_id', '=', args.orgId)
+        .where('posts.parent_id', 'in', pinnedIds)
+        .where('posts.status', '=', 'published')
+        .orderBy('posts.parent_id')
+        .orderBy('posts.id', 'asc')
+        .execute()) as unknown as PostRow[];
+      const pinnedUpdatesByParent = new Map<string, PostDto[]>();
+      for (const row of pinnedUpdateRows) {
+        const parentId = row.parent_id!;
+        const dto = toPostDto(row, { role: args.callerRole }, args.callerId);
+        const existing = pinnedUpdatesByParent.get(parentId);
+        if (existing) existing.push(dto);
+        else pinnedUpdatesByParent.set(parentId, [dto]);
+      }
+
+      const pinnedAuthorIds = Array.from(
+        new Set(pinnedRows.map((r) => r.author_id).filter((id): id is string => id !== null)),
+      );
+      const pinnedMemberSet = await fetchMemberSet(db, args.orgId, pinnedAuthorIds);
+      pinnedDtos = pinnedRows.map((r) => ({
+        ...toPostDto(r, { role: args.callerRole }, args.callerId, pinnedMemberSet),
+        prayed: pinnedPrayedSet.has(r.id),
+        reactions: pinnedReactionsMap.get(r.id) ?? {},
+        updates: pinnedUpdatesByParent.get(r.id) ?? [],
+      }));
+    }
+  }
+
   const nextCursor: string | null =
     hasMore && last ? encodeCursor({ filter: args.filter, id: last.id }) : null;
 
@@ -193,6 +329,7 @@ export async function fetchFeed(
   );
   const memberSet = await fetchMemberSet(db, args.orgId, distinctAuthorIds);
   return {
+    pinned: pinnedDtos,
     posts: page.map((r) => ({
       ...toPostDto(r, { role: args.callerRole }, args.callerId, memberSet),
       prayed: prayedSet.has(r.id),

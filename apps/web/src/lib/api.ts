@@ -169,6 +169,27 @@ export async function saveMyDraft(input: DraftInput): Promise<{ draft: FeedPost 
   });
 }
 
-export async function publishMyDraft(): Promise<{ post: FeedPost }> {
-  return apiFetch<{ post: FeedPost }>('/me/draft/publish', { method: 'POST' });
+export interface PublishMyDraftInput {
+  pin_duration_days?: 1 | 3 | 7 | 14 | 30;
+}
+
+export async function publishMyDraft(input: PublishMyDraftInput = {}): Promise<{ post: FeedPost }> {
+  return apiFetch<{ post: FeedPost }>('/me/draft/publish', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export async function pinPost(
+  postId: string,
+  durationDays: 1 | 3 | 7 | 14 | 30,
+): Promise<{ post: FeedPost }> {
+  return apiFetch<{ post: FeedPost }>(`/mod/posts/${postId}/pin`, {
+    method: 'POST',
+    body: JSON.stringify({ duration_days: durationDays }),
+  });
+}
+
+export async function unpinPost(postId: string): Promise<{ post: FeedPost }> {
+  return apiFetch<{ post: FeedPost }>(`/mod/posts/${postId}/unpin`, { method: 'POST' });
 }

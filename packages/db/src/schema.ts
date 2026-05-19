@@ -49,6 +49,9 @@ export interface PostsTable {
   moderated_by: string | null;
   moderated_at: Date | null;
   created_at: Generated<Timestamp>;
+  pinned_at: Date | null;
+  pin_until: Date | null;
+  pinned_by: string | null;
 }
 
 export interface CommentsTable {

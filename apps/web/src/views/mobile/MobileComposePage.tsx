@@ -3,6 +3,8 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import { DEFAULT_EXPIRY_DAYS, ExpiryPicker } from '../../components/ExpiryPicker';
+import { DEFAULT_PIN_DAYS, PinDurationPicker } from '../../components/PinDurationPicker';
+import { useAuth } from '../../hooks/useAuth';
 import { useDraft } from '../../hooks/useDraft';
 import { ApiError, publishMyDraft } from '../../lib/api';
 
@@ -22,11 +24,15 @@ function buildExpiresAt(days: number): string {
 
 export function MobileComposePage(): JSX.Element {
   const navigate = useNavigate();
+  const { me } = useAuth();
   const { draft, loading, save, flush, saving, error: draftError } = useDraft();
+
+  const isPrivileged = me?.role === 'moderator' || me?.role === 'super_user';
 
   const [body, setBody] = useState('');
   const [days, setDays] = useState<number>(DEFAULT_EXPIRY_DAYS);
   const [isAnonymous, setAnonymous] = useState(false);
+  const [pinDays, setPinDays] = useState<number | null>(null);
   const [publishError, setPublishError] = useState<string | null>(null);
   const [publishing, setPublishing] = useState(false);
   const hydrated = useRef(false);
@@ -56,7 +62,9 @@ export function MobileComposePage(): JSX.Element {
     setPublishing(true);
     try {
       await flush();
-      await publishMyDraft();
+      await publishMyDraft(
+        pinDays !== null ? { pin_duration_days: pinDays as 1 | 3 | 7 | 14 | 30 } : {},
+      );
       navigate('/');
     } catch (err) {
       setPublishError(err instanceof ApiError ? err.message : 'Something went wrong');
@@ -111,6 +119,26 @@ export function MobileComposePage(): JSX.Element {
           />
           Post anonymously
         </label>
+        {isPrivileged ? (
+          <div>
+            <label className="flex items-center gap-2 text-sm text-[var(--fg-2)]">
+              <input
+                aria-label="Pin this post"
+                type="checkbox"
+                checked={pinDays !== null}
+                onChange={(e) => {
+                  setPinDays(e.target.checked ? DEFAULT_PIN_DAYS : null);
+                }}
+              />
+              Pin this post
+            </label>
+            {pinDays !== null ? (
+              <div className="mt-2">
+                <PinDurationPicker value={pinDays} onChange={setPinDays} />
+              </div>
+            ) : null}
+          </div>
+        ) : null}
         <div>
           <span className="mb-1 block text-xs font-medium uppercase tracking-[0.06em] text-[var(--fg-3)]">
             Expires after

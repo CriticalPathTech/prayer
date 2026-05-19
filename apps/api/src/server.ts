@@ -45,12 +45,14 @@ async function main(): Promise<void> {
     app as unknown as {
       locals: {
         expirySweeper?: { stop: () => void };
+        pinSweeper?: { stop: () => void };
         eventWorker?: { stop: () => Promise<void> } | null;
       };
     }
   ).locals;
   const shutdown = async (): Promise<void> => {
     locals.expirySweeper?.stop();
+    locals.pinSweeper?.stop();
     await locals.eventWorker?.stop();
     process.exit(0);
   };

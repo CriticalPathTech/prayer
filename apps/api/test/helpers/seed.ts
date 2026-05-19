@@ -92,6 +92,7 @@ export interface TestPostInput {
   parentId?: string | null;
   expiresAt?: Date;
   editDeadline?: Date;
+  pinned?: { byUserId: string; durationDays: 1 | 3 | 7 | 14 | 30 };
 }
 
 export async function insertPost(
@@ -100,6 +101,7 @@ export async function insertPost(
 ): Promise<{ id: string }> {
   const id = newId();
   const now = new Date();
+  const pinned = input.pinned;
   await db
     .insertInto('posts')
     .values({
@@ -112,6 +114,13 @@ export async function insertPost(
       body: input.body ?? 'Please pray.',
       expires_at: input.expiresAt ?? new Date(now.getTime() + 30 * 24 * 3600_000),
       edit_deadline: input.editDeadline ?? new Date(now.getTime() + 3600_000),
+      ...(pinned !== undefined
+        ? {
+            pinned_at: now,
+            pin_until: new Date(now.getTime() + pinned.durationDays * 24 * 3600_000),
+            pinned_by: pinned.byUserId,
+          }
+        : {}),
     })
     .execute();
   return { id };

@@ -3,6 +3,8 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import type { FeedPost } from '../hooks/useFeed';
+
 import { PostCard } from './PostCard';
 
 const apiFetchMock = vi.fn();
@@ -44,6 +46,8 @@ describe('PostCard Answered Prayer', () => {
     expires_at: null,
     edit_deadline: new Date(Date.now() + 3600_000).toISOString(),
     created_at: new Date().toISOString(),
+    pinned_at: null,
+    pinned_by: null,
     prayed: false,
     reactions: {},
     is_own_post: false,
@@ -144,6 +148,8 @@ describe('PostCard inline updates', () => {
     expires_at: null,
     edit_deadline: new Date(Date.now() + 3600_000).toISOString(),
     created_at: new Date().toISOString(),
+    pinned_at: null,
+    pinned_by: null,
     prayed: false,
     reactions: {},
     is_own_post: false,
@@ -306,6 +312,85 @@ describe('PostCard inline updates', () => {
   });
 });
 
+describe('PostCard pinned variant', () => {
+  const pinnedBase: FeedPost = {
+    id: 'p-pinned',
+    parent_id: null,
+    author_id: 'other',
+    display_name: 'Mary',
+    avatar_url: null,
+    status: 'published' as const,
+    is_anonymous: false,
+    is_answered_prayer: false,
+    body: 'Please pray.',
+    reaction_count: 0,
+    prayer_count: 0,
+    updates: [],
+    expires_at: null,
+    edit_deadline: new Date(Date.now() + 3600_000).toISOString(),
+    created_at: new Date().toISOString(),
+    pinned_at: null,
+    pinned_by: null,
+    prayed: false,
+    reactions: {},
+    is_own_post: false,
+    hidden_by: null,
+    hidden_source: null,
+    is_former_member: false,
+  };
+
+  function makePost(overrides: Partial<FeedPost> = {}): FeedPost {
+    return { ...pinnedBase, ...overrides };
+  }
+
+  it('renders "PINNED BY [name]" ribbon when post.pinned_at is set', () => {
+    const post = makePost({
+      pinned_at: '2026-05-01T12:00:00Z',
+      pinned_by: { id: 'm1', display_name: 'Pastor Jon' },
+    });
+    render(
+      <MemoryRouter>
+        <PostCard post={post} />
+      </MemoryRouter>,
+    );
+    expect(screen.getByText(/Pinned/i)).toBeInTheDocument();
+    expect(screen.getByText('Pastor Jon')).toBeInTheDocument();
+  });
+
+  it('renders "Pinned" (no by-name) when pinned_at is set but pinned_by is null (defensive)', () => {
+    const post = makePost({ pinned_at: '2026-05-01T12:00:00Z', pinned_by: null });
+    render(
+      <MemoryRouter>
+        <PostCard post={post} />
+      </MemoryRouter>,
+    );
+    expect(screen.getByText(/^Pinned$/i)).toBeInTheDocument();
+  });
+
+  it('does not render the ribbon when pinned_at is null', () => {
+    const post = makePost({ pinned_at: null, pinned_by: null });
+    render(
+      <MemoryRouter>
+        <PostCard post={post} />
+      </MemoryRouter>,
+    );
+    expect(screen.queryByText(/^Pinned/i)).not.toBeInTheDocument();
+  });
+
+  it('does not surface a remaining-duration countdown', () => {
+    const post = makePost({
+      pinned_at: '2026-05-01T12:00:00Z',
+      pinned_by: { id: 'm1', display_name: 'Pastor Jon' },
+    });
+    render(
+      <MemoryRouter>
+        <PostCard post={post} />
+      </MemoryRouter>,
+    );
+    expect(screen.queryByText(/expires in|days? left/i)).not.toBeInTheDocument();
+  });
+});
+
 describe('PostCard kebab menu', () => {
   const base = {
     id: 'p1',
@@ -323,6 +408,8 @@ describe('PostCard kebab menu', () => {
     expires_at: null,
     edit_deadline: new Date(Date.now() + 3600_000).toISOString(),
     created_at: new Date().toISOString(),
+    pinned_at: null,
+    pinned_by: null,
     prayed: false,
     reactions: {},
     is_own_post: false,

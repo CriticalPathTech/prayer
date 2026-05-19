@@ -12,6 +12,7 @@ import { expiringSoon, formatAgo } from '../lib/time';
 import { FlagCountPill } from './FlagCountPill';
 import { HiddenBanner } from './HiddenBanner';
 import { HideTombstone } from './HideTombstone';
+import { PinnedByRibbon } from './PinnedByRibbon';
 import { PostMenu } from './PostMenu';
 import { PrayButton } from './PrayButton';
 import { UpdatePostItem } from './UpdatePostItem';
@@ -89,14 +90,24 @@ export function PostCard({ post, onChange, onRepost }: PostCardProps): JSX.Eleme
   // it's older than the 3 most-recent slice.
   const showRibbon = answered && inlineUpdates.every((u) => !u.is_answered_prayer);
 
+  const isPinned = post.pinned_at !== null;
+
   const cardClass = [
     'rounded-md border bg-[var(--bg-raised)] p-5 shadow-warm-sm mb-4',
     'transition-all duration-200 motion-safe:hover:-translate-y-[1px] motion-safe:hover:shadow-warm-md',
     cardIsAnswered ? 'border-[var(--answered-border)]' : 'border-[var(--border-soft)]',
-  ].join(' ');
+    isPinned
+      ? 'border-vesper-300/50 bg-gradient-to-b from-vesper-50/60 to-[var(--bg-raised)] shadow-[inset_0_2px_0_theme(colors.vesper.200),var(--shadow-warm-sm)]'
+      : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
 
   return (
     <article className={cardClass}>
+      {isPinned ? (
+        <PinnedByRibbon pinnedBy={post.pinned_by} className="-mx-5 -mt-5 px-5 pt-3 pb-1 mb-2" />
+      ) : null}
       <header className="mb-2.5 flex items-center gap-3">
         <Avatar name={name} avatarUrl={post.avatar_url} anonymous={isOrphanAuthor} size="md" />
         <div className="min-w-0 flex-1">

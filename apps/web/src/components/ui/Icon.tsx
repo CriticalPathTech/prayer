@@ -15,6 +15,7 @@ import MessageCircle from '../../assets/icons/message-circle.svg?react';
 import More from '../../assets/icons/more-horizontal.svg?react';
 import MoreVertical from '../../assets/icons/more-vertical.svg?react';
 import Pencil from '../../assets/icons/pencil-line.svg?react';
+import Pin from '../../assets/icons/pin.svg?react';
 import Plus from '../../assets/icons/plus.svg?react';
 import PrayHands from '../../assets/icons/pray-hands.svg?react';
 import Refresh from '../../assets/icons/refresh-cw.svg?react';
@@ -42,6 +43,7 @@ const REGISTRY = {
   more: More,
   'more-vertical': MoreVertical,
   pen: Pencil,
+  pin: Pin,
   plus: Plus,
   pray: PrayHands,
   refresh: Refresh,
