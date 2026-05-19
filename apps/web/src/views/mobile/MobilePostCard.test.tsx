@@ -130,6 +130,40 @@ describe('MobilePostCard', () => {
     expect(screen.getByText('Please pray.')).toBeInTheDocument();
   });
 
+  it('renders "Pending review" pill when status is pending', () => {
+    render(
+      <MemoryRouter>
+        <MobilePostCard
+          post={makeFeedPost({ status: 'pending', is_own_post: true, author_id: 'me' })}
+        />
+      </MemoryRouter>,
+    );
+    expect(screen.getByText('Pending review')).toBeInTheDocument();
+  });
+
+  it('does not render footer buttons (Pray/Comment) on a pending post', () => {
+    render(
+      <MemoryRouter>
+        <MobilePostCard
+          post={makeFeedPost({ status: 'pending', is_own_post: true, author_id: 'me' })}
+        />
+      </MemoryRouter>,
+    );
+    expect(screen.queryByText(/i will pray/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^comment$/i })).not.toBeInTheDocument();
+  });
+
+  it('does not render the reactions strip on a pending post', () => {
+    render(
+      <MemoryRouter>
+        <MobilePostCard
+          post={makeFeedPost({ status: 'pending', is_own_post: true, author_id: 'me' })}
+        />
+      </MemoryRouter>,
+    );
+    expect(screen.queryByRole('button', { name: /add reaction/i })).not.toBeInTheDocument();
+  });
+
   it('renders tombstone when post is_tombstone', () => {
     render(
       <MemoryRouter>

@@ -378,6 +378,92 @@ describe('PostCard pinned variant', () => {
   });
 });
 
+describe('PostCard pending variant', () => {
+  const base: FeedPost = {
+    id: 'p-pending',
+    parent_id: null,
+    author_id: 'viewer',
+    display_name: 'Mary',
+    avatar_url: null,
+    status: 'pending' as const,
+    is_anonymous: false,
+    is_answered_prayer: false,
+    body: 'Please pray for me.',
+    reaction_count: 0,
+    prayer_count: 0,
+    updates: [],
+    expires_at: null,
+    edit_deadline: new Date(Date.now() + 3600_000).toISOString(),
+    created_at: new Date().toISOString(),
+    pinned_at: null,
+    prayed: false,
+    reactions: {},
+    is_own_post: true,
+    hidden_by: null,
+    hidden_source: null,
+    is_former_member: false,
+  };
+
+  it('renders "Pending review" pill when status is pending', () => {
+    render(
+      <MemoryRouter>
+        <PostCard post={base} />
+      </MemoryRouter>,
+    );
+    expect(screen.getByText('Pending review')).toBeInTheDocument();
+  });
+
+  it('renders the body text so the author can read their submission', () => {
+    render(
+      <MemoryRouter>
+        <PostCard post={base} />
+      </MemoryRouter>,
+    );
+    expect(screen.getByText('Please pray for me.')).toBeInTheDocument();
+  });
+
+  it('does not render PrayButton on a pending post', () => {
+    render(
+      <MemoryRouter>
+        <PostCard post={base} />
+      </MemoryRouter>,
+    );
+    // PrayButton renders a button with "Pray" accessible text
+    expect(screen.queryByRole('button', { name: /pray/i })).not.toBeInTheDocument();
+  });
+
+  it('does not render Comment link on a pending post', () => {
+    render(
+      <MemoryRouter>
+        <PostCard post={base} />
+      </MemoryRouter>,
+    );
+    expect(screen.queryByRole('link', { name: /comment/i })).not.toBeInTheDocument();
+  });
+
+  it('does not render Reactions strip on a pending post', () => {
+    render(
+      <MemoryRouter>
+        <PostCard post={base} />
+      </MemoryRouter>,
+    );
+    // Reactions renders an "Add reaction" button
+    expect(screen.queryByRole('button', { name: /add reaction/i })).not.toBeInTheDocument();
+  });
+
+  it('shows only Delete in the kebab menu for the pending post author', async () => {
+    render(
+      <MemoryRouter>
+        <PostCard post={base} />
+      </MemoryRouter>,
+    );
+    await userEvent.click(screen.getByRole('button', { name: /more actions/i }));
+    expect(screen.getByRole('menuitem', { name: 'Delete' })).toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: 'Edit' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: 'Report' })).not.toBeInTheDocument();
+  });
+});
+
 describe('PostCard kebab menu', () => {
   const base = {
     id: 'p1',

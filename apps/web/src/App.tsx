@@ -12,6 +12,7 @@ import { EditPostPage } from './pages/EditPostPage';
 import { FeedPage } from './pages/FeedPage';
 import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
 import { LoginPage } from './pages/LoginPage';
+import { ModApprovalsPage } from './pages/ModApprovalsPage';
 import { ModInvitesPage } from './pages/ModInvitesPage';
 import { ModQueuePage } from './pages/ModQueuePage';
 import { MyArchivePage } from './pages/MyArchivePage';
@@ -33,6 +34,7 @@ import { MobileFeedPage } from './views/mobile/MobileFeedPage';
 import { MobileForgotPasswordPage } from './views/mobile/MobileForgotPasswordPage';
 import { MobileLayout } from './views/mobile/MobileLayout';
 import { MobileLoginPage } from './views/mobile/MobileLoginPage';
+import { MobileModApprovalsPage } from './views/mobile/MobileModApprovalsPage';
 import { MobileModInvitesPage } from './views/mobile/MobileModInvitesPage';
 import { MobileModQueuePage } from './views/mobile/MobileModQueuePage';
 import { MobileMyInvitesPage } from './views/mobile/MobileMyInvitesPage';
@@ -78,6 +80,9 @@ export function AdaptiveMyInvitesPage(): JSX.Element {
 }
 export function AdaptiveModQueuePage(): JSX.Element {
   return useIsMobileShared() ? <MobileModQueuePage /> : <ModQueuePage />;
+}
+export function AdaptiveModApprovalsPage(): JSX.Element {
+  return useIsMobileShared() ? <MobileModApprovalsPage /> : <ModApprovalsPage />;
 }
 export function AdaptiveModInvitesPage(): JSX.Element {
   return useIsMobileShared() ? <MobileModInvitesPage /> : <ModInvitesPage />;
@@ -140,6 +145,7 @@ export function App(): JSX.Element {
               <Route path="/me/archive" element={<AdaptiveArchivePage />} />
               <Route path="/notifications" element={<AdaptiveNotificationsPage />} />
               <Route path="/mod/queue" element={<AdaptiveModQueuePage />} />
+              <Route path="/mod/approvals" element={<AdaptiveModApprovalsPage />} />
               <Route path="/mod/invites" element={<AdaptiveModInvitesPage />} />
               <Route path="/admin/church" element={<AdaptiveAdminChurchPage />} />
             </Route>

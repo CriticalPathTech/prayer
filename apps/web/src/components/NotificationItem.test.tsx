@@ -101,6 +101,82 @@ describe('NotificationItem', () => {
     expect(screen.getByRole('link')).toHaveAttribute('href', '/posts/p1');
   });
 
+  describe('post.rejected', () => {
+    const baseRejectedNotif = {
+      id: 'n-rej',
+      user_id: 'u',
+      type: 'post.rejected',
+      payload: {
+        post_id: 'p1',
+        moderation_note: null,
+        moderated_by: 'mod-user-id',
+        body_preview: 'Please pray for my family',
+      },
+      read_at: null,
+      created_at: new Date().toISOString(),
+    };
+
+    it('renders the rejection title', () => {
+      render(
+        <MemoryRouter>
+          <NotificationItem notification={baseRejectedNotif} onClick={() => {}} />
+        </MemoryRouter>,
+      );
+      expect(screen.getByText(/a moderator declined your prayer request/i)).toBeInTheDocument();
+    });
+
+    it('includes body_preview in meta', () => {
+      render(
+        <MemoryRouter>
+          <NotificationItem notification={baseRejectedNotif} onClick={() => {}} />
+        </MemoryRouter>,
+      );
+      expect(screen.getByText(/Please pray for my family/)).toBeInTheDocument();
+    });
+
+    it('includes moderation_note when non-null', () => {
+      const n = {
+        ...baseRejectedNotif,
+        payload: { ...baseRejectedNotif.payload, moderation_note: 'Off topic' },
+      };
+      render(
+        <MemoryRouter>
+          <NotificationItem notification={n} onClick={() => {}} />
+        </MemoryRouter>,
+      );
+      expect(screen.getByText(/Off topic/)).toBeInTheDocument();
+    });
+
+    it('omits moderation_note section when null', () => {
+      render(
+        <MemoryRouter>
+          <NotificationItem notification={baseRejectedNotif} onClick={() => {}} />
+        </MemoryRouter>,
+      );
+      expect(screen.queryByText(/Off topic/)).not.toBeInTheDocument();
+    });
+
+    it('links to /me/archive', () => {
+      render(
+        <MemoryRouter>
+          <NotificationItem notification={baseRejectedNotif} onClick={() => {}} />
+        </MemoryRouter>,
+      );
+      expect(screen.getByRole('link')).toHaveAttribute('href', '/me/archive');
+    });
+
+    it('calls onClick with notification id when clicked', async () => {
+      const onClick = vi.fn();
+      render(
+        <MemoryRouter>
+          <NotificationItem notification={baseRejectedNotif} onClick={onClick} />
+        </MemoryRouter>,
+      );
+      await userEvent.click(screen.getByRole('link'));
+      expect(onClick).toHaveBeenCalledWith('n-rej');
+    });
+  });
+
   it('renders invite.accepted with link to /me/invites', () => {
     const n = {
       id: 'n3',

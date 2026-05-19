@@ -22,6 +22,9 @@ export interface Me {
   /** Org display name (church name). Optional so test fixtures can omit it;
    * absent or empty falls back to the "Prayer" wordmark in the header. */
   orgDisplayName?: string;
+  /** Whether this org requires moderator approval before posts go live.
+   * Drives the "Pending approval" tab visibility in ModTabs. */
+  orgRequiresPostApproval?: boolean;
 }
 
 interface AuthState {
@@ -43,7 +46,7 @@ interface MeDto {
   avatar_url?: string | null;
   avatarUrl?: string | null;
   role: 'member' | 'moderator' | 'super_user';
-  org?: { displayName?: string } | null;
+  org?: { displayName?: string; requiresPostApproval?: boolean } | null;
 }
 
 function toMe(dto: MeDto): Me {
@@ -54,6 +57,7 @@ function toMe(dto: MeDto): Me {
     avatarUrl: dto.avatarUrl ?? dto.avatar_url ?? null,
     role: dto.role,
     orgDisplayName: dto.org?.displayName ?? '',
+    orgRequiresPostApproval: dto.org?.requiresPostApproval ?? false,
   };
 }
 

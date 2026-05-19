@@ -61,7 +61,14 @@ export async function fetchFeed(
     ])
     .where('posts.org_id', '=', args.orgId)
     .where('posts.parent_id', 'is', null)
-    .$if(!isPrivileged, (b) => b.where('posts.status', '=', 'published'))
+    .$if(!isPrivileged, (b) =>
+      b.where((eb) =>
+        eb.or([
+          eb('posts.status', '=', 'published'),
+          eb.and([eb('posts.status', '=', 'pending'), eb('posts.author_id', '=', args.callerId)]),
+        ]),
+      ),
+    )
     .$if(isPrivileged, (b) => b.where('posts.status', 'in', ['published', 'hidden']))
     .where((eb) =>
       eb.or([eb('posts.expires_at', 'is', null), eb('posts.expires_at', '>', new Date())]),

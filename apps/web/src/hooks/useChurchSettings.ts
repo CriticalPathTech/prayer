@@ -10,6 +10,7 @@ export interface UpdatedOrg {
 
 export interface UseChurchSettingsResult {
   updateDisplayName: (displayName: string) => Promise<UpdatedOrg>;
+  updateApprovalFlag: (displayName: string, requiresPostApproval: boolean) => Promise<UpdatedOrg>;
   saving: boolean;
   error: Error | null;
 }
@@ -35,5 +36,25 @@ export function useChurchSettings(): UseChurchSettingsResult {
     }
   }, []);
 
-  return { updateDisplayName, saving, error };
+  const updateApprovalFlag = useCallback(
+    async (displayName: string, requiresPostApproval: boolean): Promise<UpdatedOrg> => {
+      setSaving(true);
+      setError(null);
+      try {
+        const res = await apiFetch<{ org: UpdatedOrg }>('/admin/church/settings', {
+          method: 'PATCH',
+          body: JSON.stringify({ displayName, requiresPostApproval }),
+        });
+        return res.org;
+      } catch (err) {
+        setError(err as Error);
+        throw err;
+      } finally {
+        setSaving(false);
+      }
+    },
+    [],
+  );
+
+  return { updateDisplayName, updateApprovalFlag, saving, error };
 }

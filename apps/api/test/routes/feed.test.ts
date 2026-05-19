@@ -43,6 +43,43 @@ describe('GET /feed', () => {
     expect(res.body.snapshotId).toBe(res.body.posts[0].id);
   });
 
+  it("author's own pending post appears in their feed", async () => {
+    const author = await insertUser(ctx.db, { orgId });
+    const token = await mintTestJwt({ sub: author.supabaseAuthId, email: author.email });
+    const pending = await insertPost(ctx.db, { authorId: author.id, orgId, status: 'pending' });
+    const res = await request(ctx.app)
+      .get('/feed?filter=all')
+      .set('Authorization', `Bearer ${token}`);
+    expect(res.status).toBe(200);
+    expect(res.body.posts).toHaveLength(1);
+    expect(res.body.posts[0].id).toBe(pending.id);
+    expect(res.body.posts[0].status).toBe('pending');
+  });
+
+  it("another member cannot see the author's pending post", async () => {
+    const author = await insertUser(ctx.db, { orgId });
+    const other = await insertUser(ctx.db, { orgId });
+    const otherToken = await mintTestJwt({ sub: other.supabaseAuthId, email: other.email });
+    await insertPost(ctx.db, { authorId: author.id, orgId, status: 'pending' });
+    const res = await request(ctx.app)
+      .get('/feed?filter=all')
+      .set('Authorization', `Bearer ${otherToken}`);
+    expect(res.status).toBe(200);
+    expect(res.body.posts).toHaveLength(0);
+  });
+
+  it('moderator does not see pending posts on the wall (only via /mod/approvals)', async () => {
+    const author = await insertUser(ctx.db, { orgId });
+    const moderator = await insertUser(ctx.db, { orgId, role: 'moderator' });
+    const modToken = await mintTestJwt({ sub: moderator.supabaseAuthId, email: moderator.email });
+    await insertPost(ctx.db, { authorId: author.id, orgId, status: 'pending' });
+    const res = await request(ctx.app)
+      .get('/feed?filter=all')
+      .set('Authorization', `Bearer ${modToken}`);
+    expect(res.status).toBe(200);
+    expect(res.body.posts).toHaveLength(0);
+  });
+
   it('excludes hidden posts for members', async () => {
     const author = await insertUser(ctx.db, { orgId });
     const member = await insertUser(ctx.db, { orgId });
