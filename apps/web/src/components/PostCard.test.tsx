@@ -366,6 +366,26 @@ describe('PostCard pinned variant', () => {
     expect(article!.className).not.toContain('from-vesper-50');
   });
 
+  it('renders an inline pin icon (a11y-labeled) when pinned, in the metadata row', () => {
+    const post = makePost({ pinned_at: '2026-05-01T12:00:00Z' });
+    render(
+      <MemoryRouter>
+        <PostCard post={post} />
+      </MemoryRouter>,
+    );
+    expect(screen.getByRole('img', { name: /pinned/i })).toBeInTheDocument();
+  });
+
+  it('does not render the pin icon when pinned_at is null', () => {
+    const post = makePost({ pinned_at: null });
+    render(
+      <MemoryRouter>
+        <PostCard post={post} />
+      </MemoryRouter>,
+    );
+    expect(screen.queryByRole('img', { name: /pinned/i })).not.toBeInTheDocument();
+  });
+
   it('does not surface a "Pinned" text caption or remaining-duration countdown', () => {
     const post = makePost({ pinned_at: '2026-05-01T12:00:00Z' });
     render(
@@ -373,6 +393,8 @@ describe('PostCard pinned variant', () => {
         <PostCard post={post} />
       </MemoryRouter>,
     );
+    // No visible "Pinned" text — only the a11y-labeled icon. queryByText
+    // matches visible text, not aria-label.
     expect(screen.queryByText(/^Pinned/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/expires in|days? left/i)).not.toBeInTheDocument();
   });

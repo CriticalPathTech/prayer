@@ -79,7 +79,14 @@ export function MobilePostDetailPage(): JSX.Element {
               <div className="font-serif text-[15px] font-semibold text-[var(--fg-1)]">
                 {post.is_anonymous ? 'Anonymous' : (post.display_name ?? 'Anonymous')}
               </div>
-              <div className="mt-0.5 text-xs text-[var(--fg-3)]">{formatAgo(post.created_at)}</div>
+              <div className="mt-0.5 flex items-center gap-1.5 text-xs text-[var(--fg-3)]">
+                {post.pinned_at !== null ? (
+                  <span role="img" aria-label="Pinned" title="Pinned" className="inline-flex">
+                    <Icon name="pin" size={14} className="text-vesper-500 rotate-[35deg]" />
+                  </span>
+                ) : null}
+                <span>{formatAgo(post.created_at)}</span>
+              </div>
             </div>
             <PostMenu
               postId={post.id}
