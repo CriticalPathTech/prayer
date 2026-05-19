@@ -61,13 +61,6 @@ export function MobileModHiddenPage(): JSX.Element {
               >
                 Unhide
               </button>
-              <button
-                type="button"
-                onClick={() => void queue.dismissFlags(it.target_type, it.target_id)}
-                className="inline-flex h-9 items-center rounded-md border border-[var(--border-soft)] bg-[var(--bg-page)] px-3 text-[13px] font-medium text-[var(--fg-2)] active:bg-parchment-100"
-              >
-                Dismiss
-              </button>
               <Link
                 to={`/posts/${it.post_id}`}
                 className="inline-flex h-9 items-center rounded-md px-3 text-[13px] font-medium text-vesper-600 active:bg-parchment-100"

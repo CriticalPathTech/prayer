@@ -41,12 +41,6 @@ export function ModHiddenPage(): JSX.Element {
               >
                 Unhide
               </button>
-              <button
-                onClick={() => void queue.dismissFlags(it.target_type, it.target_id)}
-                className="rounded border px-2 py-1 hover:bg-gray-100"
-              >
-                Dismiss flags
-              </button>
               <Link
                 to={`/posts/${it.post_id}`}
                 className="rounded border px-2 py-1 hover:bg-gray-100"
