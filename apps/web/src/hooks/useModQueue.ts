@@ -17,6 +17,7 @@ export interface ModQueueItem {
 }
 
 type Status = 'pending' | 'auto_hidden' | 'manually_hidden';
+export type ModQueueStatus = Status;
 
 export interface UseModQueueResult {
   items: ModQueueItem[];
@@ -28,7 +29,7 @@ export interface UseModQueueResult {
   dismissFlags: (targetType: 'post' | 'comment', id: string) => Promise<void>;
 }
 
-export function useModQueue(status: Status): UseModQueueResult {
+export function useModQueue(status?: Status): UseModQueueResult {
   const [items, setItems] = useState<ModQueueItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -37,7 +38,8 @@ export function useModQueue(status: Status): UseModQueueResult {
     setLoading(true);
     setError(null);
     try {
-      const res = await apiFetch<{ items: ModQueueItem[] }>(`/mod/queue?status=${status}`);
+      const path = status ? `/mod/queue?status=${status}` : '/mod/queue';
+      const res = await apiFetch<{ items: ModQueueItem[] }>(path);
       setItems(res.items);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load');

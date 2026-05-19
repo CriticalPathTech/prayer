@@ -60,7 +60,7 @@ describe('MobileModQueuePage', () => {
     expect(screen.getByText(/4 flags/i)).toBeInTheDocument();
   });
 
-  it('renders 3 status pills', () => {
+  it('calls useModQueue with no status filter (combined list)', () => {
     useAuthMock.mockReturnValue({
       me: { id: 'me', email: 'm@t.local', displayName: 'Mod', avatarUrl: null, role: 'moderator' },
     });
@@ -69,22 +69,9 @@ describe('MobileModQueuePage', () => {
         <MobileModQueuePage />
       </MemoryRouter>,
     );
-    expect(screen.getByRole('button', { name: /^pending$/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /^auto-hidden$/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /^manually hidden$/i })).toBeInTheDocument();
-  });
-
-  it('clicking a status pill changes the queue status', async () => {
-    useAuthMock.mockReturnValue({
-      me: { id: 'me', email: 'm@t.local', displayName: 'Mod', avatarUrl: null, role: 'moderator' },
-    });
-    render(
-      <MemoryRouter>
-        <MobileModQueuePage />
-      </MemoryRouter>,
-    );
-    await userEvent.click(screen.getByRole('button', { name: /^auto-hidden$/i }));
-    expect(useModQueueMock).toHaveBeenLastCalledWith('auto_hidden');
+    expect(useModQueueMock).toHaveBeenLastCalledWith(undefined);
+    expect(screen.queryByRole('button', { name: /^auto-hidden$/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^manually hidden$/i })).not.toBeInTheDocument();
   });
 
   it('Hide button calls hideTarget when item is not hidden', async () => {

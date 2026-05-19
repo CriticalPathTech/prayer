@@ -1,5 +1,4 @@
 import type { JSX } from 'react';
-import { useState } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 
 import { ModTabs } from '../components/ModTabs';
@@ -7,18 +6,9 @@ import { useAuth } from '../hooks/useAuth';
 import { useModQueue } from '../hooks/useModQueue';
 import { isPrivilegedRole } from '../lib/roles';
 
-type Status = 'pending' | 'auto_hidden' | 'manually_hidden';
-const TABS: Status[] = ['pending', 'auto_hidden', 'manually_hidden'];
-const LABELS: Record<Status, string> = {
-  pending: 'Pending',
-  auto_hidden: 'Auto-hidden',
-  manually_hidden: 'Manually hidden',
-};
-
 export function ModQueuePage(): JSX.Element {
   const { me } = useAuth();
-  const [status, setStatus] = useState<Status>('pending');
-  const queue = useModQueue(status);
+  const queue = useModQueue();
 
   if (!me) return <div>Loading…</div>;
   if (!isPrivilegedRole(me.role)) return <Navigate to="/" replace />;
@@ -26,18 +16,6 @@ export function ModQueuePage(): JSX.Element {
   return (
     <div className="space-y-3">
       <ModTabs />
-      <h1 className="text-lg font-semibold">Moderation queue</h1>
-      <div className="flex gap-2 border-b">
-        {TABS.map((t) => (
-          <button
-            key={t}
-            onClick={() => setStatus(t)}
-            className={`px-3 py-2 text-sm ${status === t ? 'border-b-2 border-blue-600 font-medium' : 'text-gray-600'}`}
-          >
-            {LABELS[t]}
-          </button>
-        ))}
-      </div>
       {queue.loading ? <div>Loading…</div> : null}
       {queue.error ? <div className="text-red-600">{queue.error}</div> : null}
       {queue.items.length === 0 && !queue.loading ? (
@@ -49,6 +27,15 @@ export function ModQueuePage(): JSX.Element {
             <div className="text-xs text-gray-500">
               {it.target_type} · {it.flag_count} flag{it.flag_count === 1 ? '' : 's'} ·{' '}
               {it.reasons.join(', ')}
+              {it.hidden ? (
+                <>
+                  {' '}
+                  ·{' '}
+                  <span className="text-ember-600">
+                    {it.hide_source === 'auto' ? 'Auto-hidden' : 'Hidden'}
+                  </span>
+                </>
+              ) : null}
             </div>
             <p className="mt-1 text-sm">{it.preview}</p>
             <div className="mt-2 flex gap-2 text-xs">
