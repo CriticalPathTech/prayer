@@ -22,8 +22,18 @@ export function MobileFeedPage(): JSX.Element {
   const { openDrawer } = useOutletContext<MobileLayoutContext>();
   const [searchParams] = useSearchParams();
   const urlFilter = parseFilter(searchParams.get('filter'));
-  const { posts, filter, setFilter, loading, error, hasMore, loadMore, snapshotId, refresh } =
-    useFeed({ initialFilter: urlFilter });
+  const {
+    posts,
+    pinned,
+    filter,
+    setFilter,
+    loading,
+    error,
+    hasMore,
+    loadMore,
+    snapshotId,
+    refresh,
+  } = useFeed({ initialFilter: urlFilter });
   const notif = useNotifications();
   const { me } = useAuth();
   const [hasNew, setHasNew] = useState(false);
@@ -69,6 +79,9 @@ export function MobileFeedPage(): JSX.Element {
             <p className="font-serif text-[18px] text-[var(--fg-3)]">Nothing on the wall yet.</p>
           </div>
         ) : null}
+        {pinned.map((p) => (
+          <MobilePostCard key={p.id} post={p} onChange={() => void refresh()} />
+        ))}
         {posts.map((p) => (
           <MobilePostCard key={p.id} post={p} onChange={() => void refresh()} />
         ))}

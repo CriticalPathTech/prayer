@@ -146,6 +146,49 @@ describe('FeedPage', () => {
     expect(feedFetch.mock.calls[1]![0]).toContain('cursor=abc');
   });
 
+  it('renders pinned posts above chronological posts', async () => {
+    feedFetch.mockResolvedValueOnce({
+      posts: [post({ id: 'chrono-1', body: 'chrono content' })],
+      pinned: [
+        post({
+          id: 'pinned-1',
+          body: 'pinned content',
+          pinned_at: new Date().toISOString(),
+          pinned_by: { id: 'mod1', display_name: 'Mod One' },
+        }),
+      ],
+      nextCursor: null,
+      snapshotId: 's1',
+    });
+    render(
+      <MemoryRouter>
+        <FeedPage />
+      </MemoryRouter>,
+    );
+    await screen.findByText('pinned content');
+    await screen.findByText('chrono content');
+
+    const allText = document.body.textContent ?? '';
+    expect(allText.indexOf('pinned content')).toBeLessThan(allText.indexOf('chrono content'));
+    expect(screen.getByText(/Mod One/i)).toBeInTheDocument();
+  });
+
+  it('does not show "Pinned by" text when pinned is empty', async () => {
+    feedFetch.mockResolvedValueOnce({
+      posts: [post({ body: 'regular post' })],
+      pinned: [],
+      nextCursor: null,
+      snapshotId: 's1',
+    });
+    render(
+      <MemoryRouter>
+        <FeedPage />
+      </MemoryRouter>,
+    );
+    await screen.findByText('regular post');
+    expect(screen.queryByText(/pinned by/i)).not.toBeInTheDocument();
+  });
+
   it('shows NewActivityBanner when remote snapshotId differs, and refreshes on click', async () => {
     // 1st feedFetch call: /feed mount — snapshotId 's1', empty list
     // snapshotFetch call: /feed/snapshot polled — returns 's2' (new activity)
