@@ -19,10 +19,10 @@ export interface FeedPost {
   expires_at: string | null;
   edit_deadline: string;
   created_at: string;
-  /** ISO timestamp when this post was pinned; null when not pinned. */
+  /** ISO timestamp when this post was pinned; null when not pinned.
+   * Drives the vesper card-pinned styling client-side. The server stores
+   * `posts.pinned_by` for audit but does not project it. */
   pinned_at: string | null;
-  /** Mod or super_user who pinned this post; null when not pinned. */
-  pinned_by: { id: string; display_name: string } | null;
   prayed: boolean;
   reactions: Record<string, { count: number; mine: boolean }>;
   is_own_post: boolean;

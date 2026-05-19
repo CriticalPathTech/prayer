@@ -12,7 +12,6 @@ import { expiringSoon, formatAgo } from '../lib/time';
 import { FlagCountPill } from './FlagCountPill';
 import { HiddenBanner } from './HiddenBanner';
 import { HideTombstone } from './HideTombstone';
-import { PinnedByRibbon } from './PinnedByRibbon';
 import { PostMenu } from './PostMenu';
 import { PrayButton } from './PrayButton';
 import { UpdatePostItem } from './UpdatePostItem';
@@ -105,9 +104,6 @@ export function PostCard({ post, onChange, onRepost }: PostCardProps): JSX.Eleme
 
   return (
     <article className={cardClass}>
-      {isPinned ? (
-        <PinnedByRibbon pinnedBy={post.pinned_by} className="-mx-5 -mt-5 px-5 pt-3 pb-1 mb-2" />
-      ) : null}
       <header className="mb-2.5 flex items-center gap-3">
         <Avatar name={name} avatarUrl={post.avatar_url} anonymous={isOrphanAuthor} size="md" />
         <div className="min-w-0 flex-1">

@@ -32,10 +32,6 @@ export interface PostRow {
   edit_deadline: Date;
   created_at: Date;
   pinned_at: Date | null;
-  /** Populated via a LEFT JOIN on users for posts whose pinned_by is set.
-   * All three pin fields arrive together or are all null. */
-  pinned_by_id: string | null;
-  pinned_by_display_name: string | null;
   /** Populated via a lateral join on the latest `moderator.hide` event.
    * All three fields arrive together or are all null. */
   hidden_by_id?: string | null;
@@ -65,13 +61,10 @@ export interface PostDto {
   expires_at: string | null;
   edit_deadline: string;
   created_at: string;
-  /** ISO timestamp when this post was pinned; null when not pinned. */
+  /** ISO timestamp when this post was pinned; null when not pinned.
+   * Drives the vesper card-pinned styling client-side. The pinner's identity
+   * is stored on `posts.pinned_by` for audit but not projected through reads. */
   pinned_at: string | null;
-  /** Mod or super_user who pinned this post. Surfaced for the "PINNED BY ..."
-   * ribbon; null when not pinned. Pin state and pinner identity are public
-   * even when the post itself is anonymous (the pinner acts in their
-   * moderator capacity, separate from author identity). */
-  pinned_by: { id: string; display_name: string } | null;
   /** True when the caller authored this post. Computed from the real
    * author_id before anonymity masking, so clients can tell "mine vs
    * not mine" without seeing the identity of anonymous authors. */
@@ -140,7 +133,6 @@ export function toPostDto(
       edit_deadline: row.edit_deadline.toISOString(),
       created_at: row.created_at.toISOString(),
       pinned_at: null,
-      pinned_by: null,
       is_own_post: false,
       hidden_by: null,
       hidden_source: null,
@@ -174,10 +166,6 @@ export function toPostDto(
     edit_deadline: row.edit_deadline.toISOString(),
     created_at: row.created_at.toISOString(),
     pinned_at: row.pinned_at ? row.pinned_at.toISOString() : null,
-    pinned_by:
-      row.pinned_by_id && row.pinned_by_display_name
-        ? { id: row.pinned_by_id, display_name: row.pinned_by_display_name }
-        : null,
     is_own_post: isAuthor,
     hidden_by: hiddenBy,
     hidden_source: hiddenSource,
@@ -223,7 +211,6 @@ export async function fetchPostRow(
   const row = await db
     .selectFrom('posts')
     .innerJoin('users', 'users.id', 'posts.author_id')
-    .leftJoin('users as pinner', 'pinner.id', 'posts.pinned_by')
     .select([
       'posts.id',
       'posts.parent_id',
@@ -240,8 +227,6 @@ export async function fetchPostRow(
       'posts.edit_deadline',
       'posts.created_at',
       'posts.pinned_at',
-      'posts.pinned_by as pinned_by_id',
-      'pinner.display_name as pinned_by_display_name',
     ])
     .where('posts.id', '=', args.postId)
     .where('posts.org_id', '=', args.orgId)
@@ -459,7 +444,6 @@ export async function getPostWithUpdates(
   const parentRow = await db
     .selectFrom('posts')
     .innerJoin('users', 'users.id', 'posts.author_id')
-    .leftJoin('users as pinner', 'pinner.id', 'posts.pinned_by')
     .select([
       'posts.id',
       'posts.parent_id',
@@ -476,8 +460,6 @@ export async function getPostWithUpdates(
       'posts.edit_deadline',
       'posts.created_at',
       'posts.pinned_at',
-      'posts.pinned_by as pinned_by_id',
-      'pinner.display_name as pinned_by_display_name',
     ])
     .where('posts.id', '=', args.postId)
     .where('posts.org_id', '=', args.orgId)
@@ -506,7 +488,6 @@ export async function getPostWithUpdates(
     db
       .selectFrom('posts')
       .innerJoin('users', 'users.id', 'posts.author_id')
-      .leftJoin('users as pinner', 'pinner.id', 'posts.pinned_by')
       .select([
         'posts.id',
         'posts.parent_id',
@@ -523,8 +504,6 @@ export async function getPostWithUpdates(
         'posts.edit_deadline',
         'posts.created_at',
         'posts.pinned_at',
-        'posts.pinned_by as pinned_by_id',
-        'pinner.display_name as pinned_by_display_name',
       ])
       .where('posts.parent_id', '=', args.postId)
       .orderBy('posts.created_at', 'asc')

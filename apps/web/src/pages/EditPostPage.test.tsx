@@ -37,7 +37,6 @@ const samplePost: FeedPost = {
   edit_deadline: new Date(Date.now() + 3600_000).toISOString(),
   created_at: new Date().toISOString(),
   pinned_at: null,
-  pinned_by: null,
   prayed: false,
   reactions: {},
   is_own_post: true,

@@ -20,8 +20,6 @@ const base: PostRow = {
   edit_deadline: new Date('2026-04-18T01:00:00Z'),
   created_at: new Date('2026-04-18T00:00:00Z'),
   pinned_at: null,
-  pinned_by_id: null,
-  pinned_by_display_name: null,
 };
 
 describe('toPostDto', () => {
@@ -103,45 +101,26 @@ describe('toPostDto pin fields', () => {
     edit_deadline: new Date('2030-01-01T00:00:00Z'),
     created_at: new Date('2026-01-01T00:00:00Z'),
     pinned_at: null,
-    pinned_by_id: null,
-    pinned_by_display_name: null,
   };
 
-  it('returns pinned_at + pinned_by: null when row is not pinned', () => {
+  it('returns pinned_at: null when row is not pinned', () => {
     const dto = toPostDto(baseRow, { role: 'member' });
     expect(dto.pinned_at).toBeNull();
-    expect(dto.pinned_by).toBeNull();
   });
 
-  it('returns pinned_at as ISO and pinned_by as { id, display_name } when row is pinned', () => {
+  it('returns pinned_at as ISO when row is pinned', () => {
     const pinnedAt = new Date('2026-05-01T12:00:00Z');
-    const dto = toPostDto(
-      {
-        ...baseRow,
-        pinned_at: pinnedAt,
-        pinned_by_id: 'mod-1',
-        pinned_by_display_name: 'Pastor Jon',
-      },
-      { role: 'member' },
-    );
+    const dto = toPostDto({ ...baseRow, pinned_at: pinnedAt }, { role: 'member' });
     expect(dto.pinned_at).toBe(pinnedAt.toISOString());
-    expect(dto.pinned_by).toEqual({ id: 'mod-1', display_name: 'Pastor Jon' });
   });
 
-  it('keeps pin fields visible on anonymous posts to non-super_user (pinner identity is intentional)', () => {
+  it('keeps pinned_at visible on anonymous posts to non-super_user', () => {
     const pinnedAt = new Date('2026-05-01T12:00:00Z');
     const dto = toPostDto(
-      {
-        ...baseRow,
-        is_anonymous: true,
-        pinned_at: pinnedAt,
-        pinned_by_id: 'mod-1',
-        pinned_by_display_name: 'Pastor Jon',
-      },
+      { ...baseRow, is_anonymous: true, pinned_at: pinnedAt },
       { role: 'member' },
     );
     expect(dto.author_id).toBeNull();
     expect(dto.pinned_at).toBe(pinnedAt.toISOString());
-    expect(dto.pinned_by).toEqual({ id: 'mod-1', display_name: 'Pastor Jon' });
   });
 });

@@ -47,7 +47,6 @@ describe('PostCard Answered Prayer', () => {
     edit_deadline: new Date(Date.now() + 3600_000).toISOString(),
     created_at: new Date().toISOString(),
     pinned_at: null,
-    pinned_by: null,
     prayed: false,
     reactions: {},
     is_own_post: false,
@@ -149,7 +148,6 @@ describe('PostCard inline updates', () => {
     edit_deadline: new Date(Date.now() + 3600_000).toISOString(),
     created_at: new Date().toISOString(),
     pinned_at: null,
-    pinned_by: null,
     prayed: false,
     reactions: {},
     is_own_post: false,
@@ -330,7 +328,6 @@ describe('PostCard pinned variant', () => {
     edit_deadline: new Date(Date.now() + 3600_000).toISOString(),
     created_at: new Date().toISOString(),
     pinned_at: null,
-    pinned_by: null,
     prayed: false,
     reactions: {},
     is_own_post: false,
@@ -343,50 +340,40 @@ describe('PostCard pinned variant', () => {
     return { ...pinnedBase, ...overrides };
   }
 
-  it('renders "PINNED BY [name]" ribbon when post.pinned_at is set', () => {
-    const post = makePost({
-      pinned_at: '2026-05-01T12:00:00Z',
-      pinned_by: { id: 'm1', display_name: 'Pastor Jon' },
-    });
-    render(
+  it('applies the card-pinned visual variant when pinned_at is set', () => {
+    const post = makePost({ pinned_at: '2026-05-01T12:00:00Z' });
+    const { container } = render(
       <MemoryRouter>
         <PostCard post={post} />
       </MemoryRouter>,
     );
-    expect(screen.getByText(/Pinned/i)).toBeInTheDocument();
-    expect(screen.getByText('Pastor Jon')).toBeInTheDocument();
+    const article = container.querySelector('article');
+    expect(article).not.toBeNull();
+    expect(article!.className).toContain('border-vesper-300');
+    expect(article!.className).toContain('from-vesper-50');
   });
 
-  it('renders "Pinned" (no by-name) when pinned_at is set but pinned_by is null (defensive)', () => {
-    const post = makePost({ pinned_at: '2026-05-01T12:00:00Z', pinned_by: null });
-    render(
+  it('does not apply the card-pinned variant when pinned_at is null', () => {
+    const post = makePost({ pinned_at: null });
+    const { container } = render(
       <MemoryRouter>
         <PostCard post={post} />
       </MemoryRouter>,
     );
-    expect(screen.getByText(/^Pinned$/i)).toBeInTheDocument();
+    const article = container.querySelector('article');
+    expect(article).not.toBeNull();
+    expect(article!.className).not.toContain('border-vesper-300');
+    expect(article!.className).not.toContain('from-vesper-50');
   });
 
-  it('does not render the ribbon when pinned_at is null', () => {
-    const post = makePost({ pinned_at: null, pinned_by: null });
+  it('does not surface a "Pinned" text caption or remaining-duration countdown', () => {
+    const post = makePost({ pinned_at: '2026-05-01T12:00:00Z' });
     render(
       <MemoryRouter>
         <PostCard post={post} />
       </MemoryRouter>,
     );
     expect(screen.queryByText(/^Pinned/i)).not.toBeInTheDocument();
-  });
-
-  it('does not surface a remaining-duration countdown', () => {
-    const post = makePost({
-      pinned_at: '2026-05-01T12:00:00Z',
-      pinned_by: { id: 'm1', display_name: 'Pastor Jon' },
-    });
-    render(
-      <MemoryRouter>
-        <PostCard post={post} />
-      </MemoryRouter>,
-    );
     expect(screen.queryByText(/expires in|days? left/i)).not.toBeInTheDocument();
   });
 });
@@ -409,7 +396,6 @@ describe('PostCard kebab menu', () => {
     edit_deadline: new Date(Date.now() + 3600_000).toISOString(),
     created_at: new Date().toISOString(),
     pinned_at: null,
-    pinned_by: null,
     prayed: false,
     reactions: {},
     is_own_post: false,

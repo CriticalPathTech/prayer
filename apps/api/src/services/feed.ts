@@ -42,7 +42,6 @@ export async function fetchFeed(
   let q = db
     .selectFrom('posts')
     .innerJoin('users', 'users.id', 'posts.author_id')
-    .leftJoin('users as pinner', 'pinner.id', 'posts.pinned_by')
     .select([
       'posts.id',
       'posts.parent_id',
@@ -59,8 +58,6 @@ export async function fetchFeed(
       'posts.edit_deadline',
       'posts.created_at',
       'posts.pinned_at',
-      'posts.pinned_by as pinned_by_id',
-      'pinner.display_name as pinned_by_display_name',
     ])
     .where('posts.org_id', '=', args.orgId)
     .where('posts.parent_id', 'is', null)
@@ -131,7 +128,6 @@ export async function fetchFeed(
     const updateRows = (await db
       .selectFrom('posts')
       .innerJoin('users', 'users.id', 'posts.author_id')
-      .leftJoin('users as pinner', 'pinner.id', 'posts.pinned_by')
       .select([
         'posts.id',
         'posts.parent_id',
@@ -148,8 +144,6 @@ export async function fetchFeed(
         'posts.edit_deadline',
         'posts.created_at',
         'posts.pinned_at',
-        'posts.pinned_by as pinned_by_id',
-        'pinner.display_name as pinned_by_display_name',
       ])
       .where('posts.org_id', '=', args.orgId)
       .where('posts.parent_id', 'in', postIds)
@@ -208,7 +202,6 @@ export async function fetchFeed(
     const pinnedRows = (await db
       .selectFrom('posts')
       .innerJoin('users', 'users.id', 'posts.author_id')
-      .leftJoin('users as pinner', 'pinner.id', 'posts.pinned_by')
       .select([
         'posts.id',
         'posts.parent_id',
@@ -225,8 +218,6 @@ export async function fetchFeed(
         'posts.edit_deadline',
         'posts.created_at',
         'posts.pinned_at',
-        'posts.pinned_by as pinned_by_id',
-        'pinner.display_name as pinned_by_display_name',
       ])
       .where('posts.org_id', '=', args.orgId)
       .where('posts.parent_id', 'is', null)
@@ -272,7 +263,6 @@ export async function fetchFeed(
       const pinnedUpdateRows = (await db
         .selectFrom('posts')
         .innerJoin('users', 'users.id', 'posts.author_id')
-        .leftJoin('users as pinner', 'pinner.id', 'posts.pinned_by')
         .select([
           'posts.id',
           'posts.parent_id',
@@ -289,8 +279,6 @@ export async function fetchFeed(
           'posts.edit_deadline',
           'posts.created_at',
           'posts.pinned_at',
-          'posts.pinned_by as pinned_by_id',
-          'pinner.display_name as pinned_by_display_name',
         ])
         .where('posts.org_id', '=', args.orgId)
         .where('posts.parent_id', 'in', pinnedIds)
