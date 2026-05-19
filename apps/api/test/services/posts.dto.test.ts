@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import { toPostDto } from '../../src/services/posts.js';
+import { type PostRow, toPostDto } from '../../src/services/posts.js';
 
 const AVATAR_URL = 'https://example.supabase.co/storage/v1/object/public/avatars/x.webp';
 
-const base = {
+const base: PostRow = {
   id: '018f0000-0000-7000-8000-000000000001',
   parent_id: null,
   author_id: '018f0000-0000-7000-8000-000000000002',
@@ -19,6 +19,9 @@ const base = {
   expires_at: new Date('2026-05-18T00:00:00Z'),
   edit_deadline: new Date('2026-04-18T01:00:00Z'),
   created_at: new Date('2026-04-18T00:00:00Z'),
+  pinned_at: null,
+  pinned_by_id: null,
+  pinned_by_display_name: null,
 };
 
 describe('toPostDto', () => {
@@ -80,5 +83,65 @@ describe('toPostDto', () => {
     // Anonymity mask still applies — display_name and author_id are redacted
     expect(dto.display_name).toBeNull();
     expect(dto.author_id).toBeNull();
+  });
+});
+
+describe('toPostDto pin fields', () => {
+  const baseRow: PostRow = {
+    id: '01900000-0000-7000-8000-000000000001',
+    parent_id: null,
+    author_id: 'author-1',
+    author_display_name: 'Alice',
+    author_avatar_url: null,
+    status: 'published',
+    is_anonymous: false,
+    is_answered_prayer: false,
+    body: 'pray',
+    reaction_count: 0,
+    prayer_count: 0,
+    expires_at: null,
+    edit_deadline: new Date('2030-01-01T00:00:00Z'),
+    created_at: new Date('2026-01-01T00:00:00Z'),
+    pinned_at: null,
+    pinned_by_id: null,
+    pinned_by_display_name: null,
+  };
+
+  it('returns pinned_at + pinned_by: null when row is not pinned', () => {
+    const dto = toPostDto(baseRow, { role: 'member' });
+    expect(dto.pinned_at).toBeNull();
+    expect(dto.pinned_by).toBeNull();
+  });
+
+  it('returns pinned_at as ISO and pinned_by as { id, display_name } when row is pinned', () => {
+    const pinnedAt = new Date('2026-05-01T12:00:00Z');
+    const dto = toPostDto(
+      {
+        ...baseRow,
+        pinned_at: pinnedAt,
+        pinned_by_id: 'mod-1',
+        pinned_by_display_name: 'Pastor Jon',
+      },
+      { role: 'member' },
+    );
+    expect(dto.pinned_at).toBe(pinnedAt.toISOString());
+    expect(dto.pinned_by).toEqual({ id: 'mod-1', display_name: 'Pastor Jon' });
+  });
+
+  it('keeps pin fields visible on anonymous posts to non-super_user (pinner identity is intentional)', () => {
+    const pinnedAt = new Date('2026-05-01T12:00:00Z');
+    const dto = toPostDto(
+      {
+        ...baseRow,
+        is_anonymous: true,
+        pinned_at: pinnedAt,
+        pinned_by_id: 'mod-1',
+        pinned_by_display_name: 'Pastor Jon',
+      },
+      { role: 'member' },
+    );
+    expect(dto.author_id).toBeNull();
+    expect(dto.pinned_at).toBe(pinnedAt.toISOString());
+    expect(dto.pinned_by).toEqual({ id: 'mod-1', display_name: 'Pastor Jon' });
   });
 });
