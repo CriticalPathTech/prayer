@@ -169,6 +169,13 @@ export async function saveMyDraft(input: DraftInput): Promise<{ draft: FeedPost 
   });
 }
 
-export async function publishMyDraft(): Promise<{ post: FeedPost }> {
-  return apiFetch<{ post: FeedPost }>('/me/draft/publish', { method: 'POST' });
+export interface PublishMyDraftInput {
+  pin_duration_days?: 1 | 3 | 7 | 14 | 30;
+}
+
+export async function publishMyDraft(input: PublishMyDraftInput = {}): Promise<{ post: FeedPost }> {
+  return apiFetch<{ post: FeedPost }>('/me/draft/publish', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
 }

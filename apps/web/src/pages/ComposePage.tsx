@@ -3,8 +3,10 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import { DEFAULT_EXPIRY_DAYS, ExpiryPicker } from '../components/ExpiryPicker';
+import { DEFAULT_PIN_DAYS, PinDurationPicker } from '../components/PinDurationPicker';
 import { Button } from '../components/ui/Button';
 import { Field } from '../components/ui/Field';
+import { useAuth } from '../hooks/useAuth';
 import { useDraft } from '../hooks/useDraft';
 import { ApiError, publishMyDraft, type DraftInput } from '../lib/api';
 
@@ -24,11 +26,15 @@ function buildExpiresAt(days: number): string {
 
 export function ComposePage(): JSX.Element {
   const navigate = useNavigate();
+  const { me } = useAuth();
   const { draft, loading, save, flush, saving, lastSavedAt, error: draftError } = useDraft();
+
+  const isPrivileged = me?.role === 'moderator' || me?.role === 'super_user';
 
   const [body, setBody] = useState('');
   const [days, setDays] = useState<number>(DEFAULT_EXPIRY_DAYS);
   const [isAnonymous, setAnonymous] = useState(false);
+  const [pinDays, setPinDays] = useState<number | null>(null);
   const [publishError, setPublishError] = useState<string | null>(null);
   const [publishing, setPublishing] = useState(false);
   const hydrated = useRef(false);
@@ -65,7 +71,9 @@ export function ComposePage(): JSX.Element {
     try {
       // Make sure the latest edits are persisted before publish sees the row.
       await flush();
-      const published = await publishMyDraft();
+      const published = await publishMyDraft(
+        pinDays !== null ? { pin_duration_days: pinDays as 1 | 3 | 7 | 14 | 30 } : {},
+      );
       navigate(`/posts/${published.post.id}`);
     } catch (err) {
       setPublishError(err instanceof ApiError ? err.message : 'Something went wrong');
@@ -128,6 +136,28 @@ export function ComposePage(): JSX.Element {
           <span>Anonymous</span>
         </label>
       </Field>
+
+      {isPrivileged ? (
+        <Field label="Pin this post">
+          <label className="inline-flex items-center gap-2 text-sm text-[var(--fg-2)] cursor-pointer">
+            <input
+              aria-label="Pin this post"
+              type="checkbox"
+              checked={pinDays !== null}
+              onChange={(e) => {
+                setPinDays(e.target.checked ? DEFAULT_PIN_DAYS : null);
+              }}
+              className="h-4 w-4 accent-vesper-500"
+            />
+            <span>Pin this post</span>
+          </label>
+          {pinDays !== null ? (
+            <div className="mt-3">
+              <PinDurationPicker value={pinDays} onChange={setPinDays} />
+            </div>
+          ) : null}
+        </Field>
+      ) : null}
 
       {publishError ? <p className="mb-4 text-sm text-ember-600">{publishError}</p> : null}
 
