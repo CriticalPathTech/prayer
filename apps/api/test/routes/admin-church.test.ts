@@ -3,7 +3,7 @@ import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { mintTestJwt } from '../helpers/jwt.js';
-import { insertOrg, insertUser } from '../helpers/seed.js';
+import { insertOrg, insertPost, insertUser } from '../helpers/seed.js';
 import { createTestApp, type TestApp } from '../helpers/supertest.js';
 
 describe('GET /admin/church/members', () => {
@@ -284,4 +284,40 @@ describe('PATCH /admin/church/settings', () => {
       .send({ displayName: '   ' });
     expect(res.status).toBe(400);
   });
+});
+
+it('PATCH /admin/church/settings flips requires_post_approval', async () => {
+  const { agent, db, orgId, close } = await createTestApp();
+  try {
+    const su = await insertUser(db, { orgId, role: 'super_user' });
+    const token = await mintTestJwt({ sub: su.supabaseAuthId, email: su.email });
+    const res = await agent
+      .patch('/admin/church/settings')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ displayName: 'Test Church', requiresPostApproval: true });
+    expect(res.status).toBe(200);
+    expect(res.body.org.requiresPostApproval).toBe(true);
+  } finally {
+    await close();
+  }
+});
+
+it('PATCH /admin/church/settings → 409 when toggling off with pending posts', async () => {
+  const { agent, db, orgId, close } = await createTestApp();
+  try {
+    const su = await insertUser(db, { orgId, role: 'super_user' });
+    const member = await insertUser(db, { orgId, role: 'member' });
+    await db.updateTable('orgs').set({ requires_post_approval: true }).where('id', '=', orgId).execute();
+    await insertPost(db, { authorId: member.id, orgId, status: 'pending' });
+    const token = await mintTestJwt({ sub: su.supabaseAuthId, email: su.email });
+    const res = await agent
+      .patch('/admin/church/settings')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ displayName: 'Test Church', requiresPostApproval: false });
+    expect(res.status).toBe(409);
+    expect(res.body.error.code).toBe('PENDING_POSTS_EXIST');
+    expect(res.body.error.count).toBe(1);
+  } finally {
+    await close();
+  }
 });
