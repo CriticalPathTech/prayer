@@ -76,7 +76,9 @@ beforeEach(() => {
   refresh.mockReset();
   refreshMe.mockReset().mockResolvedValue(undefined);
   updateDisplayName.mockReset();
-  updateApprovalFlag.mockReset().mockResolvedValue({ id: 'o1', slug: 'hope', displayName: 'Hope Church' });
+  updateApprovalFlag
+    .mockReset()
+    .mockResolvedValue({ id: 'o1', slug: 'hope', displayName: 'Hope Church' });
   removeMember.mockReset().mockResolvedValue(undefined);
   changeRole.mockReset().mockResolvedValue(undefined);
   churchMembersOverride = {};
@@ -198,9 +200,7 @@ describe('AdminChurchPage', () => {
         </MemoryRouter>,
       );
       expect(screen.getByText('Feature flags')).toBeInTheDocument();
-      expect(
-        screen.getByText(/require moderator approval/i),
-      ).toBeInTheDocument();
+      expect(screen.getByText(/require moderator approval/i)).toBeInTheDocument();
     });
 
     it('toggle reflects currentRequiresPostApproval = false (unchecked)', () => {
@@ -238,9 +238,7 @@ describe('AdminChurchPage', () => {
         name: /require moderator approval/i,
       });
       await userEvent.click(toggle);
-      await waitFor(() =>
-        expect(updateApprovalFlag).toHaveBeenCalledWith('Hope Church', true),
-      );
+      await waitFor(() => expect(updateApprovalFlag).toHaveBeenCalledWith('Hope Church', true));
       await waitFor(() => expect(refresh).toHaveBeenCalled());
       await waitFor(() => expect(refreshMe).toHaveBeenCalled());
     });
@@ -248,7 +246,12 @@ describe('AdminChurchPage', () => {
     it('on 409 PENDING_POSTS_EXIST, shows inline error with count and link', async () => {
       const { ApiError } = await import('../lib/api');
       updateApprovalFlag.mockRejectedValueOnce(
-        new ApiError(409, 'PENDING_POSTS_EXIST', '3 pending post(s) must be approved or rejected before the gate can be turned off', { count: 3 }),
+        new ApiError(
+          409,
+          'PENDING_POSTS_EXIST',
+          '3 pending post(s) must be approved or rejected before the gate can be turned off',
+          { count: 3 },
+        ),
       );
       churchMembersOverride = { currentRequiresPostApproval: true };
       render(
@@ -262,9 +265,7 @@ describe('AdminChurchPage', () => {
       // toggle is currently ON (checked=true); clicking tries to turn it OFF → 409
       expect(toggle).toHaveAttribute('aria-checked', 'true');
       await userEvent.click(toggle);
-      await waitFor(() =>
-        expect(screen.getByRole('alert')).toBeInTheDocument(),
-      );
+      await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument());
       expect(screen.getByRole('alert')).toHaveTextContent(/3 pending request/i);
       expect(screen.getByRole('link', { name: /go to approvals/i })).toBeInTheDocument();
       // Toggle visual stays on its original state (still checked=true because mock doesn't flip)
@@ -273,9 +274,7 @@ describe('AdminChurchPage', () => {
 
     it('on generic error, shows a generic message without link', async () => {
       const { ApiError } = await import('../lib/api');
-      updateApprovalFlag.mockRejectedValueOnce(
-        new ApiError(500, 'INTERNAL', 'internal error'),
-      );
+      updateApprovalFlag.mockRejectedValueOnce(new ApiError(500, 'INTERNAL', 'internal error'));
       render(
         <MemoryRouter>
           <AdminChurchPage />
@@ -285,9 +284,7 @@ describe('AdminChurchPage', () => {
         name: /require moderator approval/i,
       });
       await userEvent.click(toggle);
-      await waitFor(() =>
-        expect(screen.getByRole('alert')).toBeInTheDocument(),
-      );
+      await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument());
       expect(screen.getByRole('alert')).toHaveTextContent(/couldn't save/i);
       expect(screen.queryByRole('link', { name: /go to approvals/i })).not.toBeInTheDocument();
     });

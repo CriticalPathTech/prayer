@@ -122,9 +122,7 @@ describe('NotificationItem', () => {
           <NotificationItem notification={baseRejectedNotif} onClick={() => {}} />
         </MemoryRouter>,
       );
-      expect(
-        screen.getByText(/a moderator declined your prayer request/i),
-      ).toBeInTheDocument();
+      expect(screen.getByText(/a moderator declined your prayer request/i)).toBeInTheDocument();
     });
 
     it('includes body_preview in meta', () => {

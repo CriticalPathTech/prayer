@@ -10,10 +10,7 @@ export interface UpdatedOrg {
 
 export interface UseChurchSettingsResult {
   updateDisplayName: (displayName: string) => Promise<UpdatedOrg>;
-  updateApprovalFlag: (
-    displayName: string,
-    requiresPostApproval: boolean,
-  ) => Promise<UpdatedOrg>;
+  updateApprovalFlag: (displayName: string, requiresPostApproval: boolean) => Promise<UpdatedOrg>;
   saving: boolean;
   error: Error | null;
 }

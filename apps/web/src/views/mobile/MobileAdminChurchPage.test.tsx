@@ -116,9 +116,7 @@ describe('MobileAdminChurchPage', () => {
         name: /require moderator approval/i,
       });
       await userEvent.click(toggle);
-      await waitFor(() =>
-        expect(updateApprovalFlag).toHaveBeenCalledWith('Hope Church', true),
-      );
+      await waitFor(() => expect(updateApprovalFlag).toHaveBeenCalledWith('Hope Church', true));
       await waitFor(() => expect(refresh).toHaveBeenCalled());
       await waitFor(() => expect(refreshMe).toHaveBeenCalled());
     });
@@ -163,9 +161,7 @@ describe('MobileAdminChurchPage', () => {
       await userEvent.click(toggle);
       await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument());
       expect(screen.getByRole('alert')).toHaveTextContent(/couldn't save/i);
-      expect(
-        screen.queryByRole('link', { name: /go to approvals/i }),
-      ).not.toBeInTheDocument();
+      expect(screen.queryByRole('link', { name: /go to approvals/i })).not.toBeInTheDocument();
     });
   });
 });

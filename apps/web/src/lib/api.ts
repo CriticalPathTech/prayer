@@ -13,12 +13,7 @@ export class ApiError extends Error {
   readonly status: number;
   readonly code: string;
   readonly detail?: Record<string, unknown>;
-  constructor(
-    status: number,
-    code: string,
-    message: string,
-    detail?: Record<string, unknown>,
-  ) {
+  constructor(status: number, code: string, message: string, detail?: Record<string, unknown>) {
     super(message);
     this.status = status;
     this.code = code;
@@ -48,12 +43,7 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
       [k: string]: unknown;
     };
     const detail = Object.keys(rest).length > 0 ? (rest as Record<string, unknown>) : undefined;
-    throw new ApiError(
-      res.status,
-      code ?? 'UNKNOWN',
-      message ?? res.statusText,
-      detail,
-    );
+    throw new ApiError(res.status, code ?? 'UNKNOWN', message ?? res.statusText, detail);
   }
   return body as T;
 }

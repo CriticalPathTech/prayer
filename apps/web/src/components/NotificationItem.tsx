@@ -112,7 +112,8 @@ export function NotificationItem({ notification, onClick }: NotificationItemProp
         <div className={titleClass}>A moderator declined your prayer request</div>
         <div className={metaClass}>
           &ldquo;{p.body_preview}&rdquo;
-          {p.moderation_note ? ` · ${p.moderation_note}` : ''} · {relativeTime(notification.created_at)}
+          {p.moderation_note ? ` · ${p.moderation_note}` : ''} ·{' '}
+          {relativeTime(notification.created_at)}
         </div>
       </Link>
     );

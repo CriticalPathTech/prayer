@@ -33,8 +33,7 @@ export function MobileAdminChurchPage(): JSX.Element {
       await refreshMe();
     } catch (e) {
       if (e instanceof ApiError && e.code === 'PENDING_POSTS_EXIST') {
-        const count =
-          typeof e.detail?.count === 'number' ? e.detail.count : undefined;
+        const count = typeof e.detail?.count === 'number' ? e.detail.count : undefined;
         setFlagError({
           message: `You have ${count ?? 'a few'} pending request(s) waiting for moderator review. Approve or reject them before turning the gate off.`,
           ...(count !== undefined ? { count } : {}),
@@ -61,9 +60,7 @@ export function MobileAdminChurchPage(): JSX.Element {
           <h2 className="mb-3 font-serif text-base font-semibold text-[var(--fg-1)]">
             Feature flags
           </h2>
-          <div
-            className="flex items-center justify-between gap-4 rounded-md border border-[var(--border-soft)] bg-[var(--bg-raised)] px-4 py-4"
-          >
+          <div className="flex items-center justify-between gap-4 rounded-md border border-[var(--border-soft)] bg-[var(--bg-raised)] px-4 py-4">
             <div className="flex-1">
               <p className="text-sm font-medium text-[var(--fg-1)]">
                 Require moderator approval for new prayer requests
@@ -116,9 +113,7 @@ export function MobileAdminChurchPage(): JSX.Element {
 
           {/* Members management: desktop only */}
           <div className="mt-8 flex flex-col items-center gap-4 text-center">
-            <h2 className="font-serif text-[18px] text-[var(--fg-1)]">
-              Full admin: desktop only
-            </h2>
+            <h2 className="font-serif text-[18px] text-[var(--fg-1)]">Full admin: desktop only</h2>
             <p className="max-w-sm text-sm text-[var(--fg-3)]">
               Member management and church settings are desktop-only tools. Please sign in from a
               laptop or desktop browser to manage members.

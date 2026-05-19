@@ -95,8 +95,7 @@ export function AdminChurchPage(): JSX.Element {
       await refreshMe();
     } catch (e) {
       if (e instanceof ApiError && e.code === 'PENDING_POSTS_EXIST') {
-        const count =
-          typeof e.detail?.count === 'number' ? e.detail.count : undefined;
+        const count = typeof e.detail?.count === 'number' ? e.detail.count : undefined;
         setFlagError({
           message: `You have ${count ?? 'a few'} pending request(s) waiting for moderator review. Approve or reject them before turning the gate off.`,
           ...(count !== undefined ? { count } : {}),

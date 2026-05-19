@@ -65,10 +65,7 @@ export async function fetchFeed(
       b.where((eb) =>
         eb.or([
           eb('posts.status', '=', 'published'),
-          eb.and([
-            eb('posts.status', '=', 'pending'),
-            eb('posts.author_id', '=', args.callerId),
-          ]),
+          eb.and([eb('posts.status', '=', 'pending'), eb('posts.author_id', '=', args.callerId)]),
         ]),
       ),
     )
