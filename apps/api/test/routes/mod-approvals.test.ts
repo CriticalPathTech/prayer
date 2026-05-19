@@ -1,7 +1,15 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, afterAll } from 'vitest';
+import { initDb } from '../../src/db/index.js';
 import { createTestApp } from '../helpers/supertest.js';
 import { mintTestJwt } from '../helpers/jwt.js';
 import { insertPost, insertUser } from '../helpers/seed.js';
+
+const cleanupDb = initDb(process.env.TEST_DATABASE_URL!);
+afterAll(async () => {
+  await cleanupDb.deleteFrom('mod_post_skips').execute();
+  await cleanupDb.deleteFrom('events').execute();
+  await cleanupDb.deleteFrom('posts').execute();
+});
 
 describe('mod-approvals routes', () => {
   it('GET /mod/approvals returns pending FIFO', async () => {

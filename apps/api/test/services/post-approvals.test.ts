@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterAll } from 'vitest';
 
 import { initDb } from '../../src/db/index.js';
 import { approvePost } from '../../src/services/post-approvals.js';
@@ -6,6 +6,17 @@ import { listApprovals } from '../../src/services/post-approvals.js';
 import { rejectPost } from '../../src/services/post-approvals.js';
 import { skipPostReview, unskipPostReview } from '../../src/services/post-approvals.js';
 import { getTestchurchOrgId, insertPost, insertUser } from '../helpers/seed.js';
+
+// Cross-file isolation: post-approve / post-reject populate posts.moderated_by,
+// which becomes an orphan FK ref once tests finish. Other test files'
+// afterEach hooks call `deleteFrom('users')` and fail on those refs. Clean
+// up posts + events here so the next test file inherits an empty slate.
+const cleanupDb = initDb(process.env.TEST_DATABASE_URL!);
+afterAll(async () => {
+  await cleanupDb.deleteFrom('mod_post_skips').execute();
+  await cleanupDb.deleteFrom('events').execute();
+  await cleanupDb.deleteFrom('posts').execute();
+});
 
 describe('listApprovals', () => {
   const db = initDb(process.env.TEST_DATABASE_URL!);
