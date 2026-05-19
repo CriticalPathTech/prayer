@@ -78,7 +78,7 @@ describe('GET /admin/church/members', () => {
       .set('Host', 'admin-church-routes.prays.online')
       .set('Authorization', `Bearer ${suToken}`);
     expect(res.status).toBe(200);
-    expect(res.body.org).toEqual({ displayName: 'Admin Church Routes' });
+    expect(res.body.org).toEqual({ displayName: 'Admin Church Routes', requiresPostApproval: false });
     expect(typeof res.body.superUserCount).toBe('number');
     expect(res.body.superUserCount).toBe(1); // only su@acr.com is super_user
   });

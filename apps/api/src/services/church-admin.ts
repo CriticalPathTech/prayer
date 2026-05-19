@@ -5,6 +5,7 @@ import {
   ForbiddenError,
   LastSuperUserError,
   NotFoundError,
+  PendingPostsExistError,
   TooManySuperUsersError,
   ValidationError,
 } from '../middleware/error.js';
@@ -34,11 +35,13 @@ export interface UpdateChurchSettingsInput {
   orgId: string;
   actorId: string;
   displayName: string;
+  requiresPostApproval?: boolean;
 }
 
 export interface UpdateChurchSettingsResult {
   id: string;
   displayName: string;
+  requiresPostApproval: boolean;
 }
 
 export async function updateChurchSettings(
@@ -46,29 +49,44 @@ export async function updateChurchSettings(
   input: UpdateChurchSettingsInput,
 ): Promise<UpdateChurchSettingsResult> {
   const displayName = sanitizeOrgName(input.displayName);
-  if (displayName.length === 0) {
-    throw new ValidationError('displayName is required');
-  }
-  if (displayName.length > 60) {
-    throw new ValidationError('displayName must be 60 characters or fewer');
-  }
+  if (displayName.length === 0) throw new ValidationError('displayName is required');
+  if (displayName.length > 60) throw new ValidationError('displayName must be 60 characters or fewer');
 
-  const before = await db
-    .selectFrom('orgs')
-    .select('display_name')
-    .where('id', '=', input.orgId)
-    .executeTakeFirstOrThrow();
+  return db.transaction().execute(async (trx) => {
+    const before = await trx
+      .selectFrom('orgs')
+      .select(['display_name', 'requires_post_approval'])
+      .where('id', '=', input.orgId)
+      .executeTakeFirstOrThrow();
 
-  if (before.display_name === displayName) {
-    return { id: input.orgId, displayName };
-  }
+    const nameUnchanged = before.display_name === displayName;
+    const nextApproval = input.requiresPostApproval ?? before.requires_post_approval;
+    const approvalUnchanged = before.requires_post_approval === nextApproval;
 
-  await db.transaction().execute(async (trx) => {
+    if (nameUnchanged && approvalUnchanged) {
+      return { id: input.orgId, displayName, requiresPostApproval: before.requires_post_approval };
+    }
+
+    if (before.requires_post_approval && !nextApproval) {
+      const { count } = await trx
+        .selectFrom('posts')
+        .select(({ fn }) => fn.count<number>('id').as('count'))
+        .where('org_id', '=', input.orgId)
+        .where('status', '=', 'pending')
+        .executeTakeFirstOrThrow();
+      const n = Number(count);
+      if (n > 0) throw new PendingPostsExistError(n);
+    }
+
     await trx
       .updateTable('orgs')
-      .set({ display_name: displayName })
+      .set({
+        display_name: displayName,
+        requires_post_approval: nextApproval,
+      })
       .where('id', '=', input.orgId)
       .execute();
+
     await writeAdminEvent(trx, {
       kind: 'admin.org_settings_updated',
       orgId: input.orgId,
@@ -76,13 +94,14 @@ export async function updateChurchSettings(
       before: { displayName: before.display_name },
       after: { displayName },
     });
-  });
 
-  return { id: input.orgId, displayName };
+    return { id: input.orgId, displayName, requiresPostApproval: nextApproval };
+  });
 }
 
 export interface ChurchSettings {
   displayName: string;
+  requiresPostApproval: boolean;
 }
 
 /** Read-only snapshot of editable church-level fields. Bundled with the
@@ -95,10 +114,10 @@ export async function getChurchSettings(
 ): Promise<ChurchSettings> {
   const row = await db
     .selectFrom('orgs')
-    .select('display_name')
+    .select(['display_name', 'requires_post_approval'])
     .where('id', '=', orgId)
     .executeTakeFirstOrThrow();
-  return { displayName: row.display_name };
+  return { displayName: row.display_name, requiresPostApproval: row.requires_post_approval };
 }
 
 export interface MemberRow {
