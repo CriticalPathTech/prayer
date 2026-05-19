@@ -193,3 +193,34 @@ export async function pinPost(
 export async function unpinPost(postId: string): Promise<{ post: FeedPost }> {
   return apiFetch<{ post: FeedPost }>(`/mod/posts/${postId}/unpin`, { method: 'POST' });
 }
+
+// ——— Mod approvals ——————————————————————————————————————————————————
+
+export interface ApprovalItem extends FeedPost {
+  skipped_by_me: boolean;
+}
+
+export async function listApprovals(): Promise<{ items: ApprovalItem[] }> {
+  return apiFetch<{ items: ApprovalItem[] }>('/mod/approvals?limit=50');
+}
+
+export async function approvePost(id: string): Promise<{ post: FeedPost }> {
+  return apiFetch<{ post: FeedPost }>(`/mod/posts/${encodeURIComponent(id)}/approve`, {
+    method: 'POST',
+  });
+}
+
+export async function rejectPost(id: string, note?: string): Promise<{ post: FeedPost }> {
+  return apiFetch<{ post: FeedPost }>(`/mod/posts/${encodeURIComponent(id)}/reject`, {
+    method: 'POST',
+    body: JSON.stringify(note !== undefined && note !== '' ? { note } : {}),
+  });
+}
+
+export async function skipPost(id: string): Promise<void> {
+  await apiFetch<null>(`/mod/posts/${encodeURIComponent(id)}/skip`, { method: 'POST' });
+}
+
+export async function unskipPost(id: string): Promise<void> {
+  await apiFetch<null>(`/mod/posts/${encodeURIComponent(id)}/skip`, { method: 'DELETE' });
+}
