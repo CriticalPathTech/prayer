@@ -12,6 +12,7 @@ import { expiringSoon, formatAgo } from '../lib/time';
 import { FlagCountPill } from './FlagCountPill';
 import { HiddenBanner } from './HiddenBanner';
 import { HideTombstone } from './HideTombstone';
+import { PinnedByRibbon } from './PinnedByRibbon';
 import { PostMenu } from './PostMenu';
 import { PrayButton } from './PrayButton';
 import { UpdatePostItem } from './UpdatePostItem';
@@ -105,21 +106,7 @@ export function PostCard({ post, onChange, onRepost }: PostCardProps): JSX.Eleme
   return (
     <article className={cardClass}>
       {isPinned ? (
-        <div className="inline-flex items-center gap-[5px] self-start -mx-5 -mt-5 px-5 pt-3 pb-1 mb-2 text-[10px] font-bold uppercase tracking-[0.14em] text-vesper-600">
-          <Icon name="pin" size={14} className="flex-none text-vesper-500 rotate-[35deg]" />
-          <span>
-            Pinned
-            {post.pinned_by ? (
-              <>
-                {' '}
-                by{' '}
-                <b className="ml-[2px] text-[11px] font-bold normal-case tracking-[0.02em] text-vesper-700">
-                  {post.pinned_by.display_name}
-                </b>
-              </>
-            ) : null}
-          </span>
-        </div>
+        <PinnedByRibbon pinnedBy={post.pinned_by} className="-mx-5 -mt-5 px-5 pt-3 pb-1 mb-2" />
       ) : null}
       <header className="mb-2.5 flex items-center gap-3">
         <Avatar name={name} avatarUrl={post.avatar_url} anonymous={isOrphanAuthor} size="md" />

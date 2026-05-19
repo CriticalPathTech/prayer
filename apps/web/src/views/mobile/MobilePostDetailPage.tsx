@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 
 import { PinDialog } from '../../components/PinDialog';
+import { PinnedByRibbon } from '../../components/PinnedByRibbon';
 import { PostMenu } from '../../components/PostMenu';
 import { UpdatePostItem } from '../../components/UpdatePostItem';
 import { Avatar } from '../../components/ui/Avatar';
@@ -60,7 +61,17 @@ export function MobilePostDetailPage(): JSX.Element {
       <div className="flex flex-col gap-4 px-4 pb-6 pt-3">
         {error ? <p className="text-sm text-ember-600">{error}</p> : null}
 
-        <article className="rounded-lg border border-[var(--border-soft)] bg-[var(--bg-raised)] p-4">
+        <article
+          className={[
+            'rounded-lg border bg-[var(--bg-raised)] p-4',
+            post.pinned_at !== null
+              ? 'border-vesper-300/50 bg-gradient-to-b from-vesper-50/60 to-[var(--bg-raised)] shadow-[inset_0_2px_0_theme(colors.vesper.200)]'
+              : 'border-[var(--border-soft)]',
+          ].join(' ')}
+        >
+          {post.pinned_at !== null ? (
+            <PinnedByRibbon pinnedBy={post.pinned_by} className="-mx-4 -mt-4 px-4 pt-2 pb-1 mb-2" />
+          ) : null}
           <header className="flex items-start gap-2.5">
             <Avatar
               name={post.is_anonymous ? 'Anonymous' : (post.display_name ?? 'Anonymous')}
