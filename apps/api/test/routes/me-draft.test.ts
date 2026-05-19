@@ -293,6 +293,18 @@ describe('/me/draft', () => {
   });
 
   describe('publishOwnDraft — approval gate', () => {
+    afterEach(async () => {
+      // Each test in this block creates posts (published or pending) and may
+      // flip the org flag. Clean both so later tests / later files start fresh.
+      await ctx.db.deleteFrom('posts').execute();
+      await ctx.db.deleteFrom('events').execute();
+      await ctx.db
+        .updateTable('orgs')
+        .set({ requires_post_approval: false })
+        .where('id', '=', orgId)
+        .execute();
+    });
+
     it('flag OFF: member publish → status=published', async () => {
       const { agent, db, orgId, close } = await createTestApp();
       try {
