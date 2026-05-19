@@ -3,22 +3,12 @@ import { Router } from 'express';
 import type { Kysely } from 'kysely';
 import { z } from 'zod';
 
-import {
-  NotFoundError,
-  UnauthorizedError,
-  ValidationError,
-} from '../middleware/error.js';
+import { NotFoundError, UnauthorizedError, ValidationError } from '../middleware/error.js';
 import { writePostEvent } from '../services/events.js';
 import { fetchPostRow, toPostDto } from '../services/posts.js';
 
 const zPin = z.object({
-  duration_days: z.union([
-    z.literal(1),
-    z.literal(3),
-    z.literal(7),
-    z.literal(14),
-    z.literal(30),
-  ]),
+  duration_days: z.union([z.literal(1), z.literal(3), z.literal(7), z.literal(14), z.literal(30)]),
 });
 
 export function modPostsPinRouter(deps: { db: Kysely<Database> }): Router {

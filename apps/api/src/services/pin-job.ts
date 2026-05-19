@@ -22,10 +22,7 @@ export interface PinJobHandle {
   runOnce: () => Promise<number>;
 }
 
-export async function sweepPins(
-  db: Kysely<Database>,
-  opts: { logger: Logger },
-): Promise<number> {
+export async function sweepPins(db: Kysely<Database>, opts: { logger: Logger }): Promise<number> {
   const result = await db
     .updateTable('posts')
     .set({ pinned_at: null, pin_until: null, pinned_by: null })

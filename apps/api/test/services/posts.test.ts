@@ -22,10 +22,7 @@ describe('publishOwnDraft pin', () => {
 
   afterEach(async () => {
     await db.deleteFrom('posts').where('org_id', '=', orgId).execute();
-    await db
-      .deleteFrom('user_orgs')
-      .where('org_id', '=', orgId)
-      .execute();
+    await db.deleteFrom('user_orgs').where('org_id', '=', orgId).execute();
   });
 
   it('moderator with pinDurationDays=7 publishes with all three pin columns set', async () => {

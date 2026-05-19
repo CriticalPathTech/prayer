@@ -357,7 +357,7 @@ export async function upsertOwnDraft(
   });
 }
 
-const PIN_DAY_CHOICES = [1, 3, 7, 14, 30] as const;
+export const PIN_DAY_CHOICES = [1, 3, 7, 14, 30] as const;
 export type PinDurationDays = (typeof PIN_DAY_CHOICES)[number];
 
 export async function publishOwnDraft(

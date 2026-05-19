@@ -4,6 +4,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { FeedPost } from '../hooks/useFeed';
+
 import { PostCard } from './PostCard';
 
 const apiFetchMock = vi.fn();
@@ -347,20 +348,32 @@ describe('PostCard pinned variant', () => {
       pinned_at: '2026-05-01T12:00:00Z',
       pinned_by: { id: 'm1', display_name: 'Pastor Jon' },
     });
-    render(<MemoryRouter><PostCard post={post} /></MemoryRouter>);
+    render(
+      <MemoryRouter>
+        <PostCard post={post} />
+      </MemoryRouter>,
+    );
     expect(screen.getByText(/Pinned/i)).toBeInTheDocument();
     expect(screen.getByText('Pastor Jon')).toBeInTheDocument();
   });
 
   it('renders "Pinned" (no by-name) when pinned_at is set but pinned_by is null (defensive)', () => {
     const post = makePost({ pinned_at: '2026-05-01T12:00:00Z', pinned_by: null });
-    render(<MemoryRouter><PostCard post={post} /></MemoryRouter>);
+    render(
+      <MemoryRouter>
+        <PostCard post={post} />
+      </MemoryRouter>,
+    );
     expect(screen.getByText(/^Pinned$/i)).toBeInTheDocument();
   });
 
   it('does not render the ribbon when pinned_at is null', () => {
     const post = makePost({ pinned_at: null, pinned_by: null });
-    render(<MemoryRouter><PostCard post={post} /></MemoryRouter>);
+    render(
+      <MemoryRouter>
+        <PostCard post={post} />
+      </MemoryRouter>,
+    );
     expect(screen.queryByText(/^Pinned/i)).not.toBeInTheDocument();
   });
 
@@ -369,7 +382,11 @@ describe('PostCard pinned variant', () => {
       pinned_at: '2026-05-01T12:00:00Z',
       pinned_by: { id: 'm1', display_name: 'Pastor Jon' },
     });
-    render(<MemoryRouter><PostCard post={post} /></MemoryRouter>);
+    render(
+      <MemoryRouter>
+        <PostCard post={post} />
+      </MemoryRouter>,
+    );
     expect(screen.queryByText(/expires in|days? left/i)).not.toBeInTheDocument();
   });
 });

@@ -111,7 +111,8 @@ export function PostCard({ post, onChange, onRepost }: PostCardProps): JSX.Eleme
             Pinned
             {post.pinned_by ? (
               <>
-                {' '}by{' '}
+                {' '}
+                by{' '}
                 <b className="ml-[2px] text-[11px] font-bold normal-case tracking-[0.02em] text-vesper-700">
                   {post.pinned_by.display_name}
                 </b>

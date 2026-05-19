@@ -4,8 +4,8 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
 import { initDb } from '../../src/db/index.js';
 import { encodeCursor } from '../../src/services/cursor.js';
-import { fetchFeed } from '../../src/services/feed.js';
 import { clearSnapshotCache } from '../../src/services/feed-snapshot.js';
+import { fetchFeed } from '../../src/services/feed.js';
 import { getTestchurchOrgId, insertPost, insertUser } from '../helpers/seed.js';
 
 describe('fetchFeed pinned section', () => {

@@ -62,7 +62,9 @@ export function MobileComposePage(): JSX.Element {
     setPublishing(true);
     try {
       await flush();
-      await publishMyDraft(pinDays !== null ? { pin_duration_days: pinDays as 1 | 3 | 7 | 14 | 30 } : {});
+      await publishMyDraft(
+        pinDays !== null ? { pin_duration_days: pinDays as 1 | 3 | 7 | 14 | 30 } : {},
+      );
       navigate('/');
     } catch (err) {
       setPublishError(err instanceof ApiError ? err.message : 'Something went wrong');

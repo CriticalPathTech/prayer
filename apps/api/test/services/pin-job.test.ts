@@ -22,10 +22,7 @@ describe('sweepPins', () => {
   afterEach(async () => {
     await db.deleteFrom('posts').where('org_id', '=', orgId).execute();
     await db.deleteFrom('user_orgs').where('org_id', '=', orgId).execute();
-    await db
-      .deleteFrom('users')
-      .where('id', '=', userId)
-      .execute();
+    await db.deleteFrom('users').where('id', '=', userId).execute();
   });
 
   it('clears pin columns on rows where pin_until is in the past', async () => {

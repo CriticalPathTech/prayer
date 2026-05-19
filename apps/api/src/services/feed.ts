@@ -83,10 +83,7 @@ export async function fetchFeed(
   }
   // Exclude currently-pinned posts from the chronological list — they ride in `pinned[]`.
   q = q.where((eb) =>
-    eb.or([
-      eb('posts.pinned_at', 'is', null),
-      eb('posts.pin_until', '<=', new Date()),
-    ]),
+    eb.or([eb('posts.pinned_at', 'is', null), eb('posts.pin_until', '<=', new Date())]),
   );
   q = q.orderBy('posts.id', 'desc');
 

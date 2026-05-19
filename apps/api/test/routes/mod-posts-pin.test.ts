@@ -1,13 +1,13 @@
 import type { Database } from '@prayer/db';
+import type { Express } from 'express';
 import type { Kysely } from 'kysely';
 import request from 'supertest';
 import { describe, expect, it, beforeAll, afterAll, afterEach } from 'vitest';
-import type { Express } from 'express';
 
 import { initDb } from '../../src/db/index.js';
-import { createTestApp } from '../helpers/supertest.js';
 import { mintTestJwt } from '../helpers/jwt.js';
 import { getTestchurchOrgId, insertOrg, insertUser, insertPost } from '../helpers/seed.js';
+import { createTestApp } from '../helpers/supertest.js';
 
 describe('POST /mod/posts/:id/pin', () => {
   let app: Express;
@@ -40,19 +40,24 @@ describe('POST /mod/posts/:id/pin', () => {
     await db.deleteFrom('posts').where('org_id', '=', orgId).execute();
     await db.deleteFrom('user_orgs').where('org_id', '=', orgId).execute();
     // Clean up orgs created during cross-org tests (other than testchurch)
-    await db
-      .deleteFrom('orgs')
-      .where('slug', 'like', 'other-%')
-      .execute();
+    await db.deleteFrom('orgs').where('slug', 'like', 'other-%').execute();
     await db.deleteFrom('users').where('email', 'like', '%@pin-test.local').execute();
   });
 
   async function makeMod() {
-    const u = await insertUser(db, { orgId, role: 'moderator', email: `mod-${Date.now()}@pin-test.local` });
+    const u = await insertUser(db, {
+      orgId,
+      role: 'moderator',
+      email: `mod-${Date.now()}@pin-test.local`,
+    });
     return { ...u, token: await mintTestJwt({ sub: u.supabaseAuthId, email: u.email }) };
   }
   async function makeMember() {
-    const u = await insertUser(db, { orgId, role: 'member', email: `mem-${Date.now()}@pin-test.local` });
+    const u = await insertUser(db, {
+      orgId,
+      role: 'member',
+      email: `mem-${Date.now()}@pin-test.local`,
+    });
     return { ...u, token: await mintTestJwt({ sub: u.supabaseAuthId, email: u.email }) };
   }
 
@@ -118,8 +123,16 @@ describe('POST /mod/posts/:id/pin', () => {
   it('cross-org pin → 404', async () => {
     const mod = await makeMod();
     const otherOrgId = await insertOrg(db, { slug: `other-${Date.now()}` });
-    const otherAuthor = await insertUser(db, { orgId: otherOrgId, role: 'member', email: `o-${Date.now()}@pin-test.local` });
-    const { id } = await insertPost(db, { authorId: otherAuthor.id, orgId: otherOrgId, status: 'published' });
+    const otherAuthor = await insertUser(db, {
+      orgId: otherOrgId,
+      role: 'member',
+      email: `o-${Date.now()}@pin-test.local`,
+    });
+    const { id } = await insertPost(db, {
+      authorId: otherAuthor.id,
+      orgId: otherOrgId,
+      status: 'published',
+    });
     const res = await request(app)
       .post(`/mod/posts/${id}/pin`)
       .set('Authorization', `Bearer ${mod.token}`)
@@ -162,7 +175,11 @@ describe('POST /mod/posts/:id/unpin', () => {
   });
 
   async function makeMod() {
-    const u = await insertUser(db, { orgId, role: 'moderator', email: `mod-${Date.now()}@unpin-test.local` });
+    const u = await insertUser(db, {
+      orgId,
+      role: 'moderator',
+      email: `mod-${Date.now()}@unpin-test.local`,
+    });
     return { ...u, token: await mintTestJwt({ sub: u.supabaseAuthId, email: u.email }) };
   }
 

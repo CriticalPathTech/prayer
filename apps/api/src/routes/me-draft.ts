@@ -14,13 +14,7 @@ const zPutDraft = z.object({
 
 const zPublishDraft = z.object({
   pin_duration_days: z
-    .union([
-      z.literal(1),
-      z.literal(3),
-      z.literal(7),
-      z.literal(14),
-      z.literal(30),
-    ])
+    .union([z.literal(1), z.literal(3), z.literal(7), z.literal(14), z.literal(30)])
     .optional(),
 });
 

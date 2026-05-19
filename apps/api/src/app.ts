@@ -44,7 +44,6 @@ import { orgRouter } from './routes/org.js';
 import { postsRouter } from './routes/posts.js';
 import { createEventWorker, type EventHandler, type EventWorker } from './services/event-worker.js';
 import { createExpirySweeper, type ExpiryJobHandle } from './services/expiry-job.js';
-import { createPinSweeper, type PinJobHandle } from './services/pin-job.js';
 import { flagConsumer } from './services/flag-consumer.js';
 import { commentCreatedBuilder } from './services/notification-builders/comment-created.js';
 import { flagCreatedBuilder } from './services/notification-builders/flag-created.js';
@@ -52,6 +51,7 @@ import { inviteAcceptedBuilder } from './services/notification-builders/invite-a
 import { moderatorHideBuilder } from './services/notification-builders/moderator-hide.js';
 import { postRejectedBuilder } from './services/notification-builders/post-rejected.js';
 import { createOrgResolver } from './services/orgs.js';
+import { createPinSweeper, type PinJobHandle } from './services/pin-job.js';
 import { prayerCountRecomputer } from './services/prayer-consumer.js';
 import { reactionCountRecomputer } from './services/reaction-consumer.js';
 
@@ -173,9 +173,11 @@ export function buildApp(deps: AppDependencies): Express {
     expirySweeper.start();
     pinSweeper.start();
   }
-  (app as unknown as {
-    locals: { expirySweeper: ExpiryJobHandle; pinSweeper: PinJobHandle };
-  }).locals.expirySweeper = expirySweeper;
+  (
+    app as unknown as {
+      locals: { expirySweeper: ExpiryJobHandle; pinSweeper: PinJobHandle };
+    }
+  ).locals.expirySweeper = expirySweeper;
   (app as unknown as { locals: { pinSweeper: PinJobHandle } }).locals.pinSweeper = pinSweeper;
 
   let eventWorker: EventWorker | null = null;

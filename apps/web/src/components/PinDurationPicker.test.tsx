@@ -21,14 +21,8 @@ describe('PinDurationPicker', () => {
 
   it('marks the active radio with aria-checked=true', () => {
     render(<PinDurationPicker value={14} onChange={() => {}} />);
-    expect(screen.getByRole('radio', { name: '2 weeks' })).toHaveAttribute(
-      'aria-checked',
-      'true',
-    );
-    expect(screen.getByRole('radio', { name: '1 week' })).toHaveAttribute(
-      'aria-checked',
-      'false',
-    );
+    expect(screen.getByRole('radio', { name: '2 weeks' })).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByRole('radio', { name: '1 week' })).toHaveAttribute('aria-checked', 'false');
   });
 
   it('fires onChange with the chosen day number', async () => {
