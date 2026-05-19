@@ -137,6 +137,11 @@ function PostDetailView({ data, reload, error }: PostDetailViewProps): JSX.Eleme
           <div className="min-w-0 flex-1">
             <div className="font-serif text-[15px] font-medium text-[var(--fg-1)]">{name}</div>
             <div className="flex items-center gap-1.5 text-xs text-[var(--fg-3)]">
+              {post.pinned_at !== null ? (
+                <span role="img" aria-label="Pinned" title="Pinned" className="inline-flex">
+                  <Icon name="pin" size={14} className="text-vesper-500 rotate-[35deg]" />
+                </span>
+              ) : null}
               <span>{formatAgo(post.created_at)}</span>
               {expiring ? (
                 <>
