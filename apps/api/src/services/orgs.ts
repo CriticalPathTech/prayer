@@ -6,6 +6,7 @@ export interface ResolvedOrg {
   id: string;
   slug: string;
   displayName: string;
+  requiresPostApproval: boolean;
 }
 
 const HOST_TO_ORG_TTL_MS = 5 * 60 * 1000;
@@ -119,16 +120,24 @@ export async function findOrgBySlug(
   const row = await db
     .selectFrom('orgs')
     .where('slug', '=', slug)
-    .select(['id', 'slug', 'display_name'])
+    .select(['id', 'slug', 'display_name', 'requires_post_approval'])
     .executeTakeFirst();
   if (!row) return null;
-  return { id: row.id, slug: row.slug, displayName: row.display_name };
+  return {
+    id: row.id,
+    slug: row.slug,
+    displayName: row.display_name,
+    requiresPostApproval: row.requires_post_approval,
+  };
 }
 
 /** Resolve localhost / 127.0.0.1 to the only org in the DB. Dev convenience.
  * Throws a clear error if zero or multiple orgs exist. */
 export async function resolveLocalhost(db: Kysely<Database>): Promise<ResolvedOrg> {
-  const rows = await db.selectFrom('orgs').select(['id', 'slug', 'display_name']).execute();
+  const rows = await db
+    .selectFrom('orgs')
+    .select(['id', 'slug', 'display_name', 'requires_post_approval'])
+    .execute();
   if (rows.length === 0) {
     throw new Error('orgContext: no orgs in DB. Run `pnpm db:migrate` and `pnpm bootstrap`.');
   }
@@ -139,5 +148,10 @@ export async function resolveLocalhost(db: Kysely<Database>): Promise<ResolvedOr
     );
   }
   const r = rows[0]!;
-  return { id: r.id, slug: r.slug, displayName: r.display_name };
+  return {
+    id: r.id,
+    slug: r.slug,
+    displayName: r.display_name,
+    requiresPostApproval: r.requires_post_approval,
+  };
 }

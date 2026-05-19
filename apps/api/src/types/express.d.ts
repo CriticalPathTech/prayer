@@ -20,6 +20,7 @@ declare global {
         id: string;
         slug: string;
         displayName: string;
+        requiresPostApproval: boolean;
       };
     }
   }

@@ -103,6 +103,26 @@ describe('findOrgBySlug', () => {
     expect(await findOrgBySlug(app.db, 'has spaces')).toBeNull();
     expect(await findOrgBySlug(app.db, 'has.dots')).toBeNull();
   });
+
+  it('returns requiresPostApproval = false by default', async () => {
+    const slug = 'req-approval-default';
+    await insertOrg(app.db, { slug });
+    const org = await findOrgBySlug(app.db, slug);
+    expect(org).not.toBeNull();
+    expect(org!.requiresPostApproval).toBe(false);
+  });
+
+  it('returns requiresPostApproval = true after the flag is set', async () => {
+    const slug = 'req-approval-enabled';
+    await insertOrg(app.db, { slug });
+    await app.db
+      .updateTable('orgs')
+      .set({ requires_post_approval: true })
+      .where('slug', '=', slug)
+      .execute();
+    const org = await findOrgBySlug(app.db, slug);
+    expect(org!.requiresPostApproval).toBe(true);
+  });
 });
 
 describe('createOrgResolver — LRU cache', () => {
