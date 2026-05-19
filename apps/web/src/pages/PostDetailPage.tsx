@@ -7,6 +7,7 @@ import { CommentThread } from '../components/CommentThread';
 import { FlagCountPill } from '../components/FlagCountPill';
 import { HiddenBanner } from '../components/HiddenBanner';
 import { HideTombstone } from '../components/HideTombstone';
+import { PinDialog } from '../components/PinDialog';
 import { PostMenu } from '../components/PostMenu';
 import { PrayButton } from '../components/PrayButton';
 import { UpdatePostItem } from '../components/UpdatePostItem';
@@ -21,7 +22,7 @@ import { usePost } from '../hooks/usePost';
 import { usePostComments } from '../hooks/usePostComments';
 import { usePrayer } from '../hooks/usePrayer';
 import { useReactions } from '../hooks/useReactions';
-import { ApiError, apiFetch } from '../lib/api';
+import { ApiError, apiFetch, pinPost, unpinPost } from '../lib/api';
 import { isPrivilegedRole } from '../lib/roles';
 import { formatAgo, expiringSoon } from '../lib/time';
 
@@ -60,6 +61,7 @@ function PostDetailView({ data, reload, error }: PostDetailViewProps): JSX.Eleme
   const [updateComposerOpen, setUpdateComposerOpen] = useState(false);
   const [updateBody, setUpdateBody] = useState('');
   const [isAnswered, setIsAnswered] = useState(false);
+  const [pinDialogOpen, setPinDialogOpen] = useState(false);
 
   const { post, updates } = data;
   const postId = post.id;
@@ -146,6 +148,13 @@ function PostDetailView({ data, reload, error }: PostDetailViewProps): JSX.Eleme
             status={post.status}
             editDeadline={post.edit_deadline}
             isTombstone={!!post.is_tombstone}
+            {...(me?.role !== undefined ? { viewerRole: me.role } : {})}
+            isPinned={post.pinned_at !== null}
+            onPin={() => setPinDialogOpen(true)}
+            onUnpin={async () => {
+              await unpinPost(post.id);
+              await reload();
+            }}
             onDelete={async () => {
               await apiFetch(`/posts/${post.id}`, { method: 'DELETE' });
               navigate('/');
@@ -286,6 +295,16 @@ function PostDetailView({ data, reload, error }: PostDetailViewProps): JSX.Eleme
         ) : null}
       </section>
       {error ? <p className="mb-4 text-sm text-ember-600">{error}</p> : null}
+
+      <PinDialog
+        open={pinDialogOpen}
+        onCancel={() => setPinDialogOpen(false)}
+        onConfirm={async (days) => {
+          await pinPost(post.id, days as 1 | 3 | 7 | 14 | 30);
+          setPinDialogOpen(false);
+          await reload();
+        }}
+      />
 
       <section className="border-t border-[var(--border-soft)] pt-5">
         <div className="mb-4 flex items-center justify-between">

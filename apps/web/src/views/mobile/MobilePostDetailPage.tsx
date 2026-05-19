@@ -2,13 +2,15 @@ import type { JSX } from 'react';
 import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 
+import { PinDialog } from '../../components/PinDialog';
+import { PostMenu } from '../../components/PostMenu';
 import { UpdatePostItem } from '../../components/UpdatePostItem';
 import { Avatar } from '../../components/ui/Avatar';
 import { Icon } from '../../components/ui/Icon';
 import { useAuth } from '../../hooks/useAuth';
 import { usePost } from '../../hooks/usePost';
 import { usePostComments } from '../../hooks/usePostComments';
-import { apiFetch } from '../../lib/api';
+import { apiFetch, pinPost, unpinPost } from '../../lib/api';
 import { isPrivilegedRole } from '../../lib/roles';
 import { formatAgo } from '../../lib/time';
 
@@ -21,6 +23,7 @@ export function MobilePostDetailPage(): JSX.Element {
   const { data, loading, notFound, error, reload } = usePost(id);
   const { threads, reload: reloadComments } = usePostComments(id);
   const { me } = useAuth();
+  const [pinDialogOpen, setPinDialogOpen] = useState(false);
 
   if (notFound) {
     return (
@@ -71,6 +74,23 @@ export function MobilePostDetailPage(): JSX.Element {
               </div>
               <div className="mt-0.5 text-xs text-[var(--fg-3)]">{formatAgo(post.created_at)}</div>
             </div>
+            <PostMenu
+              postId={post.id}
+              isOwnPost={isAuthor}
+              status={post.status}
+              editDeadline={post.edit_deadline}
+              isTombstone={!!post.is_tombstone}
+              {...(me?.role !== undefined ? { viewerRole: me.role } : {})}
+              isPinned={post.pinned_at !== null}
+              onPin={() => setPinDialogOpen(true)}
+              onUnpin={async () => {
+                await unpinPost(post.id);
+                await reload();
+              }}
+              onDelete={async () => {
+                await apiFetch(`/posts/${post.id}`, { method: 'DELETE' });
+              }}
+            />
           </header>
           <p className="mt-3 whitespace-pre-wrap font-serif text-[16px] leading-[1.55] text-[var(--fg-2)] [text-wrap:pretty]">
             {post.body}
@@ -121,6 +141,16 @@ export function MobilePostDetailPage(): JSX.Element {
           onSent={handleDataChange}
         />
       ) : null}
+
+      <PinDialog
+        open={pinDialogOpen}
+        onCancel={() => setPinDialogOpen(false)}
+        onConfirm={async (days) => {
+          await pinPost(post.id, days as 1 | 3 | 7 | 14 | 30);
+          setPinDialogOpen(false);
+          await reload();
+        }}
+      />
     </div>
   );
 }

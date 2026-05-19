@@ -9,6 +9,8 @@ import { PostDetailPage } from './PostDetailPage';
 
 const postFetch = vi.fn();
 const commentsFetch = vi.fn();
+const pinPostMock = vi.fn();
+const unpinPostMock = vi.fn();
 
 vi.mock('../lib/api', async () => {
   const actual = await vi.importActual<typeof import('../lib/api')>('../lib/api');
@@ -18,6 +20,8 @@ vi.mock('../lib/api', async () => {
       if (url.includes('/comments')) return commentsFetch(url, init);
       return postFetch(url, init);
     },
+    pinPost: (...args: unknown[]) => pinPostMock(...args),
+    unpinPost: (...args: unknown[]) => unpinPostMock(...args),
   };
 });
 
@@ -95,6 +99,8 @@ describe('PostDetailPage', () => {
   afterEach(() => {
     postFetch.mockReset();
     commentsFetch.mockReset();
+    pinPostMock.mockReset();
+    unpinPostMock.mockReset();
   });
 
   it('renders post + updates', async () => {
@@ -209,6 +215,46 @@ describe('PostDetailPage', () => {
     await userEvent.type(textarea, 'Praying');
     await userEvent.click(screen.getByRole('button', { name: /send/i }));
     expect(await screen.findByText('Praying')).toBeInTheDocument();
+  });
+
+  it('moderator clicking Pin… opens PinDialog and confirming calls pinPost', async () => {
+    useAuthMock.mockReturnValue({
+      session: { user: { id: 'supabase-mod' } },
+      me: { id: 'mod', email: 'mod@test.local', displayName: 'Mod', role: 'moderator' as const },
+      loading: false,
+      signOut: vi.fn(),
+    });
+    postFetch
+      .mockResolvedValueOnce(baseDetail({ pinned_at: null }))
+      .mockResolvedValueOnce(baseDetail({ pinned_at: new Date().toISOString() }));
+    pinPostMock.mockResolvedValue({ post: basePost({ pinned_at: new Date().toISOString() }) });
+    renderAt('p1');
+    await userEvent.click(await screen.findByRole('button', { name: /more actions/i }));
+    await userEvent.click(screen.getByRole('menuitem', { name: /pin…/i }));
+    // PinDialog should now be visible
+    expect(await screen.findByRole('alertdialog')).toBeInTheDocument();
+    // Select "3 days" radio option
+    await userEvent.click(screen.getByRole('radio', { name: /3 days/i }));
+    // Confirm
+    await userEvent.click(screen.getByRole('button', { name: /^pin$/i }));
+    expect(pinPostMock).toHaveBeenCalledWith('p1', 3);
+  });
+
+  it('moderator clicking Unpin calls unpinPost', async () => {
+    useAuthMock.mockReturnValue({
+      session: { user: { id: 'supabase-mod' } },
+      me: { id: 'mod', email: 'mod@test.local', displayName: 'Mod', role: 'moderator' as const },
+      loading: false,
+      signOut: vi.fn(),
+    });
+    postFetch
+      .mockResolvedValueOnce(baseDetail({ pinned_at: new Date().toISOString() }))
+      .mockResolvedValueOnce(baseDetail({ pinned_at: null }));
+    unpinPostMock.mockResolvedValue({ post: basePost({ pinned_at: null }) });
+    renderAt('p1');
+    await userEvent.click(await screen.findByRole('button', { name: /more actions/i }));
+    await userEvent.click(screen.getByRole('menuitem', { name: /unpin/i }));
+    expect(unpinPostMock).toHaveBeenCalledWith('p1');
   });
 
   it('moderator sees a Comment button in every thread and a post-level new-thread composer', async () => {
