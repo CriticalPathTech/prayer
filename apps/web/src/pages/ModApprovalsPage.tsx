@@ -88,7 +88,7 @@ export function ModApprovalsPage(): JSX.Element {
   }
 
   return (
-    <div className="space-y-3">
+    <div className="mx-auto max-w-feed space-y-3">
       <ModTabs />
 
       {loadError ? <p className="text-sm text-ember-600">{loadError}</p> : null}

@@ -16,7 +16,7 @@ export function ModQueuePage(): JSX.Element {
   if (!isPrivilegedRole(me.role)) return <Navigate to="/" replace />;
 
   return (
-    <div className="space-y-3">
+    <div className="mx-auto max-w-feed space-y-3">
       <ModTabs />
       {queue.loading ? <div>Loading…</div> : null}
       {queue.error ? <div className="text-red-600">{queue.error}</div> : null}
