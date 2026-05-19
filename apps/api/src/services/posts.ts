@@ -354,6 +354,9 @@ export async function upsertOwnDraft(
   });
 }
 
+const PIN_DAY_CHOICES = [1, 3, 7, 14, 30] as const;
+export type PinDurationDays = (typeof PIN_DAY_CHOICES)[number];
+
 export async function publishOwnDraft(
   db: Kysely<Database>,
   args: {
@@ -361,9 +364,13 @@ export async function publishOwnDraft(
     orgId: string;
     callerRole: UserRole;
     requiresPostApproval: boolean;
+    pinDurationDays?: PinDurationDays;
   },
 ): Promise<PostDto> {
   const now = new Date();
+  if (args.pinDurationDays !== undefined && !isPrivilegedRole(args.callerRole)) {
+    throw new ForbiddenError('Only moderators can pin posts');
+  }
   const goPending = args.requiresPostApproval && !isPrivilegedRole(args.callerRole);
   const targetStatus: PostStatus = goPending ? 'pending' : 'published';
 
@@ -405,6 +412,13 @@ export async function publishOwnDraft(
         status: targetStatus,
         expires_at: expiresAt,
         edit_deadline: new Date(now.getTime() + EDIT_WINDOW_MS),
+        ...(args.pinDurationDays !== undefined
+          ? {
+              pinned_at: now,
+              pin_until: new Date(now.getTime() + args.pinDurationDays * 86_400_000),
+              pinned_by: args.userId,
+            }
+          : {}),
       })
       .execute();
 
@@ -415,6 +429,18 @@ export async function publishOwnDraft(
         postId: newPostId,
         actorId: args.userId,
         payload: {},
+      });
+    }
+    if (args.pinDurationDays !== undefined) {
+      await writePostEvent(trx, {
+        kind: 'post.pinned',
+        orgId: args.orgId,
+        postId: newPostId,
+        actorId: args.userId,
+        payload: {
+          pin_until: new Date(now.getTime() + args.pinDurationDays * 86_400_000).toISOString(),
+          pinned_by: args.userId,
+        },
       });
     }
 
@@ -557,10 +583,14 @@ export async function createPost(
     body: string;
     expiresAt?: string;
     isAnonymous?: boolean;
+    pinDurationDays?: PinDurationDays;
   },
 ): Promise<PostDto> {
   const now = new Date();
   const expiresAt = validateExpiresAt(input.expiresAt, now);
+  if (input.pinDurationDays !== undefined && !isPrivilegedRole(input.callerRole)) {
+    throw new ForbiddenError('Only moderators can pin posts');
+  }
   const id = newId();
   return db.transaction().execute(async (trx) => {
     await trx
@@ -574,8 +604,27 @@ export async function createPost(
         status: 'draft',
         expires_at: expiresAt,
         edit_deadline: new Date(now.getTime() + EDIT_WINDOW_MS),
+        ...(input.pinDurationDays !== undefined
+          ? {
+              pinned_at: now,
+              pin_until: new Date(now.getTime() + input.pinDurationDays * 86_400_000),
+              pinned_by: input.authorId,
+            }
+          : {}),
       })
       .execute();
+    if (input.pinDurationDays !== undefined) {
+      await writePostEvent(trx, {
+        kind: 'post.pinned',
+        orgId: input.orgId,
+        postId: id,
+        actorId: input.authorId,
+        payload: {
+          pin_until: new Date(now.getTime() + input.pinDurationDays * 86_400_000).toISOString(),
+          pinned_by: input.authorId,
+        },
+      });
+    }
     const row = await fetchPostRow(trx, { postId: id, orgId: input.orgId });
     return toPostDto(row, { role: input.callerRole }, input.authorId);
   });
