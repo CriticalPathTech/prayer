@@ -44,6 +44,7 @@ import { orgRouter } from './routes/org.js';
 import { postsRouter } from './routes/posts.js';
 import { createEventWorker, type EventHandler, type EventWorker } from './services/event-worker.js';
 import { createExpirySweeper, type ExpiryJobHandle } from './services/expiry-job.js';
+import { createPinSweeper, type PinJobHandle } from './services/pin-job.js';
 import { flagConsumer } from './services/flag-consumer.js';
 import { commentCreatedBuilder } from './services/notification-builders/comment-created.js';
 import { flagCreatedBuilder } from './services/notification-builders/flag-created.js';
@@ -167,9 +168,15 @@ export function buildApp(deps: AppDependencies): Express {
   app.use(auth, requireSuperUser(), adminChurchRouter({ db: deps.db, orgResolver }));
 
   const expirySweeper = createExpirySweeper({ db: deps.db, logger: deps.logger });
-  if (process.env.NODE_ENV !== 'test') expirySweeper.start();
-  (app as unknown as { locals: { expirySweeper: ExpiryJobHandle } }).locals.expirySweeper =
-    expirySweeper;
+  const pinSweeper = createPinSweeper({ db: deps.db, logger: deps.logger });
+  if (process.env.NODE_ENV !== 'test') {
+    expirySweeper.start();
+    pinSweeper.start();
+  }
+  (app as unknown as {
+    locals: { expirySweeper: ExpiryJobHandle; pinSweeper: PinJobHandle };
+  }).locals.expirySweeper = expirySweeper;
+  (app as unknown as { locals: { pinSweeper: PinJobHandle } }).locals.pinSweeper = pinSweeper;
 
   let eventWorker: EventWorker | null = null;
   if (process.env.NODE_ENV !== 'test' && deps.databaseUrl) {
