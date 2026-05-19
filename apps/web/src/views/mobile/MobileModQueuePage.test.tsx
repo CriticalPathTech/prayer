@@ -43,10 +43,10 @@ describe('MobileModQueuePage', () => {
         <MobileModQueuePage />
       </MemoryRouter>,
     );
-    expect(screen.queryByText('Reports')).not.toBeInTheDocument();
+    expect(screen.queryByText('Moderation')).not.toBeInTheDocument();
   });
 
-  it('renders Reports header and one item card', () => {
+  it('renders Moderation header and one item card', () => {
     useAuthMock.mockReturnValue({
       me: { id: 'me', email: 'm@t.local', displayName: 'Mod', avatarUrl: null, role: 'moderator' },
     });
@@ -55,12 +55,12 @@ describe('MobileModQueuePage', () => {
         <MobileModQueuePage />
       </MemoryRouter>,
     );
-    expect(screen.getByText('Reports')).toBeInTheDocument();
+    expect(screen.getByText('Moderation')).toBeInTheDocument();
     expect(screen.getByText(/sample post body/i)).toBeInTheDocument();
     expect(screen.getByText(/4 flags/i)).toBeInTheDocument();
   });
 
-  it('calls useModQueue with no status filter (combined list)', () => {
+  it('calls useModQueue with status=pending (Flagged tab)', () => {
     useAuthMock.mockReturnValue({
       me: { id: 'me', email: 'm@t.local', displayName: 'Mod', avatarUrl: null, role: 'moderator' },
     });
@@ -69,9 +69,7 @@ describe('MobileModQueuePage', () => {
         <MobileModQueuePage />
       </MemoryRouter>,
     );
-    expect(useModQueueMock).toHaveBeenLastCalledWith(undefined);
-    expect(screen.queryByRole('button', { name: /^auto-hidden$/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /^manually hidden$/i })).not.toBeInTheDocument();
+    expect(useModQueueMock).toHaveBeenLastCalledWith('pending');
   });
 
   it('Hide button calls hideTarget when item is not hidden', async () => {

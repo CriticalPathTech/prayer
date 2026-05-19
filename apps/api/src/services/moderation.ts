@@ -153,7 +153,7 @@ export interface ModQueueItem {
 export interface ListModQueueInput {
   callerRole: UserRole;
   orgId: string;
-  status?: 'pending' | 'auto_hidden' | 'manually_hidden';
+  status?: 'pending' | 'auto_hidden' | 'manually_hidden' | 'hidden';
   cursor?: string;
   limit: number;
 }
@@ -222,6 +222,7 @@ export async function listModQueue(
       if (input.status === 'pending') return !r.hidden;
       if (input.status === 'auto_hidden') return r.hidden && r.flag_count >= 2;
       if (input.status === 'manually_hidden') return r.hidden && r.flag_count < 2;
+      if (input.status === 'hidden') return r.hidden;
       return true;
     })
     .map((r) => ({

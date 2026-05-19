@@ -19,9 +19,6 @@ export function ModInvitesPage(): JSX.Element {
 
   return (
     <div className="mx-auto max-w-feed">
-      <h1 className="mb-6 font-serif text-[28px] font-semibold tracking-[-0.02em] text-[var(--fg-1)]">
-        Mod invites
-      </h1>
       <ModTabs />
 
       <section className="mb-8 rounded-md border border-[var(--border-soft)] bg-[var(--bg-raised)] p-4">

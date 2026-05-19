@@ -74,7 +74,7 @@ export function Layout(): JSX.Element {
           <nav className="flex items-center gap-1 text-sm">
             {canMod ? (
               <Link
-                to="/mod/queue"
+                to="/mod"
                 className="inline-flex text-[var(--fg-3)] hover:text-[var(--fg-1)] hover:bg-parchment-100 font-medium px-2.5 py-1.5 rounded-sm"
               >
                 Moderation

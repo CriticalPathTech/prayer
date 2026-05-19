@@ -169,11 +169,10 @@ describe('MobileDrawer', () => {
       'href',
       '/me/invites',
     );
-    expect(screen.queryByRole('link', { name: /^reports$/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: /^grant invites$/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /^moderation$/i })).not.toBeInTheDocument();
   });
 
-  it('shows Moderation section for moderator (Reports + Grant invites)', () => {
+  it('shows a single Moderation link for moderator (points to /mod/approvals)', () => {
     useAuthMock.mockReturnValue({
       ...baseAuth,
       me: { ...baseAuth.me, role: 'moderator' as const },
@@ -183,14 +182,13 @@ describe('MobileDrawer', () => {
         <MobileDrawer onClose={() => {}} />
       </MemoryRouter>,
     );
-    expect(screen.getByRole('link', { name: /^reports$/i })).toHaveAttribute('href', '/mod/queue');
-    expect(screen.getByRole('link', { name: /^grant invites$/i })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: /^moderation$/i })).toHaveAttribute(
       'href',
-      '/mod/invites',
+      '/mod/approvals',
     );
   });
 
-  it('shows Moderation section for super_user as well', () => {
+  it('shows the Moderation link for super_user as well', () => {
     useAuthMock.mockReturnValue({
       ...baseAuth,
       me: { ...baseAuth.me, role: 'super_user' as const },
@@ -200,7 +198,6 @@ describe('MobileDrawer', () => {
         <MobileDrawer onClose={() => {}} />
       </MemoryRouter>,
     );
-    expect(screen.getByRole('link', { name: /^reports$/i })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /^grant invites$/i })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /^moderation$/i })).toBeInTheDocument();
   });
 });

@@ -10,10 +10,13 @@ interface TabDef {
   gated?: boolean;
 }
 
+// Order is by expected usage frequency for a moderator: time-sensitive
+// approvals queue first, then invites, then the two reactive surfaces.
 const ALL_TABS: TabDef[] = [
-  { to: '/mod/queue', label: 'Flagged' },
   { to: '/mod/approvals', label: 'Pending approval', gated: true },
   { to: '/mod/invites', label: 'Invites' },
+  { to: '/mod/queue', label: 'Flagged' },
+  { to: '/mod/hidden', label: 'Hidden' },
 ];
 
 export function ModTabs(): JSX.Element {
@@ -42,4 +45,11 @@ export function ModTabs(): JSX.Element {
       })}
     </nav>
   );
+}
+
+/** First mod route a moderator should land on: Pending approval when the
+ * gate is on (the most time-sensitive queue), Flagged otherwise. Used by
+ * the header "Moderation" link and the bare `/mod` redirect. */
+export function getDefaultModRoute(requiresPostApproval: boolean): string {
+  return requiresPostApproval ? '/mod/approvals' : '/mod/queue';
 }

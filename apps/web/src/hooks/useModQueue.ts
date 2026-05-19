@@ -16,7 +16,7 @@ export interface ModQueueItem {
   hide_source: 'auto' | 'manual' | null;
 }
 
-type Status = 'pending' | 'auto_hidden' | 'manually_hidden';
+type Status = 'pending' | 'auto_hidden' | 'manually_hidden' | 'hidden';
 export type ModQueueStatus = Status;
 
 export interface UseModQueueResult {
