@@ -19,6 +19,10 @@ export interface FeedPost {
   expires_at: string | null;
   edit_deadline: string;
   created_at: string;
+  /** ISO timestamp when this post was pinned; null when not pinned. */
+  pinned_at: string | null;
+  /** Mod or super_user who pinned this post; null when not pinned. */
+  pinned_by: { id: string; display_name: string } | null;
   prayed: boolean;
   reactions: Record<string, { count: number; mine: boolean }>;
   is_own_post: boolean;
@@ -42,12 +46,16 @@ export interface FeedPost {
 
 export interface FeedResponse {
   posts: FeedPost[];
+  /** Pinned posts returned on the first page only; absent on cursor pages. */
+  pinned?: FeedPost[];
   nextCursor: string | null;
   snapshotId: string;
 }
 
 export interface UseFeedResult {
   posts: FeedPost[];
+  /** Pinned posts for the current feed; populated on first/replace fetches. */
+  pinned: FeedPost[];
   filter: FeedFilter;
   setFilter: (f: FeedFilter) => void;
   loading: boolean;
@@ -68,6 +76,7 @@ export interface UseFeedOptions {
 export function useFeed(opts?: UseFeedOptions): UseFeedResult {
   const [filter, setFilter] = useState<FeedFilter>(opts?.initialFilter ?? 'all');
   const [posts, setPosts] = useState<FeedPost[]>([]);
+  const [pinned, setPinned] = useState<FeedPost[]>([]);
   const [cursor, setCursor] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -82,6 +91,7 @@ export function useFeed(opts?: UseFeedOptions): UseFeedResult {
         if (nextCursor) qs.set('cursor', nextCursor);
         const res = await apiFetch<FeedResponse>(`/feed?${qs.toString()}`);
         setPosts((old) => (replace ? res.posts : [...old, ...res.posts]));
+        if (replace) setPinned(res.pinned ?? []);
         setCursor(res.nextCursor);
         setSnapshotId(res.snapshotId);
       } catch (err) {
@@ -99,6 +109,7 @@ export function useFeed(opts?: UseFeedOptions): UseFeedResult {
 
   return {
     posts,
+    pinned,
     filter,
     setFilter,
     loading,
