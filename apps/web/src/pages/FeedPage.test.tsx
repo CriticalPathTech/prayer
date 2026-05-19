@@ -58,7 +58,6 @@ const post = (over: Record<string, unknown> = {}) => ({
   edit_deadline: new Date(Date.now() + 3600_000).toISOString(),
   created_at: new Date().toISOString(),
   pinned_at: null,
-  pinned_by: null,
   prayed: false,
   reactions: {},
   is_own_post: false,
@@ -154,7 +153,6 @@ describe('FeedPage', () => {
           id: 'pinned-1',
           body: 'pinned content',
           pinned_at: new Date().toISOString(),
-          pinned_by: { id: 'mod1', display_name: 'Mod One' },
         }),
       ],
       nextCursor: null,
@@ -170,10 +168,9 @@ describe('FeedPage', () => {
 
     const allText = document.body.textContent ?? '';
     expect(allText.indexOf('pinned content')).toBeLessThan(allText.indexOf('chrono content'));
-    expect(screen.getByText(/Mod One/i)).toBeInTheDocument();
   });
 
-  it('does not show "Pinned by" text when pinned is empty', async () => {
+  it('does not show a Pinned banner when pinned is empty', async () => {
     feedFetch.mockResolvedValueOnce({
       posts: [post({ body: 'regular post' })],
       pinned: [],
@@ -186,7 +183,9 @@ describe('FeedPage', () => {
       </MemoryRouter>,
     );
     await screen.findByText('regular post');
-    expect(screen.queryByText(/pinned by/i)).not.toBeInTheDocument();
+    // Pinned posts apply a card-pinned visual class on PostCard; with no
+    // pinned entries, that class should not appear anywhere on the page.
+    expect(document.querySelector('article.border-vesper-300\\/50')).toBeNull();
   });
 
   it('shows NewActivityBanner when remote snapshotId differs, and refreshes on click', async () => {
