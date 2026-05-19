@@ -15,6 +15,8 @@ export interface UseChurchMembersResult {
   members: MemberRow[];
   /** Current org display name, fresh from DB. Null until first fetch. */
   currentDisplayName: string | null;
+  /** Whether this org requires moderator approval for new posts. False until first fetch. */
+  currentRequiresPostApproval: boolean;
   /** Number of super_users in this org. 0 until first fetch. */
   superUserCount: number;
   loading: boolean;
@@ -24,13 +26,14 @@ export interface UseChurchMembersResult {
 
 interface ChurchMembersResponse {
   members: MemberRow[];
-  org: { displayName: string };
+  org: { displayName: string; requiresPostApproval: boolean };
   superUserCount: number;
 }
 
 export function useChurchMembers(): UseChurchMembersResult {
   const [members, setMembers] = useState<MemberRow[]>([]);
   const [currentDisplayName, setCurrentDisplayName] = useState<string | null>(null);
+  const [currentRequiresPostApproval, setCurrentRequiresPostApproval] = useState(false);
   const [superUserCount, setSuperUserCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
@@ -42,6 +45,7 @@ export function useChurchMembers(): UseChurchMembersResult {
       const res = await apiFetch<ChurchMembersResponse>('/admin/church/members');
       setMembers(res.members);
       setCurrentDisplayName(res.org.displayName);
+      setCurrentRequiresPostApproval(res.org.requiresPostApproval);
       setSuperUserCount(res.superUserCount);
     } catch (err) {
       setError(err as Error);
@@ -54,5 +58,13 @@ export function useChurchMembers(): UseChurchMembersResult {
     void refresh();
   }, [refresh]);
 
-  return { members, currentDisplayName, superUserCount, loading, error, refresh };
+  return {
+    members,
+    currentDisplayName,
+    currentRequiresPostApproval,
+    superUserCount,
+    loading,
+    error,
+    refresh,
+  };
 }
