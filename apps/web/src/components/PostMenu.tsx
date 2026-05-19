@@ -18,6 +18,11 @@ export interface PostMenuProps {
   isTombstone: boolean;
   onDelete: () => Promise<void>;
   onRepost?: () => void | Promise<void>;
+  /** Pin/unpin actions are only relevant when the viewer is a mod/super_user. */
+  viewerRole?: 'member' | 'moderator' | 'super_user';
+  isPinned?: boolean;
+  onPin?: () => void;
+  onUnpin?: () => void | Promise<void>;
   className?: string;
 }
 
@@ -29,6 +34,10 @@ export function PostMenu({
   isTombstone,
   onDelete,
   onRepost,
+  viewerRole,
+  isPinned,
+  onPin,
+  onUnpin,
   className,
 }: PostMenuProps): JSX.Element | null {
   const navigate = useNavigate();
@@ -49,7 +58,10 @@ export function PostMenu({
   const canDelete = isOwnPost && status !== 'archived';
   const canReport = !isOwnPost;
   const canRepost = isOwnPost && status === 'archived' && !!onRepost;
-  const hasAnyItem = canEdit || canDelete || canReport || canRepost;
+  const isPrivileged = viewerRole === 'moderator' || viewerRole === 'super_user';
+  const canPin = isPrivileged && status === 'published' && !isPinned && !!onPin;
+  const canUnpin = isPrivileged && status === 'published' && !!isPinned && !!onUnpin;
+  const hasAnyItem = canEdit || canDelete || canReport || canRepost || canPin || canUnpin;
 
   const close = useCallback(() => {
     setOpen(false);
@@ -180,6 +192,34 @@ export function PostMenu({
             >
               <Icon name="refresh" size={16} />
               <span>Repost</span>
+            </button>
+          ) : null}
+          {canPin ? (
+            <button
+              role="menuitem"
+              type="button"
+              onClick={() => {
+                setOpen(false);
+                onPin?.();
+              }}
+              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-[var(--fg-1)] hover:bg-parchment-100"
+            >
+              <Icon name="pin" size={16} />
+              <span>Pin…</span>
+            </button>
+          ) : null}
+          {canUnpin ? (
+            <button
+              role="menuitem"
+              type="button"
+              onClick={() => {
+                setOpen(false);
+                void onUnpin?.();
+              }}
+              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-[var(--fg-1)] hover:bg-parchment-100"
+            >
+              <Icon name="pin" size={16} />
+              <span>Unpin</span>
             </button>
           ) : null}
         </div>

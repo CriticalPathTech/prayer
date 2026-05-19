@@ -41,6 +41,45 @@ function renderMenu(overrides: Partial<React.ComponentProps<typeof PostMenu>> = 
   };
 }
 
+describe('PostMenu pin/unpin', () => {
+  it('moderator on unpinned published post sees "Pin…"', async () => {
+    renderMenu({
+      status: 'published',
+      viewerRole: 'moderator',
+      isPinned: false,
+      onPin: vi.fn(),
+      onUnpin: vi.fn(),
+    });
+    await userEvent.click(screen.getByRole('button', { name: /more actions/i }));
+    expect(screen.getByRole('menuitem', { name: /^Pin/i })).toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: /^Unpin/i })).not.toBeInTheDocument();
+  });
+
+  it('moderator on pinned post sees "Unpin"', async () => {
+    renderMenu({
+      status: 'published',
+      viewerRole: 'moderator',
+      isPinned: true,
+      onPin: vi.fn(),
+      onUnpin: vi.fn(),
+    });
+    await userEvent.click(screen.getByRole('button', { name: /more actions/i }));
+    expect(screen.getByRole('menuitem', { name: /^Unpin$/i })).toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: /^Pin/i })).not.toBeInTheDocument();
+  });
+
+  it('member never sees Pin or Unpin', async () => {
+    renderMenu({ status: 'published', viewerRole: 'member', isPinned: false });
+    // Open menu only if it has any items; otherwise it's not in DOM.
+    const trigger = screen.queryByRole('button', { name: /more actions/i });
+    if (trigger) {
+      await userEvent.click(trigger);
+      expect(screen.queryByRole('menuitem', { name: /^Pin/i })).not.toBeInTheDocument();
+      expect(screen.queryByRole('menuitem', { name: /^Unpin/i })).not.toBeInTheDocument();
+    }
+  });
+});
+
 describe('PostMenu', () => {
   beforeEach(() => {
     navigateMock.mockReset();
