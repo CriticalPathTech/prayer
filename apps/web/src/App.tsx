@@ -13,6 +13,7 @@ import { FeedPage } from './pages/FeedPage';
 import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
 import { LoginPage } from './pages/LoginPage';
 import { ModApprovalsPage } from './pages/ModApprovalsPage';
+import { ModHiddenPage } from './pages/ModHiddenPage';
 import { ModInvitesPage } from './pages/ModInvitesPage';
 import { ModQueuePage } from './pages/ModQueuePage';
 import { MyArchivePage } from './pages/MyArchivePage';
@@ -35,6 +36,7 @@ import { MobileForgotPasswordPage } from './views/mobile/MobileForgotPasswordPag
 import { MobileLayout } from './views/mobile/MobileLayout';
 import { MobileLoginPage } from './views/mobile/MobileLoginPage';
 import { MobileModApprovalsPage } from './views/mobile/MobileModApprovalsPage';
+import { MobileModHiddenPage } from './views/mobile/MobileModHiddenPage';
 import { MobileModInvitesPage } from './views/mobile/MobileModInvitesPage';
 import { MobileModQueuePage } from './views/mobile/MobileModQueuePage';
 import { MobileMyInvitesPage } from './views/mobile/MobileMyInvitesPage';
@@ -86,6 +88,9 @@ export function AdaptiveModApprovalsPage(): JSX.Element {
 }
 export function AdaptiveModInvitesPage(): JSX.Element {
   return useIsMobileShared() ? <MobileModInvitesPage /> : <ModInvitesPage />;
+}
+export function AdaptiveModHiddenPage(): JSX.Element {
+  return useIsMobileShared() ? <MobileModHiddenPage /> : <ModHiddenPage />;
 }
 export function AdaptiveAdminChurchPage(): JSX.Element {
   return useIsMobileShared() ? <MobileAdminChurchPage /> : <AdminChurchPage />;
@@ -144,9 +149,11 @@ export function App(): JSX.Element {
               <Route path="/me/security" element={<AdaptiveSecurityPage />} />
               <Route path="/me/archive" element={<AdaptiveArchivePage />} />
               <Route path="/notifications" element={<AdaptiveNotificationsPage />} />
-              <Route path="/mod/queue" element={<AdaptiveModQueuePage />} />
+              <Route path="/mod" element={<Navigate to="/mod/approvals" replace />} />
               <Route path="/mod/approvals" element={<AdaptiveModApprovalsPage />} />
               <Route path="/mod/invites" element={<AdaptiveModInvitesPage />} />
+              <Route path="/mod/queue" element={<AdaptiveModQueuePage />} />
+              <Route path="/mod/hidden" element={<AdaptiveModHiddenPage />} />
               <Route path="/admin/church" element={<AdaptiveAdminChurchPage />} />
             </Route>
             <Route path="*" element={<AdaptiveNotFoundPage />} />

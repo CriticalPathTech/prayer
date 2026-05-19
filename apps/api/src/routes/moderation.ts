@@ -8,7 +8,7 @@ import { dismissFlags } from '../services/flags.js';
 import { hideTarget, listModQueue, unhideTarget } from '../services/moderation.js';
 
 const zQueueQuery = z.object({
-  status: z.enum(['pending', 'auto_hidden', 'manually_hidden']).optional(),
+  status: z.enum(['pending', 'auto_hidden', 'manually_hidden', 'hidden']).optional(),
   cursor: z.string().optional(),
   limit: z.coerce.number().int().min(1).max(50).default(20),
 });

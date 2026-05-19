@@ -48,16 +48,16 @@ describe('MobileModInvitesPage', () => {
         <MobileModInvitesPage />
       </MemoryRouter>,
     );
-    expect(screen.queryByText('Grant invites')).not.toBeInTheDocument();
+    expect(screen.queryByText('Moderation')).not.toBeInTheDocument();
   });
 
-  it('renders Grant invites header + search field', () => {
+  it('renders the Moderation header + Grant-a-new-code search field', () => {
     render(
       <MemoryRouter>
         <MobileModInvitesPage />
       </MemoryRouter>,
     );
-    expect(screen.getByText('Grant invites')).toBeInTheDocument();
+    expect(screen.getByText('Moderation')).toBeInTheDocument();
     expect(screen.getByPlaceholderText(/search by name or email/i)).toBeInTheDocument();
   });
 

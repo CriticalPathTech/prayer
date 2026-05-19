@@ -157,7 +157,7 @@ export function PendingCard({
 
       {error ? <p className="text-xs text-ember-600">{error}</p> : null}
 
-      <footer className="flex items-center gap-2 pt-1">
+      <footer className="flex items-center justify-end gap-2 pt-1">
         <button
           type="button"
           onClick={() => onSkip(item.id)}
@@ -166,7 +166,6 @@ export function PendingCard({
         >
           Skip
         </button>
-        <div className="flex-1" />
         <button
           type="button"
           onClick={() => setFlipped(true)}

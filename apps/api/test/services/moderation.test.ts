@@ -249,4 +249,63 @@ describe('listModQueue', () => {
       listModQueue(db, { callerRole: 'member', orgId, limit: 20 }),
     ).rejects.toBeInstanceOf(ForbiddenError);
   });
+
+  it('status=hidden surfaces manually-hidden posts that have no unresolved flags', async () => {
+    const author = await insertUser(db, { orgId });
+    // Post was flagged once then the flag was resolved/dismissed, and the mod
+    // hid the post via the kebab menu. Result: posts.status=hidden,
+    // 0 unresolved flags. The Hidden tab must still surface this row.
+    const post = await insertPost(db, {
+      authorId: author.id,
+      orgId,
+      status: 'hidden',
+      body: 'manually hidden after flag dismissed',
+    });
+    const flagger = await insertUser(db, { orgId });
+    await db
+      .insertInto('flags')
+      .values({
+        id: newId(),
+        org_id: orgId,
+        target_type: 'post',
+        target_id: post.id,
+        flagger_id: flagger.id,
+        reason: 'off_topic',
+        resolved_at: new Date(),
+        resolved_by_id: flagger.id,
+      })
+      .execute();
+
+    const out = await listModQueue(db, {
+      callerRole: 'moderator',
+      orgId,
+      status: 'hidden',
+      limit: 20,
+    });
+    expect(out.items).toHaveLength(1);
+    expect(out.items[0]!.target_id).toBe(post.id);
+    expect(out.items[0]!.hidden).toBe(true);
+    expect(out.items[0]!.flag_count).toBe(0);
+    expect(out.items[0]!.hide_source).toBe('manual');
+  });
+
+  it('status=hidden surfaces a hidden post that was never flagged at all', async () => {
+    const author = await insertUser(db, { orgId });
+    const post = await insertPost(db, {
+      authorId: author.id,
+      orgId,
+      status: 'hidden',
+      body: 'hidden manually, never flagged',
+    });
+    const out = await listModQueue(db, {
+      callerRole: 'moderator',
+      orgId,
+      status: 'hidden',
+      limit: 20,
+    });
+    expect(out.items).toHaveLength(1);
+    expect(out.items[0]!.target_id).toBe(post.id);
+    expect(out.items[0]!.flag_count).toBe(0);
+    expect(out.items[0]!.reasons).toEqual([]);
+  });
 });

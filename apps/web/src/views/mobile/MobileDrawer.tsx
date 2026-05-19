@@ -126,17 +126,10 @@ export function MobileDrawer({ onClose }: MobileDrawerProps): JSX.Element {
             <>
               <SectionLabel>Moderation</SectionLabel>
               <Item
-                to="/mod/queue"
+                to="/mod/approvals"
                 icon="shield"
-                label="Reports"
-                active={location.pathname === '/mod/queue'}
-                onClose={onClose}
-              />
-              <Item
-                to="/mod/invites"
-                icon="mail"
-                label="Grant invites"
-                active={location.pathname === '/mod/invites'}
+                label="Moderation"
+                active={location.pathname.startsWith('/mod')}
                 onClose={onClose}
               />
             </>

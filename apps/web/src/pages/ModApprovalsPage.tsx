@@ -88,9 +88,8 @@ export function ModApprovalsPage(): JSX.Element {
   }
 
   return (
-    <div className="space-y-3">
+    <div className="mx-auto max-w-feed space-y-3">
       <ModTabs />
-      <h1 className="text-lg font-semibold">Pending approval</h1>
 
       {loadError ? <p className="text-sm text-ember-600">{loadError}</p> : null}
       {loading ? <p className="text-sm text-[var(--fg-3)]">Loading…</p> : null}

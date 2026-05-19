@@ -8,9 +8,9 @@ import { isPrivilegedRole } from '../../lib/roles';
 
 import { MobilePageHeader } from './MobilePageHeader';
 
-export function MobileModQueuePage(): JSX.Element {
+export function MobileModHiddenPage(): JSX.Element {
   const { me } = useAuth();
-  const queue = useModQueue('pending');
+  const queue = useModQueue('hidden');
 
   if (!me) {
     return (
@@ -47,23 +47,19 @@ export function MobileModQueuePage(): JSX.Element {
           >
             <p className="text-xs text-[var(--fg-3)]">
               {it.target_type} · {it.flag_count} flag{it.flag_count === 1 ? '' : 's'} ·{' '}
-              {it.reasons.join(', ')}
+              <span className="text-ember-600">
+                {it.hide_source === 'auto' ? 'Auto-hidden' : 'Manually hidden'}
+              </span>
+              {it.reasons.length > 0 ? <> · {it.reasons.join(', ')}</> : null}
             </p>
             <p className="line-clamp-2 text-sm text-[var(--fg-2)]">{it.preview}</p>
             <div className="flex flex-wrap gap-2">
               <button
                 type="button"
-                onClick={() => void queue.hideTarget(it.target_type, it.target_id)}
+                onClick={() => void queue.unhideTarget(it.target_type, it.target_id)}
                 className="inline-flex h-9 items-center rounded-md border border-[var(--border-soft)] bg-[var(--bg-page)] px-3 text-[13px] font-medium text-[var(--fg-2)] active:bg-parchment-100"
               >
-                Hide
-              </button>
-              <button
-                type="button"
-                onClick={() => void queue.dismissFlags(it.target_type, it.target_id)}
-                className="inline-flex h-9 items-center rounded-md border border-[var(--border-soft)] bg-[var(--bg-page)] px-3 text-[13px] font-medium text-[var(--fg-2)] active:bg-parchment-100"
-              >
-                Dismiss
+                Unhide
               </button>
               <Link
                 to={`/posts/${it.post_id}`}

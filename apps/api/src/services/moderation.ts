@@ -153,7 +153,7 @@ export interface ModQueueItem {
 export interface ListModQueueInput {
   callerRole: UserRole;
   orgId: string;
-  status?: 'pending' | 'auto_hidden' | 'manually_hidden';
+  status?: 'pending' | 'auto_hidden' | 'manually_hidden' | 'hidden';
   cursor?: string;
   limit: number;
 }
@@ -168,6 +168,13 @@ export async function listModQueue(
   input: ListModQueueInput,
 ): Promise<ListModQueueResult> {
   requireModeratorRole(input.callerRole);
+  // The "Hidden" tab is driven by posts.status='hidden' / comments.is_hidden,
+  // not by flags — manual hides for items that were never flagged (or whose
+  // flags were dismissed) must still show up here. Other statuses keep the
+  // flag-driven path because they aggregate over unresolved flags.
+  if (input.status === 'hidden') {
+    return listHiddenItems(db, input);
+  }
   const rows = await sql<{
     target_type: 'post' | 'comment';
     target_id: string;
@@ -222,6 +229,7 @@ export async function listModQueue(
       if (input.status === 'pending') return !r.hidden;
       if (input.status === 'auto_hidden') return r.hidden && r.flag_count >= 2;
       if (input.status === 'manually_hidden') return r.hidden && r.flag_count < 2;
+      if (input.status === 'hidden') return r.hidden;
       return true;
     })
     .map((r) => ({
@@ -237,6 +245,122 @@ export async function listModQueue(
       hidden: r.hidden,
       hide_source: r.hidden ? (r.flag_count >= 2 ? 'auto' : 'manual') : null,
     }));
+
+  const next_cursor =
+    next != null
+      ? Buffer.from(
+          JSON.stringify({
+            latestFlagAt: next.latest_flag_at.toISOString(),
+            targetType: next.target_type,
+            targetId: next.target_id,
+          }),
+          'utf8',
+        ).toString('base64url')
+      : null;
+
+  return { items, next_cursor };
+}
+
+/** Driven by the items' own hidden state, not by flags. Surfaces:
+ *  - auto-hidden posts/comments (≥2 unresolved flags),
+ *  - manually-hidden items (with or without resolved/active flags).
+ *  Flag info is attached when available (counts / reasons / latest_flag_at)
+ *  but is never used as the inclusion gate. */
+async function listHiddenItems(
+  db: Kysely<Database>,
+  input: ListModQueueInput,
+): Promise<ListModQueueResult> {
+  const rows = await sql<{
+    target_type: 'post' | 'comment';
+    target_id: string;
+    post_id: string;
+    author_display_name: string | null;
+    preview: string;
+    flag_count: number;
+    reasons: string[] | null;
+    first_flag_at: Date;
+    latest_flag_at: Date;
+    hidden: boolean;
+  }>`
+    WITH hidden_posts AS (
+      SELECT
+        'post'::reaction_target_type AS target_type,
+        p.id        AS target_id,
+        p.id        AS post_id,
+        pu.display_name AS author_display_name,
+        SUBSTRING(p.body FOR 120) AS preview,
+        p.created_at AS item_created_at
+      FROM posts p
+      LEFT JOIN users pu ON pu.id = p.author_id
+      WHERE p.org_id = ${input.orgId} AND p.status = 'hidden'
+    ),
+    hidden_comments AS (
+      SELECT
+        'comment'::reaction_target_type AS target_type,
+        c.id        AS target_id,
+        c.post_id   AS post_id,
+        cu.display_name AS author_display_name,
+        SUBSTRING(c.body FOR 120) AS preview,
+        c.created_at AS item_created_at
+      FROM comments c
+      LEFT JOIN users cu ON cu.id = c.author_id
+      WHERE c.org_id = ${input.orgId} AND c.is_hidden = TRUE
+    ),
+    hidden_all AS (
+      SELECT * FROM hidden_posts
+      UNION ALL
+      SELECT * FROM hidden_comments
+    ),
+    flag_agg AS (
+      SELECT
+        f.target_type,
+        f.target_id,
+        COUNT(*)::int                 AS flag_count,
+        ARRAY_AGG(DISTINCT f.reason)  AS reasons,
+        MIN(f.created_at)             AS first_flag_at,
+        MAX(f.created_at)             AS latest_flag_at
+      FROM flags f
+      WHERE f.org_id = ${input.orgId} AND f.resolved_at IS NULL
+      GROUP BY f.target_type, f.target_id
+    )
+    SELECT
+      h.target_type,
+      h.target_id,
+      h.post_id,
+      h.author_display_name,
+      h.preview,
+      COALESCE(fa.flag_count, 0)::int                AS flag_count,
+      COALESCE(fa.reasons, ARRAY[]::TEXT[])          AS reasons,
+      COALESCE(fa.first_flag_at, h.item_created_at)  AS first_flag_at,
+      COALESCE(fa.latest_flag_at, h.item_created_at) AS latest_flag_at,
+      TRUE AS hidden
+    FROM hidden_all h
+    LEFT JOIN flag_agg fa
+      ON fa.target_type = h.target_type
+     AND fa.target_id   = h.target_id
+    ORDER BY COALESCE(fa.latest_flag_at, h.item_created_at) DESC,
+             h.target_type DESC,
+             h.target_id DESC
+    LIMIT ${input.limit + 1}
+  `.execute(db);
+
+  const page = rows.rows.slice(0, input.limit);
+  const hasMore = rows.rows.length > input.limit;
+  const next = hasMore && page.length > 0 ? page[page.length - 1] : null;
+
+  const items: ModQueueItem[] = page.map((r) => ({
+    target_type: r.target_type,
+    target_id: r.target_id,
+    post_id: r.post_id,
+    author_display_name: r.author_display_name,
+    preview: r.preview,
+    flag_count: Number(r.flag_count),
+    reasons: r.reasons ?? [],
+    first_flag_at: r.first_flag_at.toISOString(),
+    latest_flag_at: r.latest_flag_at.toISOString(),
+    hidden: true,
+    hide_source: r.flag_count >= 2 ? 'auto' : 'manual',
+  }));
 
   const next_cursor =
     next != null

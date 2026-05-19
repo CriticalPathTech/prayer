@@ -2,6 +2,7 @@ import type { JSX } from 'react';
 import { useState } from 'react';
 import { Navigate } from 'react-router-dom';
 
+import { ModTabs } from '../../components/ModTabs';
 import { PendingCard } from '../../components/PendingCard';
 import { useApprovals, type ApprovalItem } from '../../hooks/useApprovals';
 import { useAuth } from '../../hooks/useAuth';
@@ -19,7 +20,7 @@ export function MobileModApprovalsPage(): JSX.Element {
   if (!me) {
     return (
       <>
-        <MobilePageHeader variant={{ kind: 'back', title: 'Pending approval' }} />
+        <MobilePageHeader variant={{ kind: 'back', title: 'Moderation' }} />
         <div className="px-4 py-16 text-center text-sm text-[var(--fg-3)]">Loading…</div>
       </>
     );
@@ -96,8 +97,9 @@ export function MobileModApprovalsPage(): JSX.Element {
 
   return (
     <>
-      <MobilePageHeader variant={{ kind: 'back', title: 'Pending approval' }} />
+      <MobilePageHeader variant={{ kind: 'back', title: 'Moderation' }} />
       <div className="flex flex-1 flex-col gap-3 px-4 pb-6 pt-3">
+        <ModTabs />
         {loadError ? <p className="text-sm text-ember-600">{loadError}</p> : null}
         {loading ? <p className="py-4 text-center text-sm text-[var(--fg-3)]">Loading…</p> : null}
 

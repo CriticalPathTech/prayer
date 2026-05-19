@@ -43,10 +43,10 @@ describe('MobileModQueuePage', () => {
         <MobileModQueuePage />
       </MemoryRouter>,
     );
-    expect(screen.queryByText('Reports')).not.toBeInTheDocument();
+    expect(screen.queryByText('Moderation')).not.toBeInTheDocument();
   });
 
-  it('renders Reports header and one item card', () => {
+  it('renders Moderation header and one item card', () => {
     useAuthMock.mockReturnValue({
       me: { id: 'me', email: 'm@t.local', displayName: 'Mod', avatarUrl: null, role: 'moderator' },
     });
@@ -55,12 +55,12 @@ describe('MobileModQueuePage', () => {
         <MobileModQueuePage />
       </MemoryRouter>,
     );
-    expect(screen.getByText('Reports')).toBeInTheDocument();
+    expect(screen.getByText('Moderation')).toBeInTheDocument();
     expect(screen.getByText(/sample post body/i)).toBeInTheDocument();
     expect(screen.getByText(/4 flags/i)).toBeInTheDocument();
   });
 
-  it('renders 3 status pills', () => {
+  it('calls useModQueue with status=pending (Flagged tab)', () => {
     useAuthMock.mockReturnValue({
       me: { id: 'me', email: 'm@t.local', displayName: 'Mod', avatarUrl: null, role: 'moderator' },
     });
@@ -69,22 +69,7 @@ describe('MobileModQueuePage', () => {
         <MobileModQueuePage />
       </MemoryRouter>,
     );
-    expect(screen.getByRole('button', { name: /^pending$/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /^auto-hidden$/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /^manually hidden$/i })).toBeInTheDocument();
-  });
-
-  it('clicking a status pill changes the queue status', async () => {
-    useAuthMock.mockReturnValue({
-      me: { id: 'me', email: 'm@t.local', displayName: 'Mod', avatarUrl: null, role: 'moderator' },
-    });
-    render(
-      <MemoryRouter>
-        <MobileModQueuePage />
-      </MemoryRouter>,
-    );
-    await userEvent.click(screen.getByRole('button', { name: /^auto-hidden$/i }));
-    expect(useModQueueMock).toHaveBeenLastCalledWith('auto_hidden');
+    expect(useModQueueMock).toHaveBeenLastCalledWith('pending');
   });
 
   it('Hide button calls hideTarget when item is not hidden', async () => {
