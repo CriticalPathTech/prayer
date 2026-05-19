@@ -4,11 +4,13 @@ import type { Kysely } from 'kysely';
 import { sql } from 'kysely';
 
 import { isPrivilegedRole } from '../lib/roles.js';
-import { ForbiddenError, NotFoundError } from '../middleware/error.js';
+import { ForbiddenError, NotFoundError, ValidationError } from '../middleware/error.js';
 
 import { writePostEvent } from './events.js';
 import { fetchMemberSet } from './membership-set.js';
 import { fetchPostRow, toPostDto, type PostDto, type PostRow } from './posts.js';
+
+const REJECT_NOTE_MAX = 500;
 
 function requireModerator(role: UserRole): void {
   if (!isPrivilegedRole(role)) throw new ForbiddenError();
@@ -128,6 +130,63 @@ export async function approvePost(
       payload: {},
     });
     const row = await fetchPostRow(trx, { postId: newPostId, orgId: input.orgId });
+    return toPostDto(row, { role: input.callerRole }, input.callerId);
+  });
+}
+
+export interface RejectPostInput {
+  postId: string;
+  orgId: string;
+  callerId: string;
+  callerRole: UserRole;
+  note?: string;
+}
+
+export async function rejectPost(
+  db: Kysely<Database>,
+  input: RejectPostInput,
+): Promise<PostDto> {
+  requireModerator(input.callerRole);
+  const note = input.note?.trim() ? input.note.trim() : null;
+  if (note !== null && note.length > REJECT_NOTE_MAX) {
+    throw new ValidationError(`note must be ${REJECT_NOTE_MAX} characters or fewer`);
+  }
+  return db.transaction().execute(async (trx) => {
+    const existing = await trx
+      .selectFrom('posts')
+      .select(['id', 'author_id', 'body', 'status'])
+      .where('id', '=', input.postId)
+      .where('org_id', '=', input.orgId)
+      .forUpdate()
+      .executeTakeFirst();
+    if (!existing || existing.status !== 'pending') throw new NotFoundError('Post not found');
+    if (existing.author_id === input.callerId) {
+      throw new ForbiddenError('cannot reject your own submission');
+    }
+    const now = new Date();
+    await trx
+      .updateTable('posts')
+      .set({
+        status: 'rejected',
+        moderation_note: note,
+        moderated_by: input.callerId,
+        moderated_at: now,
+      })
+      .where('id', '=', input.postId)
+      .where('org_id', '=', input.orgId)
+      .execute();
+    await writePostEvent(trx, {
+      kind: 'post.rejected',
+      orgId: input.orgId,
+      postId: input.postId,
+      actorId: input.callerId,
+      payload: {
+        moderation_note: note,
+        moderated_by: input.callerId,
+        body_preview: existing.body.slice(0, 120),
+      },
+    });
+    const row = await fetchPostRow(trx, { postId: input.postId, orgId: input.orgId });
     return toPostDto(row, { role: input.callerRole }, input.callerId);
   });
 }

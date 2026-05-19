@@ -3,6 +3,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { initDb } from '../../src/db/index.js';
 import { approvePost } from '../../src/services/post-approvals.js';
 import { listApprovals } from '../../src/services/post-approvals.js';
+import { rejectPost } from '../../src/services/post-approvals.js';
 import { getTestchurchOrgId, insertPost, insertUser } from '../helpers/seed.js';
 
 describe('listApprovals', () => {
@@ -115,5 +116,53 @@ describe('approvePost', () => {
     await expect(
       approvePost(db, { postId: p.id, orgId, callerId: member.id, callerRole: 'member' }),
     ).rejects.toMatchObject({ statusCode: 403 });
+  });
+});
+
+describe('rejectPost', () => {
+  const db = initDb(process.env.TEST_DATABASE_URL!);
+
+  beforeEach(async () => {
+    await db.deleteFrom('mod_post_skips').execute();
+    await db.deleteFrom('events').execute();
+    await db.deleteFrom('posts').execute();
+  });
+
+  it('flips status to rejected and stores note + writes event', async () => {
+    const orgId = await getTestchurchOrgId(db);
+    const mod = await insertUser(db, { orgId, role: 'moderator' });
+    const author = await insertUser(db, { orgId, role: 'member' });
+    const p = await insertPost(db, { authorId: author.id, orgId, status: 'pending', body: 'orig' });
+    const dto = await rejectPost(db, {
+      postId: p.id, orgId, callerId: mod.id, callerRole: 'moderator',
+      note: 'Please reword the second paragraph.',
+    });
+    expect(dto.id).toBe(p.id);
+    expect(dto.status).toBe('rejected');
+    const stored = await db.selectFrom('posts').select(['moderation_note', 'moderated_by']).where('id', '=', p.id).executeTakeFirstOrThrow();
+    expect(stored.moderation_note).toBe('Please reword the second paragraph.');
+    expect(stored.moderated_by).toBe(mod.id);
+    const evt = await db.selectFrom('events').select(['type', 'payload']).where('type', '=', 'post.rejected').executeTakeFirstOrThrow();
+    expect((evt.payload as { moderation_note?: string }).moderation_note).toBe('Please reword the second paragraph.');
+  });
+
+  it('accepts no note → moderation_note stays null', async () => {
+    const orgId = await getTestchurchOrgId(db);
+    const mod = await insertUser(db, { orgId, role: 'moderator' });
+    const author = await insertUser(db, { orgId, role: 'member' });
+    const p = await insertPost(db, { authorId: author.id, orgId, status: 'pending', body: 'orig' });
+    await rejectPost(db, { postId: p.id, orgId, callerId: mod.id, callerRole: 'moderator' });
+    const stored = await db.selectFrom('posts').select('moderation_note').where('id', '=', p.id).executeTakeFirstOrThrow();
+    expect(stored.moderation_note).toBeNull();
+  });
+
+  it('rejects note longer than 500 chars', async () => {
+    const orgId = await getTestchurchOrgId(db);
+    const mod = await insertUser(db, { orgId, role: 'moderator' });
+    const author = await insertUser(db, { orgId, role: 'member' });
+    const p = await insertPost(db, { authorId: author.id, orgId, status: 'pending' });
+    await expect(
+      rejectPost(db, { postId: p.id, orgId, callerId: mod.id, callerRole: 'moderator', note: 'x'.repeat(501) }),
+    ).rejects.toMatchObject({ statusCode: 400 });
   });
 });
