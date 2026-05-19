@@ -197,6 +197,9 @@ export const zCreatePost = z.object({
   body: z.string().min(1).max(10_000),
   expires_at: z.string().datetime().optional(),
   is_anonymous: z.boolean().optional(),
+  pin_duration_days: z
+    .union([z.literal(1), z.literal(3), z.literal(7), z.literal(14), z.literal(30)])
+    .optional(),
 });
 export type CreatePostInput = z.infer<typeof zCreatePost>;
 

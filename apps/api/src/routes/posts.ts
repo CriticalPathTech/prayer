@@ -37,6 +37,9 @@ export function postsRouter(deps: { db: Kysely<Database> }): Router {
         body: parsed.data.body,
         ...(parsed.data.expires_at !== undefined && { expiresAt: parsed.data.expires_at }),
         ...(parsed.data.is_anonymous !== undefined && { isAnonymous: parsed.data.is_anonymous }),
+        ...(parsed.data.pin_duration_days !== undefined && {
+          pinDurationDays: parsed.data.pin_duration_days,
+        }),
       });
       res.status(201).json({ post });
     } catch (err) {
