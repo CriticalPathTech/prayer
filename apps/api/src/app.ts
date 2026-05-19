@@ -48,6 +48,7 @@ import { commentCreatedBuilder } from './services/notification-builders/comment-
 import { flagCreatedBuilder } from './services/notification-builders/flag-created.js';
 import { inviteAcceptedBuilder } from './services/notification-builders/invite-accepted.js';
 import { moderatorHideBuilder } from './services/notification-builders/moderator-hide.js';
+import { postRejectedBuilder } from './services/notification-builders/post-rejected.js';
 import { createOrgResolver } from './services/orgs.js';
 import { prayerCountRecomputer } from './services/prayer-consumer.js';
 import { reactionCountRecomputer } from './services/reaction-consumer.js';
@@ -195,6 +196,9 @@ export function buildApp(deps: AppDependencies): Express {
         'moderator.hide': moderatorHideBuilder,
         'moderator.unhide': async () => {},
         'invite.accepted': inviteAcceptedBuilder,
+        'post.rejected': postRejectedBuilder,
+        'post.submitted': async () => {}, // no-op; reserved for future moderator-side notif
+        'post.approved': async () => {}, // no-op; reserved for future audit consumer
       },
     });
     void eventWorker
