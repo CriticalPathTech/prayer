@@ -134,6 +134,47 @@ export async function approvePost(
   });
 }
 
+export interface SkipReviewInput {
+  postId: string;
+  orgId: string;
+  callerId: string;
+  callerRole: UserRole;
+}
+
+export async function skipPostReview(
+  db: Kysely<Database>,
+  input: SkipReviewInput,
+): Promise<void> {
+  requireModerator(input.callerRole);
+  await db.transaction().execute(async (trx) => {
+    const existing = await trx
+      .selectFrom('posts')
+      .select(['id', 'status'])
+      .where('id', '=', input.postId)
+      .where('org_id', '=', input.orgId)
+      .executeTakeFirst();
+    if (!existing || existing.status !== 'pending') throw new NotFoundError('Post not found');
+    await sql`
+      INSERT INTO mod_post_skips (post_id, moderator_id, org_id, skipped_at)
+      VALUES (${input.postId}, ${input.callerId}, ${input.orgId}, NOW())
+      ON CONFLICT (post_id, moderator_id)
+      DO UPDATE SET skipped_at = NOW()
+    `.execute(trx);
+  });
+}
+
+export async function unskipPostReview(
+  db: Kysely<Database>,
+  input: SkipReviewInput,
+): Promise<void> {
+  requireModerator(input.callerRole);
+  await db
+    .deleteFrom('mod_post_skips')
+    .where('post_id', '=', input.postId)
+    .where('moderator_id', '=', input.callerId)
+    .execute();
+}
+
 export interface RejectPostInput {
   postId: string;
   orgId: string;

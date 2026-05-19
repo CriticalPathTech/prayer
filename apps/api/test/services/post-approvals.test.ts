@@ -4,6 +4,7 @@ import { initDb } from '../../src/db/index.js';
 import { approvePost } from '../../src/services/post-approvals.js';
 import { listApprovals } from '../../src/services/post-approvals.js';
 import { rejectPost } from '../../src/services/post-approvals.js';
+import { skipPostReview, unskipPostReview } from '../../src/services/post-approvals.js';
 import { getTestchurchOrgId, insertPost, insertUser } from '../helpers/seed.js';
 
 describe('listApprovals', () => {
@@ -164,5 +165,49 @@ describe('rejectPost', () => {
     await expect(
       rejectPost(db, { postId: p.id, orgId, callerId: mod.id, callerRole: 'moderator', note: 'x'.repeat(501) }),
     ).rejects.toMatchObject({ statusCode: 400 });
+  });
+});
+
+describe('skipPostReview / unskipPostReview', () => {
+  const db = initDb(process.env.TEST_DATABASE_URL!);
+
+  beforeEach(async () => {
+    await db.deleteFrom('mod_post_skips').execute();
+    await db.deleteFrom('posts').execute();
+  });
+
+  it('skip is idempotent — re-skip just refreshes skipped_at', async () => {
+    const orgId = await getTestchurchOrgId(db);
+    const mod = await insertUser(db, { orgId, role: 'moderator' });
+    const author = await insertUser(db, { orgId, role: 'member' });
+    const p = await insertPost(db, { authorId: author.id, orgId, status: 'pending' });
+
+    await skipPostReview(db, { postId: p.id, orgId, callerId: mod.id, callerRole: 'moderator' });
+    const first = await db.selectFrom('mod_post_skips').select('skipped_at').where('post_id', '=', p.id).executeTakeFirstOrThrow();
+    await new Promise((r) => setTimeout(r, 10));
+    await skipPostReview(db, { postId: p.id, orgId, callerId: mod.id, callerRole: 'moderator' });
+    const second = await db.selectFrom('mod_post_skips').select('skipped_at').where('post_id', '=', p.id).executeTakeFirstOrThrow();
+    expect(second.skipped_at.getTime()).toBeGreaterThan(first.skipped_at.getTime());
+  });
+
+  it('refuses to skip a non-pending post', async () => {
+    const orgId = await getTestchurchOrgId(db);
+    const mod = await insertUser(db, { orgId, role: 'moderator' });
+    const author = await insertUser(db, { orgId, role: 'member' });
+    const p = await insertPost(db, { authorId: author.id, orgId, status: 'published' });
+    await expect(
+      skipPostReview(db, { postId: p.id, orgId, callerId: mod.id, callerRole: 'moderator' }),
+    ).rejects.toMatchObject({ statusCode: 404 });
+  });
+
+  it('unskip removes the row', async () => {
+    const orgId = await getTestchurchOrgId(db);
+    const mod = await insertUser(db, { orgId, role: 'moderator' });
+    const author = await insertUser(db, { orgId, role: 'member' });
+    const p = await insertPost(db, { authorId: author.id, orgId, status: 'pending' });
+    await skipPostReview(db, { postId: p.id, orgId, callerId: mod.id, callerRole: 'moderator' });
+    await unskipPostReview(db, { postId: p.id, orgId, callerId: mod.id, callerRole: 'moderator' });
+    const rows = await db.selectFrom('mod_post_skips').selectAll().where('post_id', '=', p.id).execute();
+    expect(rows.length).toBe(0);
   });
 });
