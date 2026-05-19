@@ -102,6 +102,13 @@ updates:
     #   v3.4 is still security-supported and no third-party dep requires v4.
     #   Defer until we want a focused migration effort, not a chore-deps
     #   bump. Context: PR #36 (closed).
+    #
+    # - eslint-plugin-react-hooks: v7 enables the new React-Compiler-aware
+    #   ruleset (set-state-in-effect, cannot-call-impure-function-during-render,
+    #   cannot-access-refs-during-render). These flag legitimate correctness
+    #   issues across many apps/web hooks — addressing them is a code-cleanup
+    #   effort, not a dep bump. v5 stays on the current lint surface.
+    #   Revisit when we're ready to do the cleanup. Context: PR #70 (closed).
     ignore:
       - dependency-name: 'eslint'
         update-types: ['version-update:semver-major']
@@ -110,6 +117,8 @@ updates:
       - dependency-name: '@types/node'
         update-types: ['version-update:semver-major']
       - dependency-name: 'tailwindcss'
+        update-types: ['version-update:semver-major']
+      - dependency-name: 'eslint-plugin-react-hooks'
         update-types: ['version-update:semver-major']
 
   # ---------- GitHub Actions ----------
