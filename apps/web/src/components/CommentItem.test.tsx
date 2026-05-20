@@ -162,4 +162,41 @@ describe('CommentItem', () => {
     );
     expect(screen.getByRole('link', { name: /flagged \(3\)/i })).toBeInTheDocument();
   });
+
+  it('commenter avatar and name link to /u/:commenter_id for non-anonymous comment', () => {
+    renderItem(
+      <CommentItem comment={base} postId="p" callerId={null} callerIsPrivileged={false} />,
+    );
+    const links = screen.getAllByRole('link');
+    const profileLink = links.find((l) => l.getAttribute('href') === '/u/u1');
+    expect(profileLink).toBeDefined();
+  });
+
+  it('renders anonymous commenter name without /u/ link', () => {
+    renderItem(
+      <CommentItem
+        comment={{ ...base, author_id: null, display_name: null, is_anonymous_author: true }}
+        postId="p"
+        callerId={null}
+        callerIsPrivileged={false}
+      />,
+    );
+    const links = screen.queryAllByRole('link');
+    const profileLink = links.find((l) => l.getAttribute('href')?.startsWith('/u/'));
+    expect(profileLink).toBeUndefined();
+  });
+
+  it('renders former-member commenter without /u/ link', () => {
+    renderItem(
+      <CommentItem
+        comment={{ ...base, author_id: null, display_name: null, is_former_member: true }}
+        postId="p"
+        callerId={null}
+        callerIsPrivileged={false}
+      />,
+    );
+    const links = screen.queryAllByRole('link');
+    const profileLink = links.find((l) => l.getAttribute('href')?.startsWith('/u/'));
+    expect(profileLink).toBeUndefined();
+  });
 });
