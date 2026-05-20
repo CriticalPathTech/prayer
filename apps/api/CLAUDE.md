@@ -23,13 +23,14 @@ src/
   routes/me-orgs.ts   GET /me/orgs — auth-gated, org-context-exempt; lists user's orgs so mobile clients can pick a slug for X-Org-Slug
   routes/me-draft.ts  GET /me/draft, PUT /me/draft (upsert), POST /me/draft/publish — single-draft-per-user
   routes/posts.ts     /posts CRUD + /posts/:id/updates + GET /posts/me/archive
-  routes/feed.ts      GET /feed (3 sorts + cursor) + GET /feed/snapshot
+  routes/feed.ts      GET /feed (filter=all|mine|answered, cursor pagination, pinned slice on page 1) + GET /feed/snapshot
   routes/comments.ts  /posts/:id/comments CRUD (threaded)
   routes/invitations.ts      /invitations CRUD + /invitations/{preview,accept}
   routes/invite-codes.ts     /me/invite-codes — owner-side invite-code listing
   routes/mod-invite-codes.ts /mod/invite-codes — moderator-side invite-code mint/list/revoke
   routes/notifications.ts    /me/notifications list + mark-read
   routes/moderation.ts       /mod/queue, /mod/hide, /mod/unhide (moderator/super_user gated)
+  routes/mod-posts-pin.ts    POST /mod/posts/:id/pin, POST /mod/posts/:id/unpin — sets posts.pinned_at + pin_until (moderator/super_user gated)
   routes/admin-church.ts     /admin/church/{members,settings,members/:userId} — super_user-only church management (list members, remove, rename church, promote/demote with 3-su cap + 1-su floor)
   services/posts.ts   createPost, publishPost, editPost, archivePost, createUpdate, editUpdate,
                       getOwnDraft, upsertOwnDraft, publishOwnDraft (single draft per user — partial unique index),
@@ -42,7 +43,7 @@ src/
   services/flags.ts          flagPost/flagComment + dedup per (user, target)
   services/prayers.ts, services/prayer-consumer.ts  Prayer toggle + count recomputer (mirrors reactions)
   services/avatars.ts uploadOwnAvatar, deleteOwnAvatar — writes to S3-compatible storage backend, `avatars/` bucket
-  services/feed.ts    fetchFeed (newest|updated|popular) + getSnapshotId; role-aware status filter; batch-fetches reactions per post (same query pattern as prayedSet)
+  services/feed.ts    fetchFeed(args: FeedQuery & {callerRole, callerId, orgId}) + getSnapshotId; filter=all|mine|answered; role-aware status filter; batch-fetches reactions per post (same query pattern as prayedSet); returns a `pinned` slice inline on the first page (no cursor) via a separate query for posts.pinned_at IS NOT NULL AND pin_until > NOW().
   services/feed-snapshot.ts  getSnapshotId — reads latest published post id from DB
   services/hide-info.ts      fetchHideInfo(db, postIds) — batch loader for latest moderator.hide event per post
   services/events.ts  writePostEvent + writeCommentEvent/writeFlagEvent/writeModerationEvent/writeInvitationEvent
@@ -54,6 +55,7 @@ src/
   services/notification-builders/  Per-event builders (comment-created, flag-created, invite-accepted, moderator-hide)
   services/cursor.ts  opaque base64(JSON) cursor encode/decode per sort
   services/expiry-job.ts sweepExpired + createExpirySweeper (node-cron)
+  services/pin-job.ts sweepPins + createPinSweeper (node-cron) — auto-unpins posts where pin_until has elapsed; started in buildApp (skipped under NODE_ENV=test)
   types/express.d.ts  Express Request augmentation for req.user
 test/
   global-setup.ts     Drops + recreates public schema, runs migrations, sets env
