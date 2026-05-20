@@ -1,4 +1,5 @@
 import type { JSX } from 'react';
+import { Link } from 'react-router-dom';
 
 import type { FeedPost } from '../hooks/useFeed';
 import { formatAgo } from '../lib/time';
@@ -57,7 +58,15 @@ export function UpdatePostItem({
         </span>
       </div>
       {embedded ? null : (
-        <div className="mb-1.5 font-serif text-sm font-medium text-[var(--fg-1)]">{name}</div>
+        <div className="mb-1.5 font-serif text-sm font-medium text-[var(--fg-1)]">
+          {update.author_id && !update.is_anonymous ? (
+            <Link to={`/u/${update.author_id}`} className="hover:underline">
+              {name}
+            </Link>
+          ) : (
+            <span>{name}</span>
+          )}
+        </div>
       )}
       {truncateThreshold !== undefined ? (
         <ExpandableText
