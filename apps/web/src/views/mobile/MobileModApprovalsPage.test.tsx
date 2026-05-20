@@ -84,7 +84,7 @@ describe('MobileModApprovalsPage', () => {
         <MobileModApprovalsPage />
       </MemoryRouter>,
     );
-    expect(screen.queryByText('Pending approval')).not.toBeInTheDocument();
+    expect(screen.queryByText('Review')).not.toBeInTheDocument();
   });
 
   it('renders header and empty state', async () => {
@@ -95,7 +95,7 @@ describe('MobileModApprovalsPage', () => {
         <MobileModApprovalsPage />
       </MemoryRouter>,
     );
-    expect(screen.getByText('Pending approval')).toBeInTheDocument();
+    expect(screen.getByText('Review')).toBeInTheDocument();
     await waitFor(() => expect(screen.getByText(/inbox zero/i)).toBeInTheDocument());
   });
 

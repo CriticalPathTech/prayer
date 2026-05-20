@@ -118,11 +118,27 @@ export function MobileDrawer({ onClose }: MobileDrawerProps): JSX.Element {
           {isPrivilegedRole(me?.role) ? (
             <>
               <SectionLabel>Moderation</SectionLabel>
+              {me?.orgRequiresPostApproval === true ? (
+                <Item
+                  to="/mod/approvals"
+                  icon="shield"
+                  label="Review"
+                  active={location.pathname === '/mod/approvals'}
+                  onClose={onClose}
+                />
+              ) : null}
               <Item
-                to="/mod/approvals"
+                to="/mod/queue"
                 icon="shield"
-                label="Moderation"
-                active={location.pathname.startsWith('/mod')}
+                label="Reports"
+                active={location.pathname === '/mod/queue' || location.pathname === '/mod/hidden'}
+                onClose={onClose}
+              />
+              <Item
+                to="/mod/invites"
+                icon="mail"
+                label="Grant invites"
+                active={location.pathname === '/mod/invites'}
                 onClose={onClose}
               />
             </>

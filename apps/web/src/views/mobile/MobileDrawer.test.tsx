@@ -182,7 +182,7 @@ describe('MobileDrawer', () => {
     expect(signOut).toHaveBeenCalled();
   });
 
-  it('renders Account section with My invites (member)', () => {
+  it('renders Account section with My invites (member); no moderation links', () => {
     render(
       <MemoryRouter>
         <MobileDrawer onClose={() => {}} />
@@ -192,26 +192,77 @@ describe('MobileDrawer', () => {
       'href',
       '/me/invites',
     );
-    expect(screen.queryByRole('link', { name: /^moderation$/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /^review$/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /^reports$/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /^grant invites$/i })).not.toBeInTheDocument();
   });
 
-  it('shows a single Moderation link for moderator (points to /mod/approvals)', () => {
+  it('moderator without approval gate: Reports + Grant invites, no Review', () => {
     useAuthMock.mockReturnValue({
       ...baseAuth,
-      me: { ...baseAuth.me, role: 'moderator' as const },
+      me: { ...baseAuth.me, role: 'moderator' as const, orgRequiresPostApproval: false },
     });
     render(
       <MemoryRouter>
         <MobileDrawer onClose={() => {}} />
       </MemoryRouter>,
     );
-    expect(screen.getByRole('link', { name: /^moderation$/i })).toHaveAttribute(
+    expect(screen.queryByRole('link', { name: /^review$/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /^reports$/i })).toHaveAttribute('href', '/mod/queue');
+    expect(screen.getByRole('link', { name: /^grant invites$/i })).toHaveAttribute(
       'href',
-      '/mod/approvals',
+      '/mod/invites',
     );
   });
 
-  it('shows the Moderation link for super_user as well', () => {
+  it('moderator with approval gate: Review + Reports + Grant invites', () => {
+    useAuthMock.mockReturnValue({
+      ...baseAuth,
+      me: { ...baseAuth.me, role: 'moderator' as const, orgRequiresPostApproval: true },
+    });
+    render(
+      <MemoryRouter>
+        <MobileDrawer onClose={() => {}} />
+      </MemoryRouter>,
+    );
+    expect(screen.getByRole('link', { name: /^review$/i })).toHaveAttribute(
+      'href',
+      '/mod/approvals',
+    );
+    expect(screen.getByRole('link', { name: /^reports$/i })).toHaveAttribute('href', '/mod/queue');
+    expect(screen.getByRole('link', { name: /^grant invites$/i })).toHaveAttribute(
+      'href',
+      '/mod/invites',
+    );
+  });
+
+  it('marks Reports active on /mod/queue and /mod/hidden', () => {
+    useAuthMock.mockReturnValue({
+      ...baseAuth,
+      me: { ...baseAuth.me, role: 'moderator' as const },
+    });
+    const { unmount } = render(
+      <MemoryRouter initialEntries={['/mod/queue']}>
+        <MobileDrawer onClose={() => {}} />
+      </MemoryRouter>,
+    );
+    expect(screen.getByRole('link', { name: /^reports$/i })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+    unmount();
+    render(
+      <MemoryRouter initialEntries={['/mod/hidden']}>
+        <MobileDrawer onClose={() => {}} />
+      </MemoryRouter>,
+    );
+    expect(screen.getByRole('link', { name: /^reports$/i })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+  });
+
+  it('shows the mod links for super_user as well', () => {
     useAuthMock.mockReturnValue({
       ...baseAuth,
       me: { ...baseAuth.me, role: 'super_user' as const },
@@ -221,6 +272,7 @@ describe('MobileDrawer', () => {
         <MobileDrawer onClose={() => {}} />
       </MemoryRouter>,
     );
-    expect(screen.getByRole('link', { name: /^moderation$/i })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /^reports$/i })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /^grant invites$/i })).toBeInTheDocument();
   });
 });
