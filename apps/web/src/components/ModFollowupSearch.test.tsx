@@ -25,7 +25,8 @@ describe('ModFollowupSearch', () => {
     await userEvent.click(screen.getByRole('button', { name: 'No prayers for 3 days' }));
     expect((screen.getByLabelText(/no prayers/i) as HTMLInputElement).checked).toBe(true);
     expect((screen.getByLabelText(/for at least/i) as HTMLInputElement).value).toBe('3');
-    expect((screen.getByLabelText(/unit/i) as HTMLSelectElement).value).toBe('days');
+    expect(screen.getByRole('button', { name: 'days' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: 'hours' })).toHaveAttribute('aria-pressed', 'false');
     expect(onSearch).not.toHaveBeenCalled();
   });
 

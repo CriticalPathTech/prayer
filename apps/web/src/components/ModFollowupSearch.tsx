@@ -107,23 +107,34 @@ export function ModFollowupSearch({ initial, onSearch }: Props): JSX.Element {
             className="mt-1 w-20 rounded border border-[var(--border-soft)] px-2 py-1 text-sm"
           />
         </label>
-        <label className="flex flex-col text-xs text-[var(--fg-3)]">
-          Unit
-          <select
-            aria-label="unit"
-            value={draft.minAge.unit}
-            onChange={(e) =>
-              setDraft((d) => ({
-                ...d,
-                minAge: { ...d.minAge, unit: e.target.value as 'hours' | 'days' },
-              }))
-            }
-            className="mt-1 rounded border border-[var(--border-soft)] px-2 py-1 text-sm"
+        <div className="flex flex-col text-xs text-[var(--fg-3)]">
+          <span id="mod-followup-unit-label">Unit</span>
+          <div
+            role="group"
+            aria-labelledby="mod-followup-unit-label"
+            className="mt-1 inline-flex overflow-hidden rounded border border-[var(--border-soft)]"
           >
-            <option value="hours">hours</option>
-            <option value="days">days</option>
-          </select>
-        </label>
+            {(['hours', 'days'] as const).map((u) => {
+              const active = draft.minAge.unit === u;
+              return (
+                <button
+                  key={u}
+                  type="button"
+                  aria-label={u}
+                  aria-pressed={active}
+                  onClick={() => setDraft((d) => ({ ...d, minAge: { ...d.minAge, unit: u } }))}
+                  className={
+                    active
+                      ? 'bg-vesper-600 px-3 py-1 text-sm font-medium text-white'
+                      : 'bg-[var(--bg-page)] px-3 py-1 text-sm text-[var(--fg-2)]'
+                  }
+                >
+                  {u}
+                </button>
+              );
+            })}
+          </div>
+        </div>
 
         <div className="ml-auto flex gap-2">
           <button
