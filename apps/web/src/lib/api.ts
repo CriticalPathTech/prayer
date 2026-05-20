@@ -234,3 +234,40 @@ export async function skipPost(id: string): Promise<void> {
 export async function unskipPost(id: string): Promise<void> {
   await apiFetch<null>(`/mod/posts/${encodeURIComponent(id)}/skip`, { method: 'DELETE' });
 }
+
+export interface FollowupFilters {
+  noPrayers: boolean;
+  noReactions: boolean;
+  noComments: boolean;
+  noUpdates: boolean;
+  noModResponse: boolean;
+}
+
+export interface FollowupQuery {
+  filters: FollowupFilters;
+  minAge: { value: number; unit: 'hours' | 'days' };
+  sort?: 'oldest' | 'newest';
+  cursor?: string;
+}
+
+export interface FollowupResponse {
+  items: FeedPost[];
+  next_cursor: string | null;
+}
+
+export async function getFollowupPosts(q: FollowupQuery): Promise<FollowupResponse> {
+  const params = new URLSearchParams();
+  if (q.filters.noPrayers) params.set('no_prayers', 'true');
+  if (q.filters.noReactions) params.set('no_reactions', 'true');
+  if (q.filters.noComments) params.set('no_comments', 'true');
+  if (q.filters.noUpdates) params.set('no_updates', 'true');
+  if (q.filters.noModResponse) params.set('no_mod_response', 'true');
+  if (q.minAge.value > 0) {
+    params.set('min_age_value', String(q.minAge.value));
+    params.set('min_age_unit', q.minAge.unit);
+  }
+  if (q.sort && q.sort !== 'oldest') params.set('sort', q.sort);
+  if (q.cursor) params.set('cursor', q.cursor);
+  const qs = params.toString();
+  return apiFetch<FollowupResponse>(`/mod/follow-up${qs ? `?${qs}` : ''}`);
+}
