@@ -1,6 +1,6 @@
 import type { JSX } from 'react';
 import { useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 
 import { CommentForm } from '../components/CommentForm';
 import { CommentThread } from '../components/CommentThread';
@@ -133,9 +133,27 @@ function PostDetailView({ data, reload, error }: PostDetailViewProps): JSX.Eleme
     <div className="mx-auto max-w-detail">
       <article className={articleClass}>
         <header className="mb-3 flex items-center gap-3">
-          <Avatar name={name} avatarUrl={post.avatar_url} anonymous={post.is_anonymous} size="md" />
+          {post.author_id ? (
+            <Link
+              to={`/u/${post.author_id}`}
+              aria-label={`View ${name}'s profile`}
+              className="shrink-0"
+            >
+              <Avatar name={name} avatarUrl={post.avatar_url} anonymous={post.is_anonymous} size="md" />
+            </Link>
+          ) : (
+            <Avatar name={name} avatarUrl={post.avatar_url} anonymous={post.is_anonymous} size="md" />
+          )}
           <div className="min-w-0 flex-1">
-            <div className="font-serif text-[15px] font-medium text-[var(--fg-1)]">{name}</div>
+            <div className="font-serif text-[15px] font-medium text-[var(--fg-1)]">
+              {post.author_id ? (
+                <Link to={`/u/${post.author_id}`} className="hover:underline">
+                  {name}
+                </Link>
+              ) : (
+                <span>{name}</span>
+              )}
+            </div>
             <div className="flex items-center gap-1.5 text-xs text-[var(--fg-3)]">
               {post.pinned_at !== null ? (
                 <span role="img" aria-label="Pinned" title="Pinned" className="inline-flex">

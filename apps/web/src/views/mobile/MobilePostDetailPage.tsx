@@ -1,6 +1,6 @@
 import type { JSX } from 'react';
 import { useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 
 import { PinDialog } from '../../components/PinDialog';
 import { PostMenu } from '../../components/PostMenu';
@@ -69,15 +69,36 @@ export function MobilePostDetailPage(): JSX.Element {
           ].join(' ')}
         >
           <header className="flex items-start gap-2.5">
-            <Avatar
-              name={post.is_anonymous ? 'Anonymous' : (post.display_name ?? 'Anonymous')}
-              avatarUrl={post.avatar_url}
-              anonymous={post.is_anonymous}
-              size="md"
-            />
+            {post.author_id ? (
+              <Link
+                to={`/u/${post.author_id}`}
+                aria-label={`View ${post.is_anonymous ? 'Anonymous' : (post.display_name ?? 'Anonymous')}'s profile`}
+                className="shrink-0"
+              >
+                <Avatar
+                  name={post.is_anonymous ? 'Anonymous' : (post.display_name ?? 'Anonymous')}
+                  avatarUrl={post.avatar_url}
+                  anonymous={post.is_anonymous}
+                  size="md"
+                />
+              </Link>
+            ) : (
+              <Avatar
+                name={post.is_anonymous ? 'Anonymous' : (post.display_name ?? 'Anonymous')}
+                avatarUrl={post.avatar_url}
+                anonymous={post.is_anonymous}
+                size="md"
+              />
+            )}
             <div className="min-w-0 flex-1">
               <div className="font-serif text-[15px] font-semibold text-[var(--fg-1)]">
-                {post.is_anonymous ? 'Anonymous' : (post.display_name ?? 'Anonymous')}
+                {post.author_id ? (
+                  <Link to={`/u/${post.author_id}`} className="hover:underline">
+                    {post.is_anonymous ? 'Anonymous' : (post.display_name ?? 'Anonymous')}
+                  </Link>
+                ) : (
+                  <span>{post.is_anonymous ? 'Anonymous' : (post.display_name ?? 'Anonymous')}</span>
+                )}
               </div>
               <div className="mt-0.5 flex items-center gap-1.5 text-xs text-[var(--fg-3)]">
                 {post.pinned_at !== null ? (
