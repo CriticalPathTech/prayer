@@ -14,6 +14,7 @@ import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
 import { LoginPage } from './pages/LoginPage';
 import { MemberProfilePage } from './pages/MemberProfilePage';
 import { ModApprovalsPage } from './pages/ModApprovalsPage';
+import { ModFollowupPage } from './pages/ModFollowupPage';
 import { ModHiddenPage } from './pages/ModHiddenPage';
 import { ModInvitesPage } from './pages/ModInvitesPage';
 import { ModQueuePage } from './pages/ModQueuePage';
@@ -38,6 +39,7 @@ import { MobileLayout } from './views/mobile/MobileLayout';
 import { MobileLoginPage } from './views/mobile/MobileLoginPage';
 import { MobileMemberProfilePage } from './views/mobile/MobileMemberProfilePage';
 import { MobileModApprovalsPage } from './views/mobile/MobileModApprovalsPage';
+import { MobileModFollowupPage } from './views/mobile/MobileModFollowupPage';
 import { MobileModHiddenPage } from './views/mobile/MobileModHiddenPage';
 import { MobileModInvitesPage } from './views/mobile/MobileModInvitesPage';
 import { MobileModQueuePage } from './views/mobile/MobileModQueuePage';
@@ -100,6 +102,9 @@ export function AdaptiveModQueuePage(): JSX.Element {
 }
 export function AdaptiveModApprovalsPage(): JSX.Element {
   return useIsMobileShared() ? <MobileModApprovalsPage /> : <ModApprovalsPage />;
+}
+export function AdaptiveModFollowupPage(): JSX.Element {
+  return useIsMobileShared() ? <MobileModFollowupPage /> : <ModFollowupPage />;
 }
 export function AdaptiveModInvitesPage(): JSX.Element {
   return useIsMobileShared() ? <MobileModInvitesPage /> : <ModInvitesPage />;
@@ -167,6 +172,7 @@ export function App(): JSX.Element {
               <Route path="/notifications" element={<AdaptiveNotificationsPage />} />
               <Route path="/mod" element={<Navigate to="/mod/approvals" replace />} />
               <Route path="/mod/approvals" element={<AdaptiveModApprovalsPage />} />
+              <Route path="/mod/follow-up" element={<AdaptiveModFollowupPage />} />
               <Route path="/mod/invites" element={<AdaptiveModInvitesPage />} />
               <Route path="/mod/queue" element={<AdaptiveModQueuePage />} />
               <Route path="/mod/hidden" element={<AdaptiveModHiddenPage />} />
