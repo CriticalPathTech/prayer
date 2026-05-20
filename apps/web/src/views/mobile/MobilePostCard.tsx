@@ -158,6 +158,11 @@ export function MobilePostCard({ post, onChange, onRepost }: MobilePostCardProps
             )}
           </div>
           <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-[var(--fg-3)]">
+            {post.pinned_at !== null ? (
+              <span role="img" aria-label="Pinned" title="Pinned" className="inline-flex">
+                <Icon name="pin" size={14} className="text-vesper-500 rotate-[35deg]" />
+              </span>
+            ) : null}
             <span>{formatAgo(post.created_at)}</span>
             {expiring ? (
               <>
