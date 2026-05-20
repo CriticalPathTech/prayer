@@ -72,6 +72,8 @@ playwright.config.ts
 ## Conventions
 
 - **Module resolution:** Vite uses `"moduleResolution": "Bundler"`, so relative imports do NOT use `.js` extensions. This differs from the API workspace.
+- **Adaptive pages — mobile branch uses `MobilePostCard`, not `PostCard`.** They share the `{post, onChange?, onRepost?}` prop shape (drop-in swap), but the mobile variant renders the touch-optimized layout (chevron menu, full-width Pray/Comment row) that matches `MobileFeedPage` / `MobileArchivePage`.
+- **Mobile pages do NOT render `ModTabs`.** The drawer is the mobile nav surface; the desktop tab strip below `MobilePageHeader` doubles up the hierarchy. Desktop pages keep `ModTabs`.
 - **Env vars:** Vite exposes only `VITE_*` vars. Required at build/dev time:
   - `VITE_AUTH_URL`
   - `VITE_AUTH_ANON_KEY`

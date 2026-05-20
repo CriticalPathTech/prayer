@@ -93,6 +93,7 @@ test/
 ## Testing
 
 - Vitest runs with `globalSetup: test/global-setup.ts` — the schema is dropped + migrated once per run. Individual tests should NOT start transactions themselves; if a test needs clean data, delete specific rows in `afterEach`.
+- **Service-level tests don't call `createTestApp()` per test.** Use shared `db` + `orgId` via `beforeAll` (pattern in `test/services/moderation.test.ts`): `initDb` once, look up the seeded `testchurch` org once, `db.destroy()` in `afterAll`. `createTestApp()` opens a new Kysely pool each call — for service tests without an HTTP agent, that's pure leak.
 - Use `createTestApp({ db, env })` from `test/helpers/supertest.ts`. It builds a fresh `app` with injected deps. Never import `src/server.ts` from tests.
 - Mint JWTs with `mintTestJwt({ sub, email })`. `sub` is the Supabase auth id — it maps to `users.supabase_auth_id`.
 - **`fileParallelism: false` is required** in `apps/api/vitest.config.ts` and `packages/db/vitest.config.ts`. Vitest 4 changed defaults: even with `pool: 'forks' + singleFork: true`, files schedule concurrently within the fork via async tasks. All db-backed files share `TEST_DATABASE_URL`, so without this flag ~200 tests fail with cross-file races (one file's afterEach deleting rows mid-flight in another file's it block). Cost: api suite ~5s → ~20s — acceptable for 56 files.
