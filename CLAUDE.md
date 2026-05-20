@@ -58,6 +58,8 @@ nvm exec 24 pnpm install                                    # MUST be Node 24 �
 nvm exec 24 pnpm --filter @prayer/db --filter @prayer/shared build   # project-ref artifacts required for api/web tests
 ```
 
+**Pass an absolute path to `git worktree add`** — the target is resolved relative to CWD, not the repo root. Running it from inside another worktree silently creates a nested worktree (e.g. `…/.claude/worktrees/outer/.claude/worktrees/inner`). Always: `git worktree add -b <branch> /Users/…/prayer/.claude/worktrees/<name> origin/main`.
+
 ## Conventions
 
 - **IDs:** UUIDv7 (sortable, chronological). Use `newId()` from `@prayer/db`.
