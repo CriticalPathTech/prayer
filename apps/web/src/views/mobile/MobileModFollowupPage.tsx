@@ -3,8 +3,6 @@ import { Navigate, useSearchParams } from 'react-router-dom';
 
 import { EngagementSummary } from '../../components/EngagementSummary';
 import { ModFollowupSearch } from '../../components/ModFollowupSearch';
-import { ModTabs } from '../../components/ModTabs';
-import { PostCard } from '../../components/PostCard';
 import { useAuth } from '../../hooks/useAuth';
 import { useModFollowup } from '../../hooks/useModFollowup';
 import { EMPTY_DRAFT, type FollowupDraft } from '../../lib/mod-followup-pills';
@@ -12,6 +10,7 @@ import { parseApplied, serializeApplied } from '../../lib/mod-followup-url';
 import { isPrivilegedRole } from '../../lib/roles';
 
 import { MobilePageHeader } from './MobilePageHeader';
+import { MobilePostCard } from './MobilePostCard';
 
 export function MobileModFollowupPage(): JSX.Element {
   const { me } = useAuth();
@@ -27,7 +26,7 @@ export function MobileModFollowupPage(): JSX.Element {
   if (!me) {
     return (
       <>
-        <MobilePageHeader variant={{ kind: 'back', title: 'Moderation' }} />
+        <MobilePageHeader variant={{ kind: 'back', title: 'Follow-up' }} />
         <div className="px-4 py-16 text-center text-sm text-[var(--fg-3)]">Loading…</div>
       </>
     );
@@ -36,9 +35,8 @@ export function MobileModFollowupPage(): JSX.Element {
 
   return (
     <>
-      <MobilePageHeader variant={{ kind: 'back', title: 'Moderation' }} />
+      <MobilePageHeader variant={{ kind: 'back', title: 'Follow-up' }} />
       <div className="flex flex-1 flex-col gap-3 px-4 pb-6 pt-3">
-        <ModTabs />
         <ModFollowupSearch initial={initialApplied ?? EMPTY_DRAFT} onSearch={onSearch} />
 
         {followup.loading ? (
@@ -60,7 +58,7 @@ export function MobileModFollowupPage(): JSX.Element {
                 appliedFilters={followup.applied.filters}
               />
             ) : null}
-            <PostCard post={post} onChange={() => void followup.refresh()} />
+            <MobilePostCard post={post} onChange={() => void followup.refresh()} />
           </div>
         ))}
 
