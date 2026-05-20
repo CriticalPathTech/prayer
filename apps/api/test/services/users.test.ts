@@ -7,6 +7,35 @@ import { ValidationError } from '../../src/middleware/error.js';
 import { fetchUserById, fetchUserPosts, updateDisplayName } from '../../src/services/users.js';
 import { insertOrg, insertPost, insertUser } from '../helpers/seed.js';
 
+// Local helpers for tests that exercise enrichment (prayed/reactions);
+// the shared seed module doesn't ship inserters for these tables.
+async function insertPrayer(
+  db: Kysely<Database>,
+  args: { postId: string; userId: string; orgId: string },
+): Promise<void> {
+  await db
+    .insertInto('prayers')
+    .values({ id: newId(), post_id: args.postId, user_id: args.userId, org_id: args.orgId })
+    .execute();
+}
+
+async function insertReaction(
+  db: Kysely<Database>,
+  args: { postId: string; authorId: string; orgId: string; emoji: string },
+): Promise<void> {
+  await db
+    .insertInto('reactions')
+    .values({
+      id: newId(),
+      org_id: args.orgId,
+      target_type: 'post',
+      target_id: args.postId,
+      author_id: args.authorId,
+      emoji: args.emoji,
+    })
+    .execute();
+}
+
 const db = createDb(process.env.DATABASE_URL!);
 
 async function legacyInsertOrg(): Promise<string> {
@@ -36,6 +65,8 @@ async function legacyInsertUser(name: string, orgId: string): Promise<string> {
 afterEach(async () => {
   await db.deleteFrom('invitations').execute();
   await db.deleteFrom('invite_codes').execute();
+  await db.deleteFrom('prayers').execute();
+  await db.deleteFrom('reactions').execute();
   await db.deleteFrom('posts').execute();
   await db.deleteFrom('user_orgs').execute();
   await db.deleteFrom('users').execute();
@@ -358,6 +389,126 @@ describe('services/users — profile page fetchers', () => {
       expect(page2.nextCursor).toBeNull();
       const ids = [...page1.posts, ...page2.posts].map((p) => p.id);
       expect(new Set(ids).size).toBe(3);
+    });
+
+    it('prayed reflects whether the caller has prayed for the post', async () => {
+      const target = await insertUser(profileDb, { orgId });
+      const viewer = await insertUser(profileDb, { orgId });
+      const prayedPost = await insertPost(profileDb, {
+        authorId: target.id,
+        orgId,
+        status: 'published',
+      });
+      const unprayedPost = await insertPost(profileDb, {
+        authorId: target.id,
+        orgId,
+        status: 'published',
+      });
+      await insertPrayer(profileDb, {
+        postId: prayedPost.id,
+        userId: viewer.id,
+        orgId,
+      });
+
+      const res = await fetchUserPosts(profileDb, {
+        userId: target.id,
+        callerRole: 'member',
+        callerId: viewer.id,
+        orgId,
+        cursor: null,
+        limit: 20,
+      });
+      const byId = Object.fromEntries(res.posts.map((p) => [p.id, p]));
+      expect(byId[prayedPost.id]!.prayed).toBe(true);
+      expect(byId[unprayedPost.id]!.prayed).toBe(false);
+    });
+
+    it('reactions returns a per-emoji map with count + mine for the caller', async () => {
+      const target = await insertUser(profileDb, { orgId });
+      const viewer = await insertUser(profileDb, { orgId });
+      const other = await insertUser(profileDb, { orgId });
+      const post = await insertPost(profileDb, {
+        authorId: target.id,
+        orgId,
+        status: 'published',
+      });
+      // Viewer reacts 🙏; another user also reacts 🙏 (count → 2, mine → true).
+      // Another user reacts ❤️ (count → 1, mine → false).
+      await insertReaction(profileDb, {
+        postId: post.id,
+        authorId: viewer.id,
+        orgId,
+        emoji: '🙏',
+      });
+      await insertReaction(profileDb, {
+        postId: post.id,
+        authorId: other.id,
+        orgId,
+        emoji: '🙏',
+      });
+      await insertReaction(profileDb, {
+        postId: post.id,
+        authorId: other.id,
+        orgId,
+        emoji: '❤️',
+      });
+
+      const res = await fetchUserPosts(profileDb, {
+        userId: target.id,
+        callerRole: 'member',
+        callerId: viewer.id,
+        orgId,
+        cursor: null,
+        limit: 20,
+      });
+      expect(res.posts).toHaveLength(1);
+      const reactions = res.posts[0]!.reactions;
+      expect(reactions['🙏']!.count).toBe(2);
+      expect(reactions['🙏']!.mine).toBe(true);
+      expect(reactions['❤️']!.count).toBe(1);
+      expect(reactions['❤️']!.mine).toBe(false);
+    });
+
+    it('updates returns the parent post published children inline', async () => {
+      const target = await insertUser(profileDb, { orgId });
+      const parent = await insertPost(profileDb, {
+        authorId: target.id,
+        orgId,
+        status: 'published',
+      });
+      const u1 = await insertPost(profileDb, {
+        authorId: target.id,
+        orgId,
+        status: 'published',
+        parentId: parent.id,
+      });
+      const u2 = await insertPost(profileDb, {
+        authorId: target.id,
+        orgId,
+        status: 'published',
+        parentId: parent.id,
+      });
+      // A hidden child must NOT come through on the profile (published-only).
+      await insertPost(profileDb, {
+        authorId: target.id,
+        orgId,
+        status: 'hidden',
+        parentId: parent.id,
+      });
+
+      const res = await fetchUserPosts(profileDb, {
+        userId: target.id,
+        callerRole: 'member',
+        callerId: target.id,
+        orgId,
+        cursor: null,
+        limit: 20,
+      });
+      expect(res.posts).toHaveLength(1);
+      const updates = res.posts[0]!.updates;
+      expect(updates).toHaveLength(2);
+      // Oldest → newest (id ASC); u1 was created before u2.
+      expect(updates.map((u) => u.id)).toEqual([u1.id, u2.id]);
     });
   });
 });

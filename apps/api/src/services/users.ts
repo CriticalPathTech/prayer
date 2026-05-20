@@ -6,11 +6,12 @@
 
 import type { Database, UserRole } from '@prayer/db';
 import type { Kysely } from 'kysely';
+import { sql } from 'kysely';
 
 import { sanitizeDisplayName } from '../middleware/auth.js';
 import { ValidationError } from '../middleware/error.js';
 
-import { toPostDto, type PostDto, type PostRow } from './posts.js';
+import { toPostDto, type PostDto, type PostRow, type ReactionSummary } from './posts.js';
 
 export interface UpdateDisplayNameInput {
   userId: string;
@@ -103,8 +104,17 @@ export interface UserPostsArgs {
   limit: number;
 }
 
+/** Each post returned by `fetchUserPosts` ships with the same enrichment
+ *  shape the feed uses (`prayed`, `reactions`, `updates`) so the web
+ *  `PostCard` renders identically on the wall and the profile page. */
+export interface UserPostsItem extends PostDto {
+  prayed: boolean;
+  reactions: Record<string, ReactionSummary>;
+  updates: PostDto[];
+}
+
 export interface UserPostsResponse {
-  posts: PostDto[];
+  posts: UserPostsItem[];
   nextCursor: string | null;
   /** Stable identifier for the current page snapshot. Mirrors the shape of
    *  `FeedResponse.snapshotId` consumed by the web `useFeed` hook so the
@@ -194,7 +204,93 @@ export async function fetchUserPosts(
   const sliced = hasMore ? rows.slice(0, args.limit) : rows;
 
   const caller = { role: args.callerRole };
-  const posts: PostDto[] = sliced.map((row) => toPostDto(row, caller, args.callerId));
+  const baseDtos = sliced.map((row) => toPostDto(row, caller, args.callerId));
+
+  // Batch-fetch enrichment for parity with fetchFeed. Three queries keyed on
+  // the page's post ids; same pattern as services/feed.ts. Profile only ever
+  // surfaces published top-level posts, so we don't need hide-info attribution
+  // on the parents and we keep update children to published-only.
+  let prayedSet = new Set<string>();
+  const reactionsMap = new Map<string, Record<string, ReactionSummary>>();
+  const updatesByParent = new Map<string, PostDto[]>();
+  if (sliced.length > 0) {
+    const postIds = sliced.map((p) => p.id);
+
+    const prayedRows = await db
+      .selectFrom('prayers')
+      .select('post_id')
+      .where('org_id', '=', args.orgId)
+      .where('user_id', '=', args.callerId)
+      .where('post_id', 'in', postIds)
+      .execute();
+    prayedSet = new Set(prayedRows.map((r) => r.post_id));
+
+    const reactionRows = await db
+      .selectFrom('reactions')
+      .select([
+        'target_id',
+        'emoji',
+        (eb) => eb.fn.count<number>('id').as('count'),
+        (eb) => sql<boolean>`bool_or(${eb.ref('author_id')} = ${args.callerId})`.as('mine'),
+      ])
+      .where('org_id', '=', args.orgId)
+      .where('target_type', '=', 'post')
+      .where('target_id', 'in', postIds)
+      .groupBy(['target_id', 'emoji'])
+      .execute();
+    for (const row of reactionRows) {
+      if (!reactionsMap.has(row.target_id)) reactionsMap.set(row.target_id, {});
+      reactionsMap.get(row.target_id)![row.emoji] = {
+        count: Number(row.count),
+        mine: row.mine,
+      };
+    }
+
+    // Inline published update children, oldest→newest per parent (id ASC ≈
+    // created_at ASC under UUIDv7). Matches feed semantics so PostCard reads
+    // the same narrative ordering. PostCard slices to the last 3 client-side.
+    const updateRows = (await db
+      .selectFrom('posts')
+      .innerJoin('users', 'users.id', 'posts.author_id')
+      .select([
+        'posts.id',
+        'posts.parent_id',
+        'posts.author_id',
+        'users.display_name as author_display_name',
+        'users.avatar_url as author_avatar_url',
+        'posts.status',
+        'posts.is_anonymous',
+        'posts.is_answered_prayer',
+        'posts.body',
+        'posts.reaction_count',
+        'posts.prayer_count',
+        'posts.expires_at',
+        'posts.edit_deadline',
+        'posts.created_at',
+        'posts.pinned_at',
+      ])
+      .where('posts.org_id', '=', args.orgId)
+      .where('posts.parent_id', 'in', postIds)
+      .where('posts.status', '=', 'published')
+      .orderBy('posts.parent_id')
+      .orderBy('posts.id', 'asc')
+      .execute()) as unknown as PostRow[];
+
+    for (const row of updateRows) {
+      const parentId = row.parent_id!;
+      const dto = toPostDto(row, caller, args.callerId);
+      const existing = updatesByParent.get(parentId);
+      if (existing) existing.push(dto);
+      else updatesByParent.set(parentId, [dto]);
+    }
+  }
+
+  const posts: UserPostsItem[] = baseDtos.map((dto) => ({
+    ...dto,
+    prayed: prayedSet.has(dto.id),
+    reactions: reactionsMap.get(dto.id) ?? {},
+    updates: updatesByParent.get(dto.id) ?? [],
+  }));
 
   const last = sliced[sliced.length - 1];
   const nextCursor = hasMore && last ? encodeUserPostsCursor(last.id) : null;
