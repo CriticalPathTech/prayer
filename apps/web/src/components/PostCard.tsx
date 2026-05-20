@@ -242,26 +242,49 @@ export function PostCard({ post, onChange, onRepost }: PostCardProps): JSX.Eleme
         </div>
       ) : null}
       <footer className="mt-4 flex flex-wrap items-center gap-3">
-        <PrayButton
-          size="sm"
-          prayed={prayer.prayed}
-          prayerCount={prayer.prayerCount}
-          onToggle={() => void prayer.toggle().catch(() => {})}
-        />
-        <div className="flex-1" />
-        <Reactions
-          ariaLabel={`reactions on post by ${name}`}
-          reactions={reactions.reactions}
-          onToggle={(e) => void reactions.toggle(e).catch(() => {})}
-        />
-        <Link
-          to={`/posts/${post.id}`}
-          className="inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-[13px] font-medium text-[var(--fg-3)] hover:text-[var(--fg-1)] hover:bg-parchment-100 transition-colors"
-        >
-          <Icon name="message" size={16} />
-          <span>Comment</span>
-        </Link>
-        {showFlagPill ? <FlagCountPill count={flagCount} targetId={post.id} /> : null}
+        {post.status === 'archived' && onRepost ? (
+          <>
+            <Link
+              to={`/posts/${post.id}`}
+              className="inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-[13px] font-medium text-[var(--fg-3)] hover:text-[var(--fg-1)] hover:bg-parchment-100 transition-colors"
+            >
+              <Icon name="chevron-right" size={16} />
+              <span>View thread</span>
+            </Link>
+            <div className="flex-1" />
+            <button
+              type="button"
+              onClick={() => void onRepost()}
+              className="inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-[13px] font-medium text-vesper-600 hover:bg-parchment-100 transition-colors"
+            >
+              <Icon name="refresh" size={16} />
+              <span>Repost</span>
+            </button>
+          </>
+        ) : (
+          <>
+            <PrayButton
+              size="sm"
+              prayed={prayer.prayed}
+              prayerCount={prayer.prayerCount}
+              onToggle={() => void prayer.toggle().catch(() => {})}
+            />
+            <div className="flex-1" />
+            <Reactions
+              ariaLabel={`reactions on post by ${name}`}
+              reactions={reactions.reactions}
+              onToggle={(e) => void reactions.toggle(e).catch(() => {})}
+            />
+            <Link
+              to={`/posts/${post.id}`}
+              className="inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-[13px] font-medium text-[var(--fg-3)] hover:text-[var(--fg-1)] hover:bg-parchment-100 transition-colors"
+            >
+              <Icon name="message" size={16} />
+              <span>Comment</span>
+            </Link>
+            {showFlagPill ? <FlagCountPill count={flagCount} targetId={post.id} /> : null}
+          </>
+        )}
       </footer>
     </article>
   );

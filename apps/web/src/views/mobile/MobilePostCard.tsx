@@ -203,11 +203,13 @@ export function MobilePostCard({ post, onChange, onRepost }: MobilePostCardProps
         textClassName="m-0 font-serif text-[16px] leading-[1.55] text-[var(--fg-2)] whitespace-pre-wrap [text-wrap:pretty]"
       />
 
-      <Reactions
-        ariaLabel={`reactions on post by ${name}`}
-        reactions={reactions.reactions}
-        onToggle={(e) => void reactions.toggle(e).catch(() => {})}
-      />
+      {post.status !== 'archived' ? (
+        <Reactions
+          ariaLabel={`reactions on post by ${name}`}
+          reactions={reactions.reactions}
+          onToggle={(e) => void reactions.toggle(e).catch(() => {})}
+        />
+      ) : null}
 
       {showRibbon ? (
         <div className="-mx-4 mt-1 flex items-center gap-2 border-t border-[var(--answered-border)] bg-gradient-to-r from-dawn-50 to-transparent px-4 py-2.5 text-[13px] font-semibold tracking-[0.02em] text-[var(--answered-fg)]">
@@ -238,32 +240,56 @@ export function MobilePostCard({ post, onChange, onRepost }: MobilePostCardProps
       ) : null}
 
       <footer className="-mx-4 flex items-center gap-1 border-t border-[var(--border-soft)] px-4 pt-2">
-        <button
-          type="button"
-          disabled={prayer.prayed}
-          onClick={() => void prayer.toggle().catch(() => {})}
-          className={[
-            'inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-md text-[13px] font-semibold',
-            'active:bg-parchment-100',
-            prayer.prayed ? 'text-sage-600' : 'text-vesper-600',
-          ].join(' ')}
-        >
-          <Icon name={prayer.prayed ? 'check' : 'pray'} size={16} />
-          <span>
-            {prayer.prayed
-              ? `Prayed · ${prayer.prayerCount}`
-              : `I Will Pray · ${prayer.prayerCount}`}
-          </span>
-        </button>
-        <span aria-hidden className="h-[18px] w-px bg-[var(--border-soft)]" />
-        <button
-          type="button"
-          onClick={() => navigate(`/posts/${post.id}`)}
-          className="inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-md text-[13px] font-medium text-[var(--fg-3)] active:bg-parchment-100"
-        >
-          <Icon name="message" size={16} />
-          <span>Comment</span>
-        </button>
+        {post.status === 'archived' && onRepost ? (
+          <>
+            <button
+              type="button"
+              onClick={() => void onRepost()}
+              className="inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-md text-[13px] font-semibold text-vesper-600 active:bg-parchment-100"
+            >
+              <Icon name="refresh" size={16} />
+              <span>Repost</span>
+            </button>
+            <span aria-hidden className="h-[18px] w-px bg-[var(--border-soft)]" />
+            <button
+              type="button"
+              onClick={() => navigate(`/posts/${post.id}`)}
+              className="inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-md text-[13px] font-medium text-[var(--fg-3)] active:bg-parchment-100"
+            >
+              <Icon name="chevron-right" size={16} />
+              <span>View thread</span>
+            </button>
+          </>
+        ) : (
+          <>
+            <button
+              type="button"
+              disabled={prayer.prayed}
+              onClick={() => void prayer.toggle().catch(() => {})}
+              className={[
+                'inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-md text-[13px] font-semibold',
+                'active:bg-parchment-100',
+                prayer.prayed ? 'text-sage-600' : 'text-vesper-600',
+              ].join(' ')}
+            >
+              <Icon name={prayer.prayed ? 'check' : 'pray'} size={16} />
+              <span>
+                {prayer.prayed
+                  ? `Prayed · ${prayer.prayerCount}`
+                  : `I Will Pray · ${prayer.prayerCount}`}
+              </span>
+            </button>
+            <span aria-hidden className="h-[18px] w-px bg-[var(--border-soft)]" />
+            <button
+              type="button"
+              onClick={() => navigate(`/posts/${post.id}`)}
+              className="inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-md text-[13px] font-medium text-[var(--fg-3)] active:bg-parchment-100"
+            >
+              <Icon name="message" size={16} />
+              <span>Comment</span>
+            </button>
+          </>
+        )}
       </footer>
     </article>
   );

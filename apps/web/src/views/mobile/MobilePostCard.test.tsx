@@ -382,4 +382,55 @@ describe('MobilePostCard', () => {
     );
     expect(screen.queryByRole('img', { name: /pinned/i })).not.toBeInTheDocument();
   });
+
+  describe('archived footer', () => {
+    it('renders Repost + View thread (Repost on left) instead of Pray/Comment when status=archived and onRepost is provided', () => {
+      const onRepost = vi.fn();
+      render(
+        <MemoryRouter>
+          <MobilePostCard
+            post={makeFeedPost({ status: 'archived', author_id: 'me', is_own_post: true })}
+            onRepost={onRepost}
+          />
+        </MemoryRouter>,
+      );
+      const repost = screen.getByRole('button', { name: /^repost$/i });
+      const viewThread = screen.getByRole('button', { name: /view thread/i });
+      expect(repost).toBeInTheDocument();
+      expect(viewThread).toBeInTheDocument();
+      // Repost sits to the LEFT of View thread.
+      expect(repost.compareDocumentPosition(viewThread) & Node.DOCUMENT_POSITION_FOLLOWING).toBe(
+        Node.DOCUMENT_POSITION_FOLLOWING,
+      );
+      expect(screen.queryByRole('button', { name: /i will pray/i })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /^comment$/i })).not.toBeInTheDocument();
+      // Reactions strip lives outside the footer on mobile — must also be hidden.
+      expect(screen.queryByRole('group', { name: /reactions on post/i })).not.toBeInTheDocument();
+    });
+
+    it('clicking the Repost footer button calls onRepost', async () => {
+      const onRepost = vi.fn();
+      render(
+        <MemoryRouter>
+          <MobilePostCard
+            post={makeFeedPost({ status: 'archived', author_id: 'me', is_own_post: true })}
+            onRepost={onRepost}
+          />
+        </MemoryRouter>,
+      );
+      await userEvent.click(screen.getByRole('button', { name: /^repost$/i }));
+      expect(onRepost).toHaveBeenCalledTimes(1);
+    });
+
+    it('published post still shows Pray + Comment, no Repost', () => {
+      render(
+        <MemoryRouter>
+          <MobilePostCard post={makeFeedPost({ status: 'published' })} onRepost={() => {}} />
+        </MemoryRouter>,
+      );
+      expect(screen.getByRole('button', { name: /i will pray/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /^comment$/i })).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /^repost$/i })).not.toBeInTheDocument();
+    });
+  });
 });

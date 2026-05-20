@@ -628,4 +628,73 @@ describe('PostCard author profile link', () => {
     expect(profileLink).toBeUndefined();
     expect(screen.getByText('Anonymous')).toBeDefined();
   });
+
+  describe('archived footer', () => {
+    it('renders View thread on the left and Repost on the right instead of Pray/Comment when status=archived and onRepost is provided', () => {
+      const post = makeTestPost({
+        id: 'arch1',
+        status: 'archived',
+        author_id: 'viewer',
+        is_own_post: true,
+      });
+      const onRepost = vi.fn();
+      render(
+        <MemoryRouter>
+          <PostCard post={post} onRepost={onRepost} />
+        </MemoryRouter>,
+      );
+      const viewThread = screen.getByRole('link', { name: /view thread/i });
+      const repost = screen.getByRole('button', { name: /^repost$/i });
+      expect(viewThread).toHaveAttribute('href', '/posts/arch1');
+      // View thread sits to the LEFT of Repost.
+      expect(viewThread.compareDocumentPosition(repost) & Node.DOCUMENT_POSITION_FOLLOWING).toBe(
+        Node.DOCUMENT_POSITION_FOLLOWING,
+      );
+      expect(screen.queryByRole('button', { name: /i will pray/i })).not.toBeInTheDocument();
+      expect(screen.queryByRole('link', { name: /^comment$/i })).not.toBeInTheDocument();
+    });
+
+    it('clicking the Repost footer button calls onRepost', async () => {
+      const post = makeTestPost({
+        status: 'archived',
+        author_id: 'viewer',
+        is_own_post: true,
+      });
+      const onRepost = vi.fn();
+      render(
+        <MemoryRouter>
+          <PostCard post={post} onRepost={onRepost} />
+        </MemoryRouter>,
+      );
+      await userEvent.click(screen.getByRole('button', { name: /^repost$/i }));
+      expect(onRepost).toHaveBeenCalledTimes(1);
+    });
+
+    it('archived post with NO onRepost falls back to the default footer (no Repost / View thread)', () => {
+      const post = makeTestPost({
+        status: 'archived',
+        author_id: 'viewer',
+        is_own_post: true,
+      });
+      render(
+        <MemoryRouter>
+          <PostCard post={post} />
+        </MemoryRouter>,
+      );
+      expect(screen.queryByRole('button', { name: /^repost$/i })).not.toBeInTheDocument();
+      expect(screen.queryByRole('link', { name: /view thread/i })).not.toBeInTheDocument();
+    });
+
+    it('published post still shows Pray + Comment, no Repost', () => {
+      const post = makeTestPost({ status: 'published' });
+      render(
+        <MemoryRouter>
+          <PostCard post={post} onRepost={() => {}} />
+        </MemoryRouter>,
+      );
+      expect(screen.getByRole('button', { name: /i will pray/i })).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: /^comment$/i })).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /^repost$/i })).not.toBeInTheDocument();
+    });
+  });
 });
