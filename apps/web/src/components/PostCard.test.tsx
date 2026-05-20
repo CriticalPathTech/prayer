@@ -630,7 +630,7 @@ describe('PostCard author profile link', () => {
   });
 
   describe('archived footer', () => {
-    it('renders View thread + Repost (right-aligned) instead of Pray/Comment when status=archived and onRepost is provided', () => {
+    it('renders View thread on the left and Repost on the right instead of Pray/Comment when status=archived and onRepost is provided', () => {
       const post = makeTestPost({
         id: 'arch1',
         status: 'archived',
@@ -643,10 +643,12 @@ describe('PostCard author profile link', () => {
           <PostCard post={post} onRepost={onRepost} />
         </MemoryRouter>,
       );
-      expect(screen.getByRole('button', { name: /^repost$/i })).toBeInTheDocument();
-      expect(screen.getByRole('link', { name: /view thread/i })).toHaveAttribute(
-        'href',
-        '/posts/arch1',
+      const viewThread = screen.getByRole('link', { name: /view thread/i });
+      const repost = screen.getByRole('button', { name: /^repost$/i });
+      expect(viewThread).toHaveAttribute('href', '/posts/arch1');
+      // View thread sits to the LEFT of Repost.
+      expect(viewThread.compareDocumentPosition(repost) & Node.DOCUMENT_POSITION_FOLLOWING).toBe(
+        Node.DOCUMENT_POSITION_FOLLOWING,
       );
       expect(screen.queryByRole('button', { name: /i will pray/i })).not.toBeInTheDocument();
       expect(screen.queryByRole('link', { name: /^comment$/i })).not.toBeInTheDocument();
