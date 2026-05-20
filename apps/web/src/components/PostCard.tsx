@@ -151,12 +151,26 @@ export function PostCard({ post, onChange, onRepost }: PostCardProps): JSX.Eleme
   return (
     <article className={cardClass}>
       <header className="mb-2.5 flex items-center gap-3">
-        <Avatar name={name} avatarUrl={post.avatar_url} anonymous={isOrphanAuthor} size="md" />
+        {post.author_id ? (
+          <Link
+            to={`/u/${post.author_id}`}
+            aria-label={`View ${name}'s profile`}
+            className="shrink-0"
+          >
+            <Avatar name={name} avatarUrl={post.avatar_url} anonymous={isOrphanAuthor} size="md" />
+          </Link>
+        ) : (
+          <Avatar name={name} avatarUrl={post.avatar_url} anonymous={isOrphanAuthor} size="md" />
+        )}
         <div className="min-w-0 flex-1">
           <div className="font-serif text-[15px] font-medium text-[var(--fg-1)]">
-            <Link to={`/posts/${post.id}`} className="hover:underline">
-              {name}
-            </Link>
+            {post.author_id ? (
+              <Link to={`/u/${post.author_id}`} className="hover:underline">
+                {name}
+              </Link>
+            ) : (
+              <span>{name}</span>
+            )}
           </div>
           <div className="flex items-center gap-1.5 text-xs text-[var(--fg-3)]">
             {post.pinned_at !== null ? (
