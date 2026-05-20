@@ -170,6 +170,128 @@ describe('FeedPage', () => {
     expect(allText.indexOf('pinned content')).toBeLessThan(allText.indexOf('chrono content'));
   });
 
+  it('hides pinned posts not authored by me under the My Requests filter', async () => {
+    // First fetch (filter=all): both pinned shown.
+    feedFetch.mockResolvedValueOnce({
+      posts: [],
+      pinned: [
+        post({
+          id: 'pinned-mine',
+          body: 'mine pinned',
+          pinned_at: new Date().toISOString(),
+          is_own_post: true,
+        }),
+        post({
+          id: 'pinned-other',
+          body: 'someone-elses pinned',
+          pinned_at: new Date().toISOString(),
+          is_own_post: false,
+        }),
+      ],
+      nextCursor: null,
+      snapshotId: 's1',
+    });
+    // Second fetch (filter=mine): server still returns both pinned; client filters.
+    feedFetch.mockResolvedValueOnce({
+      posts: [],
+      pinned: [
+        post({
+          id: 'pinned-mine',
+          body: 'mine pinned',
+          pinned_at: new Date().toISOString(),
+          is_own_post: true,
+        }),
+        post({
+          id: 'pinned-other',
+          body: 'someone-elses pinned',
+          pinned_at: new Date().toISOString(),
+          is_own_post: false,
+        }),
+      ],
+      nextCursor: null,
+      snapshotId: 's1',
+    });
+    render(
+      <MemoryRouter>
+        <FeedPage />
+      </MemoryRouter>,
+    );
+    // Under 'all' both render.
+    await screen.findByText('mine pinned');
+    expect(screen.getByText('someone-elses pinned')).toBeInTheDocument();
+    // Switch to 'mine' — only own pinned remains.
+    await userEvent.click(screen.getByRole('tab', { name: /my requests/i }));
+    await waitFor(() => expect(screen.queryByText('someone-elses pinned')).not.toBeInTheDocument());
+    expect(screen.getByText('mine pinned')).toBeInTheDocument();
+  });
+
+  it('hides pinned posts that do not contain answered prayers under the Answered filter', async () => {
+    feedFetch.mockResolvedValueOnce({
+      posts: [],
+      pinned: [
+        post({
+          id: 'pinned-answered-parent',
+          body: 'answered parent',
+          pinned_at: new Date().toISOString(),
+          is_answered_prayer: true,
+        }),
+        post({
+          id: 'pinned-answered-update',
+          body: 'answered via update',
+          pinned_at: new Date().toISOString(),
+          is_answered_prayer: false,
+          updates: [post({ id: 'u1', is_answered_prayer: true, body: 'update body' })],
+        }),
+        post({
+          id: 'pinned-unanswered',
+          body: 'pinned but never answered',
+          pinned_at: new Date().toISOString(),
+          is_answered_prayer: false,
+        }),
+      ],
+      nextCursor: null,
+      snapshotId: 's1',
+    });
+    feedFetch.mockResolvedValueOnce({
+      posts: [],
+      pinned: [
+        post({
+          id: 'pinned-answered-parent',
+          body: 'answered parent',
+          pinned_at: new Date().toISOString(),
+          is_answered_prayer: true,
+        }),
+        post({
+          id: 'pinned-answered-update',
+          body: 'answered via update',
+          pinned_at: new Date().toISOString(),
+          is_answered_prayer: false,
+          updates: [post({ id: 'u1', is_answered_prayer: true, body: 'update body' })],
+        }),
+        post({
+          id: 'pinned-unanswered',
+          body: 'pinned but never answered',
+          pinned_at: new Date().toISOString(),
+          is_answered_prayer: false,
+        }),
+      ],
+      nextCursor: null,
+      snapshotId: 's1',
+    });
+    render(
+      <MemoryRouter>
+        <FeedPage />
+      </MemoryRouter>,
+    );
+    await screen.findByText('pinned but never answered');
+    await userEvent.click(screen.getByRole('tab', { name: /answered/i }));
+    await waitFor(() =>
+      expect(screen.queryByText('pinned but never answered')).not.toBeInTheDocument(),
+    );
+    expect(screen.getByText('answered parent')).toBeInTheDocument();
+    expect(screen.getByText('answered via update')).toBeInTheDocument();
+  });
+
   it('does not show a Pinned banner when pinned is empty', async () => {
     feedFetch.mockResolvedValueOnce({
       posts: [post({ body: 'regular post' })],
