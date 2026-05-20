@@ -29,14 +29,21 @@ jobs:
         id: filter
         with:
           filters: |
+            # Markdown-only PRs (CLAUDE.md, READMEs, docs/) skip api/web/db/shared/docker
+            # by excluding **/*.md from each code-area filter. The lint job (prettier --check
+            # on .md included) runs unconditionally, so markdown formatting is still checked.
             api:
               - 'apps/api/**'
+              - '!**/*.md'
             web:
               - 'apps/web/**'
+              - '!**/*.md'
             db:
               - 'packages/db/**'
+              - '!**/*.md'
             shared:
               - 'packages/shared/**'
+              - '!**/*.md'
             root:
               - 'package.json'
               - 'pnpm-lock.yaml'
@@ -48,6 +55,7 @@ jobs:
               - 'docker/**'
               - 'apps/api/Dockerfile'
               - 'apps/web/Dockerfile'
+              - '!**/*.md'
 
   lint:
     runs-on: ubuntu-latest
