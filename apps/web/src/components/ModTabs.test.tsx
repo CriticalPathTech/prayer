@@ -85,4 +85,40 @@ describe('ModTabs', () => {
     const tab = screen.getByRole('link', { name: /pending approval/i });
     expect(tab.className).toMatch(/underline/);
   });
+
+  it('renders the Follow-up tab when org gate is off', () => {
+    useAuthMock.mockReturnValue({ me: meBase({ orgRequiresPostApproval: false }) });
+    render(
+      <MemoryRouter initialEntries={['/mod/queue']}>
+        <ModTabs />
+      </MemoryRouter>,
+    );
+    expect(screen.getByRole('link', { name: /^follow-up$/i })).toHaveAttribute(
+      'href',
+      '/mod/follow-up',
+    );
+  });
+
+  it('renders the Follow-up tab when org gate is on', () => {
+    useAuthMock.mockReturnValue({ me: meBase({ orgRequiresPostApproval: true }) });
+    render(
+      <MemoryRouter initialEntries={['/mod/queue']}>
+        <ModTabs />
+      </MemoryRouter>,
+    );
+    expect(screen.getByRole('link', { name: /^follow-up$/i })).toHaveAttribute(
+      'href',
+      '/mod/follow-up',
+    );
+  });
+
+  it('underlines the Follow-up tab when on /mod/follow-up', () => {
+    useAuthMock.mockReturnValue({ me: meBase() });
+    render(
+      <MemoryRouter initialEntries={['/mod/follow-up']}>
+        <ModTabs />
+      </MemoryRouter>,
+    );
+    expect(screen.getByRole('link', { name: /^follow-up$/i }).className).toMatch(/underline/);
+  });
 });

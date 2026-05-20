@@ -54,8 +54,8 @@ After `git worktree add`, before running tests:
 ```bash
 cp ../../.env .env                                          # TEST_DATABASE_URL + others required
 cp ../../apps/web/.env.local apps/web/.env.local           # required for web test mocks (VITE_API_URL dummy)
-pnpm install
-pnpm --filter @prayer/db --filter @prayer/shared build      # project-ref artifacts required for api/web tests
+nvm exec 24 pnpm install                                    # MUST be Node 24 — otherwise rolldown native binding fails at test/build time (see Known rough edges)
+nvm exec 24 pnpm --filter @prayer/db --filter @prayer/shared build   # project-ref artifacts required for api/web tests
 ```
 
 ## Conventions
