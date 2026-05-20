@@ -384,7 +384,7 @@ describe('MobilePostCard', () => {
   });
 
   describe('archived footer', () => {
-    it('renders a Repost button instead of Pray/Comment when status=archived and onRepost is provided', () => {
+    it('renders Repost + View thread (Repost on left) instead of Pray/Comment when status=archived and onRepost is provided', () => {
       const onRepost = vi.fn();
       render(
         <MemoryRouter>
@@ -394,7 +394,14 @@ describe('MobilePostCard', () => {
           />
         </MemoryRouter>,
       );
-      expect(screen.getByRole('button', { name: /^repost$/i })).toBeInTheDocument();
+      const repost = screen.getByRole('button', { name: /^repost$/i });
+      const viewThread = screen.getByRole('button', { name: /view thread/i });
+      expect(repost).toBeInTheDocument();
+      expect(viewThread).toBeInTheDocument();
+      // Repost sits to the LEFT of View thread.
+      expect(repost.compareDocumentPosition(viewThread) & Node.DOCUMENT_POSITION_FOLLOWING).toBe(
+        Node.DOCUMENT_POSITION_FOLLOWING,
+      );
       expect(screen.queryByRole('button', { name: /i will pray/i })).not.toBeInTheDocument();
       expect(screen.queryByRole('button', { name: /^comment$/i })).not.toBeInTheDocument();
       // Reactions strip lives outside the footer on mobile — must also be hidden.

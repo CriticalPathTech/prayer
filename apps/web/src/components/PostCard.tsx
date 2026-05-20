@@ -243,14 +243,24 @@ export function PostCard({ post, onChange, onRepost }: PostCardProps): JSX.Eleme
       ) : null}
       <footer className="mt-4 flex flex-wrap items-center gap-3">
         {post.status === 'archived' && onRepost ? (
-          <button
-            type="button"
-            onClick={() => void onRepost()}
-            className="inline-flex h-8 items-center gap-1.5 rounded-md px-3 text-[13px] font-medium text-vesper-600 hover:bg-parchment-100 transition-colors"
-          >
-            <Icon name="refresh" size={16} />
-            <span>Repost</span>
-          </button>
+          <>
+            <div className="flex-1" />
+            <Link
+              to={`/posts/${post.id}`}
+              className="inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-[13px] font-medium text-[var(--fg-3)] hover:text-[var(--fg-1)] hover:bg-parchment-100 transition-colors"
+            >
+              <Icon name="chevron-right" size={16} />
+              <span>View thread</span>
+            </Link>
+            <button
+              type="button"
+              onClick={() => void onRepost()}
+              className="inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-[13px] font-medium text-vesper-600 hover:bg-parchment-100 transition-colors"
+            >
+              <Icon name="refresh" size={16} />
+              <span>Repost</span>
+            </button>
+          </>
         ) : (
           <>
             <PrayButton

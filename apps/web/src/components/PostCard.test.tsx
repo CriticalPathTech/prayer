@@ -630,8 +630,9 @@ describe('PostCard author profile link', () => {
   });
 
   describe('archived footer', () => {
-    it('renders a Repost button instead of Pray/Comment when status=archived and onRepost is provided', () => {
+    it('renders View thread + Repost (right-aligned) instead of Pray/Comment when status=archived and onRepost is provided', () => {
       const post = makeTestPost({
+        id: 'arch1',
         status: 'archived',
         author_id: 'viewer',
         is_own_post: true,
@@ -643,6 +644,10 @@ describe('PostCard author profile link', () => {
         </MemoryRouter>,
       );
       expect(screen.getByRole('button', { name: /^repost$/i })).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: /view thread/i })).toHaveAttribute(
+        'href',
+        '/posts/arch1',
+      );
       expect(screen.queryByRole('button', { name: /i will pray/i })).not.toBeInTheDocument();
       expect(screen.queryByRole('link', { name: /^comment$/i })).not.toBeInTheDocument();
     });
@@ -663,7 +668,7 @@ describe('PostCard author profile link', () => {
       expect(onRepost).toHaveBeenCalledTimes(1);
     });
 
-    it('archived post with NO onRepost falls back to nothing (no Repost button)', () => {
+    it('archived post with NO onRepost falls back to the default footer (no Repost / View thread)', () => {
       const post = makeTestPost({
         status: 'archived',
         author_id: 'viewer',
@@ -675,6 +680,7 @@ describe('PostCard author profile link', () => {
         </MemoryRouter>,
       );
       expect(screen.queryByRole('button', { name: /^repost$/i })).not.toBeInTheDocument();
+      expect(screen.queryByRole('link', { name: /view thread/i })).not.toBeInTheDocument();
     });
 
     it('published post still shows Pray + Comment, no Repost', () => {
