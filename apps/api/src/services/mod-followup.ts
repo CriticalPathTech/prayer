@@ -142,11 +142,12 @@ export async function listFollowupPosts(
     );
   }
   if (input.minAge.value > 0) {
-    const interval =
+    const ms =
       input.minAge.unit === 'hours'
-        ? sql<Date>`NOW() - make_interval(hours => ${input.minAge.value})`
-        : sql<Date>`NOW() - make_interval(days => ${input.minAge.value})`;
-    q = q.where('posts.created_at', '<', interval);
+        ? input.minAge.value * 3600_000
+        : input.minAge.value * 24 * 3600_000;
+    const cutoff = new Date(Date.now() - ms);
+    q = q.where(sql`posts.created_at`, '<', cutoff);
   }
 
   q = q.limit(input.limit + 1);
@@ -154,9 +155,7 @@ export async function listFollowupPosts(
   if (input.cursor) {
     const lastId = decodeFollowupCursor(input.cursor);
     q =
-      input.sort === 'oldest'
-        ? q.where('posts.id', '>', lastId)
-        : q.where('posts.id', '<', lastId);
+      input.sort === 'oldest' ? q.where('posts.id', '>', lastId) : q.where('posts.id', '<', lastId);
   }
 
   q = input.sort === 'oldest' ? q.orderBy('posts.id', 'asc') : q.orderBy('posts.id', 'desc');
