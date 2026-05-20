@@ -43,19 +43,24 @@ describe('MobileModQueuePage', () => {
         <MobileModQueuePage />
       </MemoryRouter>,
     );
-    expect(screen.queryByText('Moderation')).not.toBeInTheDocument();
+    expect(screen.queryByText('Reports')).not.toBeInTheDocument();
   });
 
-  it('renders Moderation header and one item card', () => {
+  it('renders Reports header, Flagged/Hidden tabs, and one item card', () => {
     useAuthMock.mockReturnValue({
       me: { id: 'me', email: 'm@t.local', displayName: 'Mod', avatarUrl: null, role: 'moderator' },
     });
     render(
-      <MemoryRouter>
+      <MemoryRouter initialEntries={['/mod/queue']}>
         <MobileModQueuePage />
       </MemoryRouter>,
     );
-    expect(screen.getByText('Moderation')).toBeInTheDocument();
+    expect(screen.getByText('Reports')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /^flagged$/i })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+    expect(screen.getByRole('link', { name: /^hidden$/i })).toHaveAttribute('href', '/mod/hidden');
     expect(screen.getByText(/sample post body/i)).toBeInTheDocument();
     expect(screen.getByText(/4 flags/i)).toBeInTheDocument();
   });
