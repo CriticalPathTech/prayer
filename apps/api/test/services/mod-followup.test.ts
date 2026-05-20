@@ -343,4 +343,108 @@ describe('listFollowupPosts', () => {
     expect(out.items.map((p) => p.id)).toEqual([aged.id]);
     expect(out.items.map((p) => p.id)).not.toContain(fresh.id);
   });
+
+  it('sort=newest returns rows newest-first', async () => {
+    const author = await insertUser(db, { orgId, role: 'member' });
+    const a = await insertPost(db, {
+      authorId: author.id,
+      orgId,
+      status: 'published',
+      body: 'first',
+    });
+    await new Promise((r) => setTimeout(r, 5));
+    const b = await insertPost(db, {
+      authorId: author.id,
+      orgId,
+      status: 'published',
+      body: 'second',
+    });
+
+    const out = await listFollowupPosts(db, {
+      callerRole: 'moderator',
+      callerId: author.id,
+      orgId,
+      filters: {
+        noPrayers: false,
+        noReactions: false,
+        noComments: false,
+        noUpdates: false,
+        noModResponse: false,
+      },
+      minAge: { value: 0, unit: 'days' },
+      sort: 'newest',
+      limit: 20,
+    });
+    expect(out.items.map((p) => p.id)).toEqual([b.id, a.id]);
+  });
+
+  it('cursor pagination round-trips without overlap or gaps', async () => {
+    const author = await insertUser(db, { orgId, role: 'member' });
+    const ids: string[] = [];
+    for (let i = 0; i < 5; i++) {
+      const p = await insertPost(db, {
+        authorId: author.id,
+        orgId,
+        status: 'published',
+        body: `p${i}`,
+      });
+      ids.push(p.id);
+      await new Promise((r) => setTimeout(r, 2));
+    }
+
+    const page1 = await listFollowupPosts(db, {
+      callerRole: 'moderator',
+      callerId: author.id,
+      orgId,
+      filters: {
+        noPrayers: false,
+        noReactions: false,
+        noComments: false,
+        noUpdates: false,
+        noModResponse: false,
+      },
+      minAge: { value: 0, unit: 'days' },
+      sort: 'oldest',
+      limit: 2,
+    });
+    expect(page1.items.map((p) => p.id)).toEqual(ids.slice(0, 2));
+    expect(page1.next_cursor).not.toBeNull();
+
+    const page2 = await listFollowupPosts(db, {
+      callerRole: 'moderator',
+      callerId: author.id,
+      orgId,
+      filters: {
+        noPrayers: false,
+        noReactions: false,
+        noComments: false,
+        noUpdates: false,
+        noModResponse: false,
+      },
+      minAge: { value: 0, unit: 'days' },
+      sort: 'oldest',
+      limit: 2,
+      cursor: page1.next_cursor!,
+    });
+    expect(page2.items.map((p) => p.id)).toEqual(ids.slice(2, 4));
+
+    const page3 = await listFollowupPosts(db, {
+      callerRole: 'moderator',
+      callerId: author.id,
+      orgId,
+      filters: {
+        noPrayers: false,
+        noReactions: false,
+        noComments: false,
+        noUpdates: false,
+        noModResponse: false,
+      },
+      minAge: { value: 0, unit: 'days' },
+      sort: 'oldest',
+      limit: 2,
+      cursor: page2.next_cursor!,
+    });
+    expect(page3.items.map((p) => p.id)).toEqual([ids[4]]);
+    expect(page3.next_cursor).toBeNull();
+  });
 });
