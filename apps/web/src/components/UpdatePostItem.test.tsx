@@ -92,7 +92,9 @@ describe('UpdatePostItem', () => {
   it('non-embedded UpdatePostItem links author name to /u/:author_id', () => {
     render(
       <MemoryRouter>
-        <UpdatePostItem update={{ ...base, author_id: 'a1', display_name: 'Alice', is_anonymous: false }} />
+        <UpdatePostItem
+          update={{ ...base, author_id: 'a1', display_name: 'Alice', is_anonymous: false }}
+        />
       </MemoryRouter>,
     );
     const link = screen.getByRole('link', { name: /alice/i });

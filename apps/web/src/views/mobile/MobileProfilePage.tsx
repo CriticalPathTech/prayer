@@ -17,9 +17,7 @@ interface MobileProfilePageProps {
   embedded?: boolean;
 }
 
-export function MobileProfilePage({
-  embedded = false,
-}: MobileProfilePageProps = {}): JSX.Element {
+export function MobileProfilePage({ embedded = false }: MobileProfilePageProps = {}): JSX.Element {
   const { me } = useAuth();
   const f = useProfileForm();
 
@@ -36,11 +34,7 @@ export function MobileProfilePage({
     <>
       {embedded ? null : <MobilePageHeader variant={{ kind: 'back', title: 'Profile' }} />}
       <div
-        className={
-          embedded
-            ? 'flex flex-col gap-4'
-            : 'flex flex-1 flex-col gap-4 px-4 pb-6 pt-3'
-        }
+        className={embedded ? 'flex flex-col gap-4' : 'flex flex-1 flex-col gap-4 px-4 pb-6 pt-3'}
       >
         <form
           onSubmit={(e) => {

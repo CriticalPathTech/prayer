@@ -139,10 +139,20 @@ function PostDetailView({ data, reload, error }: PostDetailViewProps): JSX.Eleme
               aria-label={`View ${name}'s profile`}
               className="shrink-0"
             >
-              <Avatar name={name} avatarUrl={post.avatar_url} anonymous={post.is_anonymous} size="md" />
+              <Avatar
+                name={name}
+                avatarUrl={post.avatar_url}
+                anonymous={post.is_anonymous}
+                size="md"
+              />
             </Link>
           ) : (
-            <Avatar name={name} avatarUrl={post.avatar_url} anonymous={post.is_anonymous} size="md" />
+            <Avatar
+              name={name}
+              avatarUrl={post.avatar_url}
+              anonymous={post.is_anonymous}
+              size="md"
+            />
           )}
           <div className="min-w-0 flex-1">
             <div className="font-serif text-[15px] font-medium text-[var(--fg-1)]">

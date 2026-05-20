@@ -97,7 +97,9 @@ export function MobilePostDetailPage(): JSX.Element {
                     {post.is_anonymous ? 'Anonymous' : (post.display_name ?? 'Anonymous')}
                   </Link>
                 ) : (
-                  <span>{post.is_anonymous ? 'Anonymous' : (post.display_name ?? 'Anonymous')}</span>
+                  <span>
+                    {post.is_anonymous ? 'Anonymous' : (post.display_name ?? 'Anonymous')}
+                  </span>
                 )}
               </div>
               <div className="mt-0.5 flex items-center gap-1.5 text-xs text-[var(--fg-3)]">

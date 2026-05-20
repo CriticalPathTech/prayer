@@ -71,10 +71,7 @@ export function CommentItem({
       <header className="mb-2 flex items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
           {comment.author_id && !isOrphanCommenter ? (
-            <Link
-              to={`/u/${comment.author_id}`}
-              aria-label={`View ${displayName}'s profile`}
-            >
+            <Link to={`/u/${comment.author_id}`} aria-label={`View ${displayName}'s profile`}>
               <Avatar
                 name={displayName}
                 avatarUrl={comment.avatar_url}

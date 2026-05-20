@@ -94,10 +94,7 @@ export function MobileMemberProfilePage(): JSX.Element {
         </header>
 
         {isSelf ? (
-          <div
-            role="tablist"
-            className="mb-5 flex border-b border-[var(--border-soft)] pb-0"
-          >
+          <div role="tablist" className="mb-5 flex border-b border-[var(--border-soft)] pb-0">
             <MobileTabButton
               label="Prayer requests"
               active={activeTab === 'requests'}
