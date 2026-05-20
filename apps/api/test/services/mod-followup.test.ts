@@ -4,7 +4,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
 import { initDb } from '../../src/db/index.js';
 import { listFollowupPosts } from '../../src/services/mod-followup.js';
-import { insertPost, insertUser } from '../helpers/seed.js';
+import { insertComment, insertPost, insertUser } from '../helpers/seed.js';
 
 describe('listFollowupPosts', () => {
   let db: Kysely<Database>;
@@ -121,5 +121,69 @@ describe('listFollowupPosts', () => {
       limit: 20,
     });
     expect(out.items.map((p) => p.id)).toEqual([zero.id]);
+  });
+
+  it('no_comments=true excludes posts with any non-hidden comment', async () => {
+    const author = await insertUser(db, { orgId, role: 'member' });
+    const responder = await insertUser(db, { orgId, role: 'member' });
+    const orphan = await insertPost(db, {
+      authorId: author.id,
+      orgId,
+      status: 'published',
+      body: 'no replies',
+    });
+    const replied = await insertPost(db, {
+      authorId: author.id,
+      orgId,
+      status: 'published',
+      body: 'has reply',
+    });
+    await insertComment(db, { postId: replied.id, authorId: responder.id, orgId });
+
+    const out = await listFollowupPosts(db, {
+      callerRole: 'moderator',
+      callerId: author.id,
+      orgId,
+      filters: {
+        noPrayers: false,
+        noReactions: false,
+        noComments: true,
+        noUpdates: false,
+        noModResponse: false,
+      },
+      minAge: { value: 0, unit: 'days' },
+      sort: 'oldest',
+      limit: 20,
+    });
+    expect(out.items.map((p) => p.id)).toEqual([orphan.id]);
+  });
+
+  it('no_comments=true treats hidden comments as if they do not exist', async () => {
+    const author = await insertUser(db, { orgId, role: 'member' });
+    const responder = await insertUser(db, { orgId, role: 'member' });
+    const only_hidden = await insertPost(db, { authorId: author.id, orgId, status: 'published' });
+    await insertComment(db, {
+      postId: only_hidden.id,
+      authorId: responder.id,
+      orgId,
+      isHidden: true,
+    });
+
+    const out = await listFollowupPosts(db, {
+      callerRole: 'moderator',
+      callerId: author.id,
+      orgId,
+      filters: {
+        noPrayers: false,
+        noReactions: false,
+        noComments: true,
+        noUpdates: false,
+        noModResponse: false,
+      },
+      minAge: { value: 0, unit: 'days' },
+      sort: 'oldest',
+      limit: 20,
+    });
+    expect(out.items.map((p) => p.id)).toContain(only_hidden.id);
   });
 });

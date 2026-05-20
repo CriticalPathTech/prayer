@@ -1,5 +1,5 @@
 import type { Database, UserRole } from '@prayer/db';
-import type { Kysely } from 'kysely';
+import { sql, type Kysely } from 'kysely';
 
 import { isPrivilegedRole } from '../lib/roles.js';
 import { ForbiddenError, ValidationError } from '../middleware/error.js';
@@ -98,6 +98,19 @@ export async function listFollowupPosts(
 
   if (input.filters.noPrayers) q = q.where('posts.prayer_count', '=', 0);
   if (input.filters.noReactions) q = q.where('posts.reaction_count', '=', 0);
+  if (input.filters.noComments) {
+    q = q.where((eb) =>
+      eb.not(
+        eb.exists(
+          eb
+            .selectFrom('comments as c')
+            .select(sql<number>`1`.as('one'))
+            .whereRef('c.post_id', '=', 'posts.id')
+            .where('c.is_hidden', '=', false),
+        ),
+      ),
+    );
+  }
 
   q = q.limit(input.limit + 1);
 
