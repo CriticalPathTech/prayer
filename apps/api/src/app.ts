@@ -36,6 +36,7 @@ import { meDraftRouter } from './routes/me-draft.js';
 import { meOrgsRouter } from './routes/me-orgs.js';
 import { meRouter } from './routes/me.js';
 import { modApprovalsRouter } from './routes/mod-approvals.js';
+import { modFollowupRouter } from './routes/mod-followup.js';
 import { modInviteCodesRouter } from './routes/mod-invite-codes.js';
 import { modPostsPinRouter } from './routes/mod-posts-pin.js';
 import { moderationRouter } from './routes/moderation.js';
@@ -165,6 +166,7 @@ export function buildApp(deps: AppDependencies): Express {
   app.use(auth, notificationsRouter({ db: deps.db }));
   app.use(auth, requireModerator(), moderationRouter({ db: deps.db }));
   app.use(auth, requireModerator(), modApprovalsRouter({ db: deps.db }));
+  app.use(auth, requireModerator(), modFollowupRouter({ db: deps.db }));
   app.use(auth, requireModerator(), modPostsPinRouter({ db: deps.db }));
   app.use(auth, requireModerator(), modInviteCodesRouter({ db: deps.db }));
   app.use(auth, requireSuperUser(), adminChurchRouter({ db: deps.db, orgResolver }));
