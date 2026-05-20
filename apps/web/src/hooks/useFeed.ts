@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { apiFetch } from '../lib/api';
 
@@ -107,9 +107,21 @@ export function useFeed(opts?: UseFeedOptions): UseFeedResult {
     void load(null, true);
   }, [load]);
 
+  // Pinned posts return from the API unfiltered. Apply the active filter so
+  // 'mine' / 'answered' only surface pinned items that match the user's
+  // current view: own posts for 'mine', answered (parent OR any update) for
+  // 'answered'. 'all' shows every pinned item.
+  const visiblePinned = useMemo<FeedPost[]>(() => {
+    if (filter === 'all') return pinned;
+    if (filter === 'mine') return pinned.filter((p) => p.is_own_post);
+    return pinned.filter(
+      (p) => p.is_answered_prayer || (p.updates ?? []).some((u) => u.is_answered_prayer),
+    );
+  }, [filter, pinned]);
+
   return {
     posts,
-    pinned,
+    pinned: visiblePinned,
     filter,
     setFilter,
     loading,
