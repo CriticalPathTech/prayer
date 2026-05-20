@@ -203,11 +203,13 @@ export function MobilePostCard({ post, onChange, onRepost }: MobilePostCardProps
         textClassName="m-0 font-serif text-[16px] leading-[1.55] text-[var(--fg-2)] whitespace-pre-wrap [text-wrap:pretty]"
       />
 
-      <Reactions
-        ariaLabel={`reactions on post by ${name}`}
-        reactions={reactions.reactions}
-        onToggle={(e) => void reactions.toggle(e).catch(() => {})}
-      />
+      {post.status !== 'archived' ? (
+        <Reactions
+          ariaLabel={`reactions on post by ${name}`}
+          reactions={reactions.reactions}
+          onToggle={(e) => void reactions.toggle(e).catch(() => {})}
+        />
+      ) : null}
 
       {showRibbon ? (
         <div className="-mx-4 mt-1 flex items-center gap-2 border-t border-[var(--answered-border)] bg-gradient-to-r from-dawn-50 to-transparent px-4 py-2.5 text-[13px] font-semibold tracking-[0.02em] text-[var(--answered-fg)]">

@@ -397,6 +397,8 @@ describe('MobilePostCard', () => {
       expect(screen.getByRole('button', { name: /^repost$/i })).toBeInTheDocument();
       expect(screen.queryByRole('button', { name: /i will pray/i })).not.toBeInTheDocument();
       expect(screen.queryByRole('button', { name: /^comment$/i })).not.toBeInTheDocument();
+      // Reactions strip lives outside the footer on mobile — must also be hidden.
+      expect(screen.queryByRole('group', { name: /reactions on post/i })).not.toBeInTheDocument();
     });
 
     it('clicking the Repost footer button calls onRepost', async () => {
