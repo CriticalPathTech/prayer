@@ -598,4 +598,59 @@ describe('listFollowupPosts', () => {
       }),
     ).rejects.toThrowError(/Forbidden/i);
   });
+
+  it('combines no_prayers + no_comments + min_age_value=14 as AND', async () => {
+    const author = await insertUser(db, { orgId, role: 'member' });
+    const peer = await insertUser(db, { orgId, role: 'member' });
+
+    // Matches all three.
+    const match = await insertPost(db, {
+      authorId: author.id,
+      orgId,
+      status: 'published',
+      body: 'match',
+    });
+    await db
+      .updateTable('posts')
+      .set({ created_at: new Date(Date.now() - 20 * 24 * 3600_000) })
+      .where('id', '=', match.id)
+      .execute();
+
+    // Has prayer.
+    const prayed = await insertPost(db, { authorId: author.id, orgId, status: 'published' });
+    await db
+      .updateTable('posts')
+      .set({ prayer_count: 1, created_at: new Date(Date.now() - 20 * 24 * 3600_000) })
+      .where('id', '=', prayed.id)
+      .execute();
+
+    // Has comment.
+    const commented = await insertPost(db, { authorId: author.id, orgId, status: 'published' });
+    await db
+      .updateTable('posts')
+      .set({ created_at: new Date(Date.now() - 20 * 24 * 3600_000) })
+      .where('id', '=', commented.id)
+      .execute();
+    await insertComment(db, { postId: commented.id, authorId: peer.id, orgId });
+
+    // Too young.
+    await insertPost(db, { authorId: author.id, orgId, status: 'published', body: 'young' });
+
+    const out = await listFollowupPosts(db, {
+      callerRole: 'moderator',
+      callerId: author.id,
+      orgId,
+      filters: {
+        noPrayers: true,
+        noReactions: false,
+        noComments: true,
+        noUpdates: false,
+        noModResponse: false,
+      },
+      minAge: { value: 14, unit: 'days' },
+      sort: 'oldest',
+      limit: 20,
+    });
+    expect(out.items.map((p) => p.id)).toEqual([match.id]);
+  });
 });
