@@ -111,6 +111,19 @@ export async function listFollowupPosts(
       ),
     );
   }
+  if (input.filters.noUpdates) {
+    q = q.where((eb) =>
+      eb.not(
+        eb.exists(
+          eb
+            .selectFrom('posts as u')
+            .select(sql<number>`1`.as('one'))
+            .whereRef('u.parent_id', '=', 'posts.id')
+            .where('u.status', '=', 'published'),
+        ),
+      ),
+    );
+  }
 
   q = q.limit(input.limit + 1);
 

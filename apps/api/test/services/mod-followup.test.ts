@@ -186,4 +186,44 @@ describe('listFollowupPosts', () => {
     });
     expect(out.items.map((p) => p.id)).toContain(only_hidden.id);
   });
+
+  it('no_updates=true excludes posts that have any published child update', async () => {
+    const author = await insertUser(db, { orgId, role: 'member' });
+    const stalled = await insertPost(db, {
+      authorId: author.id,
+      orgId,
+      status: 'published',
+      body: 'no update',
+    });
+    const updated = await insertPost(db, {
+      authorId: author.id,
+      orgId,
+      status: 'published',
+      body: 'updated',
+    });
+    await insertPost(db, {
+      authorId: author.id,
+      orgId,
+      status: 'published',
+      parentId: updated.id,
+      body: 'update!',
+    });
+
+    const out = await listFollowupPosts(db, {
+      callerRole: 'moderator',
+      callerId: author.id,
+      orgId,
+      filters: {
+        noPrayers: false,
+        noReactions: false,
+        noComments: false,
+        noUpdates: true,
+        noModResponse: false,
+      },
+      minAge: { value: 0, unit: 'days' },
+      sort: 'oldest',
+      limit: 20,
+    });
+    expect(out.items.map((p) => p.id)).toEqual([stalled.id]);
+  });
 });
