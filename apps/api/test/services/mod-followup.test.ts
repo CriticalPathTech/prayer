@@ -1,6 +1,6 @@
 import type { Database } from '@prayer/db';
 import type { Kysely } from 'kysely';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
 import { initDb } from '../../src/db/index.js';
 import { listFollowupPosts } from '../../src/services/mod-followup.js';
@@ -18,6 +18,10 @@ describe('listFollowupPosts', () => {
         .where('slug', '=', 'testchurch')
         .executeTakeFirstOrThrow()
     ).id;
+  });
+  afterEach(async () => {
+    await db.deleteFrom('comments').execute();
+    await db.deleteFrom('posts').execute();
   });
   afterAll(async () => {
     await db.deleteFrom('comments').execute();
@@ -59,5 +63,63 @@ describe('listFollowupPosts', () => {
 
     expect(out.items.map((p) => p.id)).toEqual([a.id, b.id]);
     expect(out.next_cursor).toBeNull();
+  });
+
+  it('no_prayers=true returns only posts with prayer_count=0', async () => {
+    const author = await insertUser(db, { orgId, role: 'member' });
+    const zero = await insertPost(db, {
+      authorId: author.id,
+      orgId,
+      status: 'published',
+      body: 'untouched',
+    });
+    const some = await insertPost(db, {
+      authorId: author.id,
+      orgId,
+      status: 'published',
+      body: 'prayed for',
+    });
+    await db.updateTable('posts').set({ prayer_count: 3 }).where('id', '=', some.id).execute();
+
+    const out = await listFollowupPosts(db, {
+      callerRole: 'moderator',
+      callerId: author.id,
+      orgId,
+      filters: {
+        noPrayers: true,
+        noReactions: false,
+        noComments: false,
+        noUpdates: false,
+        noModResponse: false,
+      },
+      minAge: { value: 0, unit: 'days' },
+      sort: 'oldest',
+      limit: 20,
+    });
+    expect(out.items.map((p) => p.id)).toEqual([zero.id]);
+  });
+
+  it('no_reactions=true returns only posts with reaction_count=0', async () => {
+    const author = await insertUser(db, { orgId, role: 'member' });
+    const zero = await insertPost(db, { authorId: author.id, orgId, status: 'published' });
+    const some = await insertPost(db, { authorId: author.id, orgId, status: 'published' });
+    await db.updateTable('posts').set({ reaction_count: 2 }).where('id', '=', some.id).execute();
+
+    const out = await listFollowupPosts(db, {
+      callerRole: 'moderator',
+      callerId: author.id,
+      orgId,
+      filters: {
+        noPrayers: false,
+        noReactions: true,
+        noComments: false,
+        noUpdates: false,
+        noModResponse: false,
+      },
+      minAge: { value: 0, unit: 'days' },
+      sort: 'oldest',
+      limit: 20,
+    });
+    expect(out.items.map((p) => p.id)).toEqual([zero.id]);
   });
 });

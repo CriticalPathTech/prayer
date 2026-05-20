@@ -94,8 +94,12 @@ export async function listFollowupPosts(
     .where('posts.parent_id', 'is', null)
     .where((eb) =>
       eb.or([eb('posts.expires_at', 'is', null), eb('posts.expires_at', '>', new Date())]),
-    )
-    .limit(input.limit + 1);
+    );
+
+  if (input.filters.noPrayers) q = q.where('posts.prayer_count', '=', 0);
+  if (input.filters.noReactions) q = q.where('posts.reaction_count', '=', 0);
+
+  q = q.limit(input.limit + 1);
 
   if (input.cursor) {
     const lastId = decodeFollowupCursor(input.cursor);
