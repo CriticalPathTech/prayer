@@ -447,4 +447,155 @@ describe('listFollowupPosts', () => {
     expect(page3.items.map((p) => p.id)).toEqual([ids[4]]);
     expect(page3.next_cursor).toBeNull();
   });
+
+  it('excludes posts whose status is draft, archived, hidden, pending, or rejected', async () => {
+    const author = await insertUser(db, { orgId, role: 'member' });
+    const published = await insertPost(db, { authorId: author.id, orgId, status: 'published' });
+    for (const status of ['draft', 'archived', 'hidden', 'pending', 'rejected'] as const) {
+      await insertPost(db, { authorId: author.id, orgId, status });
+    }
+    const out = await listFollowupPosts(db, {
+      callerRole: 'moderator',
+      callerId: author.id,
+      orgId,
+      filters: {
+        noPrayers: false,
+        noReactions: false,
+        noComments: false,
+        noUpdates: false,
+        noModResponse: false,
+      },
+      minAge: { value: 0, unit: 'days' },
+      sort: 'oldest',
+      limit: 20,
+    });
+    expect(out.items.map((p) => p.id)).toEqual([published.id]);
+  });
+
+  it('excludes updates (rows where parent_id is not null)', async () => {
+    const author = await insertUser(db, { orgId, role: 'member' });
+    const parent = await insertPost(db, { authorId: author.id, orgId, status: 'published' });
+    await insertPost(db, {
+      authorId: author.id,
+      orgId,
+      status: 'published',
+      parentId: parent.id,
+    });
+    const out = await listFollowupPosts(db, {
+      callerRole: 'moderator',
+      callerId: author.id,
+      orgId,
+      filters: {
+        noPrayers: false,
+        noReactions: false,
+        noComments: false,
+        noUpdates: false,
+        noModResponse: false,
+      },
+      minAge: { value: 0, unit: 'days' },
+      sort: 'oldest',
+      limit: 20,
+    });
+    expect(out.items.map((p) => p.id)).toEqual([parent.id]);
+  });
+
+  it('excludes posts whose expires_at is in the past', async () => {
+    const author = await insertUser(db, { orgId, role: 'member' });
+    const live = await insertPost(db, { authorId: author.id, orgId, status: 'published' });
+    const expired = await insertPost(db, {
+      authorId: author.id,
+      orgId,
+      status: 'published',
+      expiresAt: new Date(Date.now() - 3600_000),
+    });
+    const out = await listFollowupPosts(db, {
+      callerRole: 'moderator',
+      callerId: author.id,
+      orgId,
+      filters: {
+        noPrayers: false,
+        noReactions: false,
+        noComments: false,
+        noUpdates: false,
+        noModResponse: false,
+      },
+      minAge: { value: 0, unit: 'days' },
+      sort: 'oldest',
+      limit: 20,
+    });
+    expect(out.items.map((p) => p.id)).toEqual([live.id]);
+    expect(out.items.map((p) => p.id)).not.toContain(expired.id);
+  });
+
+  it('anonymous post: moderator caller sees null display_name; super_user sees real one', async () => {
+    const author = await insertUser(db, {
+      orgId,
+      role: 'member',
+      displayName: 'Real Name',
+    });
+    const post = await insertPost(db, {
+      authorId: author.id,
+      orgId,
+      status: 'published',
+      isAnonymous: true,
+    });
+
+    const modOut = await listFollowupPosts(db, {
+      callerRole: 'moderator',
+      callerId: author.id,
+      orgId,
+      filters: {
+        noPrayers: false,
+        noReactions: false,
+        noComments: false,
+        noUpdates: false,
+        noModResponse: false,
+      },
+      minAge: { value: 0, unit: 'days' },
+      sort: 'oldest',
+      limit: 20,
+    });
+    const modRow = modOut.items.find((p) => p.id === post.id)!;
+    expect(modRow.display_name).toBeNull();
+    expect(modRow.is_anonymous).toBe(true);
+
+    const suOut = await listFollowupPosts(db, {
+      callerRole: 'super_user',
+      callerId: author.id,
+      orgId,
+      filters: {
+        noPrayers: false,
+        noReactions: false,
+        noComments: false,
+        noUpdates: false,
+        noModResponse: false,
+      },
+      minAge: { value: 0, unit: 'days' },
+      sort: 'oldest',
+      limit: 20,
+    });
+    const suRow = suOut.items.find((p) => p.id === post.id)!;
+    expect(suRow.display_name).toBe('Real Name');
+  });
+
+  it('throws ForbiddenError when called by a member', async () => {
+    const u = await insertUser(db, { orgId, role: 'member' });
+    await expect(
+      listFollowupPosts(db, {
+        callerRole: 'member',
+        callerId: u.id,
+        orgId,
+        filters: {
+          noPrayers: false,
+          noReactions: false,
+          noComments: false,
+          noUpdates: false,
+          noModResponse: false,
+        },
+        minAge: { value: 0, unit: 'days' },
+        sort: 'oldest',
+        limit: 20,
+      }),
+    ).rejects.toThrowError(/Forbidden/i);
+  });
 });
