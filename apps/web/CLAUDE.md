@@ -55,7 +55,7 @@ src/
     ForgotPasswordPage, ResetPasswordPage,
     FeedPage, ComposePage, PostDetailPage, EditPostPage,
     ProfilePage, SecurityPage, MyArchivePage, MyInvitesPage,
-    ModQueuePage, ModInvitesPage, AdminChurchPage, NotFoundPage
+    ModQueuePage, ModApprovalsPage, ModHiddenPage, ModInvitesPage, AdminChurchPage, NotFoundPage
   views/mobile/          Parallel mobile page tree (~25 files: Mobile<PageName>.tsx + Mobile{Layout,Drawer,PageHeader,...}.tsx)
                          App.tsx switches between desktop pages/ and mobile views/ via useIsMobile (IsMobileContext).
                          Add a mobile counterpart for any new page that needs touch-optimized layout.
