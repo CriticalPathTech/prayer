@@ -1,7 +1,6 @@
 import type { JSX } from 'react';
 import { Navigate } from 'react-router-dom';
 
-import { ModTabs } from '../../components/ModTabs';
 import { Button } from '../../components/ui/Button';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { Field, inputClass } from '../../components/ui/Field';
@@ -30,9 +29,8 @@ export function MobileModInvitesPage(): JSX.Element {
 
   return (
     <>
-      <MobilePageHeader variant={{ kind: 'back', title: 'Moderation' }} />
+      <MobilePageHeader variant={{ kind: 'back', title: 'Grant invites' }} />
       <div className="flex flex-1 flex-col gap-4 px-4 pb-6 pt-3">
-        <ModTabs />
         <section className="flex flex-col gap-3 rounded-md border border-[var(--border-soft)] bg-[var(--bg-raised)] p-4">
           <h2 className="font-serif text-lg font-medium">Grant a new code</h2>
           <Field label="Member">

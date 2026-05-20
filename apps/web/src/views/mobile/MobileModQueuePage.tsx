@@ -1,12 +1,12 @@
 import type { JSX } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 
-import { ModTabs } from '../../components/ModTabs';
 import { useAuth } from '../../hooks/useAuth';
 import { useModQueue } from '../../hooks/useModQueue';
 import { isPrivilegedRole } from '../../lib/roles';
 
 import { MobilePageHeader } from './MobilePageHeader';
+import { MobileReportsTabs } from './MobileReportsTabs';
 
 export function MobileModQueuePage(): JSX.Element {
   const { me } = useAuth();
@@ -15,7 +15,7 @@ export function MobileModQueuePage(): JSX.Element {
   if (!me) {
     return (
       <>
-        <MobilePageHeader variant={{ kind: 'back', title: 'Moderation' }} />
+        <MobilePageHeader variant={{ kind: 'back', title: 'Reports' }} />
         <div className="px-4 py-16 text-center text-sm text-[var(--fg-3)]">Loading…</div>
       </>
     );
@@ -26,9 +26,9 @@ export function MobileModQueuePage(): JSX.Element {
 
   return (
     <>
-      <MobilePageHeader variant={{ kind: 'back', title: 'Moderation' }} />
+      <MobilePageHeader variant={{ kind: 'back', title: 'Reports' }} />
       <div className="flex flex-1 flex-col gap-3 px-4 pb-6 pt-3">
-        <ModTabs />
+        <MobileReportsTabs />
 
         {queue.loading ? (
           <p className="py-4 text-center text-sm text-[var(--fg-3)]">Loading…</p>
