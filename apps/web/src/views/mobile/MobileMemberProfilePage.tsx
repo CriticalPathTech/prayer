@@ -2,7 +2,6 @@ import type { JSX } from 'react';
 import { useEffect, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 
-import { PostCard } from '../../components/PostCard';
 import { Avatar } from '../../components/ui/Avatar';
 import { Pill } from '../../components/ui/Pill';
 import { useAuth } from '../../hooks/useAuth';
@@ -11,6 +10,7 @@ import { useUserPosts } from '../../hooks/useUserPosts';
 import { apiFetch } from '../../lib/api';
 
 import { MobilePageHeader } from './MobilePageHeader';
+import { MobilePostCard } from './MobilePostCard';
 import { MobileProfilePage } from './MobileProfilePage';
 import { MobileSecurityPage } from './MobileSecurityPage';
 
@@ -197,7 +197,7 @@ function PostList({
   return (
     <div className="flex flex-col">
       {posts.map((p) => (
-        <PostCard key={p.id} post={p} />
+        <MobilePostCard key={p.id} post={p} />
       ))}
       {hasMore ? (
         <button
