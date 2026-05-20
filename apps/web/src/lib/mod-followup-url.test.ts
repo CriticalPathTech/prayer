@@ -13,7 +13,13 @@ describe('mod-followup URL helpers', () => {
       new URLSearchParams('no_prayers=true&min_age_value=7&min_age_unit=days'),
     );
     expect(out).toEqual({
-      filters: { noPrayers: true, noReactions: false, noComments: false, noUpdates: false, noModResponse: false },
+      filters: {
+        noPrayers: true,
+        noReactions: false,
+        noComments: false,
+        noUpdates: false,
+        noModResponse: false,
+      },
       minAge: { value: 7, unit: 'days' },
       sort: 'oldest',
     });
@@ -21,7 +27,13 @@ describe('mod-followup URL helpers', () => {
 
   it('serializeApplied omits zero / false values and round-trips', () => {
     const draft = {
-      filters: { noPrayers: true, noReactions: false, noComments: false, noUpdates: false, noModResponse: false },
+      filters: {
+        noPrayers: true,
+        noReactions: false,
+        noComments: false,
+        noUpdates: false,
+        noModResponse: false,
+      },
       minAge: { value: 3, unit: 'days' as const },
     };
     const params = serializeApplied(draft);

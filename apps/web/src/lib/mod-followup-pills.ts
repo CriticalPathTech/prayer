@@ -13,7 +13,13 @@ export interface FollowupPill extends FollowupDraft {
 }
 
 export const EMPTY_DRAFT: FollowupDraft = {
-  filters: { noPrayers: false, noReactions: false, noComments: false, noUpdates: false, noModResponse: false },
+  filters: {
+    noPrayers: false,
+    noReactions: false,
+    noComments: false,
+    noUpdates: false,
+    noModResponse: false,
+  },
   minAge: { value: 0, unit: 'days' },
 };
 
@@ -21,37 +27,73 @@ export const FOLLOWUP_PILLS: readonly FollowupPill[] = [
   {
     id: 'no-prayers-24h',
     label: 'No prayers for 24 hours',
-    filters: { noPrayers: true, noReactions: false, noComments: false, noUpdates: false, noModResponse: false },
+    filters: {
+      noPrayers: true,
+      noReactions: false,
+      noComments: false,
+      noUpdates: false,
+      noModResponse: false,
+    },
     minAge: { value: 24, unit: 'hours' },
   },
   {
     id: 'no-prayers-3d',
     label: 'No prayers for 3 days',
-    filters: { noPrayers: true, noReactions: false, noComments: false, noUpdates: false, noModResponse: false },
+    filters: {
+      noPrayers: true,
+      noReactions: false,
+      noComments: false,
+      noUpdates: false,
+      noModResponse: false,
+    },
     minAge: { value: 3, unit: 'days' },
   },
   {
     id: 'no-comments-5d',
     label: 'No comments for 5 days',
-    filters: { noPrayers: false, noReactions: false, noComments: true, noUpdates: false, noModResponse: false },
+    filters: {
+      noPrayers: false,
+      noReactions: false,
+      noComments: true,
+      noUpdates: false,
+      noModResponse: false,
+    },
     minAge: { value: 5, unit: 'days' },
   },
   {
     id: 'no-reply-7d',
     label: 'No leadership reply for 7 days',
-    filters: { noPrayers: false, noReactions: false, noComments: false, noUpdates: false, noModResponse: true },
+    filters: {
+      noPrayers: false,
+      noReactions: false,
+      noComments: false,
+      noUpdates: false,
+      noModResponse: true,
+    },
     minAge: { value: 7, unit: 'days' },
   },
   {
     id: 'no-updates-14d',
     label: 'No updates for 14 days',
-    filters: { noPrayers: false, noReactions: false, noComments: false, noUpdates: true, noModResponse: false },
+    filters: {
+      noPrayers: false,
+      noReactions: false,
+      noComments: false,
+      noUpdates: true,
+      noModResponse: false,
+    },
     minAge: { value: 14, unit: 'days' },
   },
   {
     id: 'stale-14d',
     label: 'Stale 14 days',
-    filters: { noPrayers: true, noReactions: false, noComments: true, noUpdates: true, noModResponse: false },
+    filters: {
+      noPrayers: true,
+      noReactions: false,
+      noComments: true,
+      noUpdates: true,
+      noModResponse: false,
+    },
     minAge: { value: 14, unit: 'days' },
   },
 ];

@@ -22,7 +22,13 @@ describe('useModFollowup', () => {
     const { result } = renderHook(() => useModFollowup({ initial: null }));
     act(() => {
       result.current.applyAndSearch({
-        filters: { noPrayers: true, noReactions: false, noComments: false, noUpdates: false, noModResponse: false },
+        filters: {
+          noPrayers: true,
+          noReactions: false,
+          noComments: false,
+          noUpdates: false,
+          noModResponse: false,
+        },
         minAge: { value: 3, unit: 'days' },
       });
     });
@@ -31,18 +37,27 @@ describe('useModFollowup', () => {
   });
 
   it('loadMore appends the next page and updates the cursor', async () => {
-    const get = vi.spyOn(api, 'getFollowupPosts')
+    const get = vi
+      .spyOn(api, 'getFollowupPosts')
       .mockResolvedValueOnce({ items: [{ id: 'a' } as never], next_cursor: 'cur1' })
       .mockResolvedValueOnce({ items: [{ id: 'b' } as never], next_cursor: null });
     const { result } = renderHook(() => useModFollowup({ initial: null }));
     act(() => {
       result.current.applyAndSearch({
-        filters: { noPrayers: true, noReactions: false, noComments: false, noUpdates: false, noModResponse: false },
+        filters: {
+          noPrayers: true,
+          noReactions: false,
+          noComments: false,
+          noUpdates: false,
+          noModResponse: false,
+        },
         minAge: { value: 3, unit: 'days' },
       });
     });
     await waitFor(() => expect(result.current.loading).toBe(false));
-    await act(async () => { await result.current.loadMore(); });
+    await act(async () => {
+      await result.current.loadMore();
+    });
     expect(result.current.items.map((i) => i.id)).toEqual(['a', 'b']);
     expect(result.current.nextCursor).toBeNull();
     expect(get).toHaveBeenCalledTimes(2);

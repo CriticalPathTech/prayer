@@ -1,4 +1,5 @@
 import type { AppliedQuery } from '../hooks/useModFollowup';
+
 import type { FollowupDraft } from './mod-followup-pills';
 
 export function parseApplied(params: URLSearchParams): AppliedQuery | null {

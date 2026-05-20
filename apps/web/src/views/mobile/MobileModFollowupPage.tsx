@@ -55,7 +55,10 @@ export function MobileModFollowupPage(): JSX.Element {
         {followup.items.map((post) => (
           <div key={post.id} className="flex flex-col gap-2">
             {followup.applied ? (
-              <EngagementSummary createdAt={post.created_at} appliedFilters={followup.applied.filters} />
+              <EngagementSummary
+                createdAt={post.created_at}
+                appliedFilters={followup.applied.filters}
+              />
             ) : null}
             <PostCard post={post} onChange={() => void followup.refresh()} />
           </div>

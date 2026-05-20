@@ -45,7 +45,10 @@ export function ModFollowupPage(): JSX.Element {
         {followup.items.map((post) => (
           <li key={post.id}>
             {followup.applied ? (
-              <EngagementSummary createdAt={post.created_at} appliedFilters={followup.applied.filters} />
+              <EngagementSummary
+                createdAt={post.created_at}
+                appliedFilters={followup.applied.filters}
+              />
             ) : null}
             <PostCard post={post} onChange={() => void followup.refresh()} />
           </li>

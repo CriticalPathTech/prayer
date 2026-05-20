@@ -1,10 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 
-import {
-  getFollowupPosts,
-  type FollowupFilters,
-  type FollowupResponse,
-} from '../lib/api';
+import { getFollowupPosts, type FollowupFilters, type FollowupResponse } from '../lib/api';
 import type { FollowupDraft } from '../lib/mod-followup-pills';
 
 import type { FeedPost } from './useFeed';
@@ -29,7 +25,10 @@ export interface UseModFollowupOptions {
   initial: AppliedQuery | null;
 }
 
-function toApi(draft: FollowupDraft): { filters: FollowupFilters; minAge: FollowupDraft['minAge'] } {
+function toApi(draft: FollowupDraft): {
+  filters: FollowupFilters;
+  minAge: FollowupDraft['minAge'];
+} {
   return { filters: draft.filters, minAge: draft.minAge };
 }
 
@@ -71,7 +70,11 @@ export function useModFollowup(opts: UseModFollowupOptions): UseModFollowupResul
     if (!applied || !nextCursor) return;
     setLoading(true);
     try {
-      const res = await getFollowupPosts({ ...toApi(applied), sort: applied.sort, cursor: nextCursor });
+      const res = await getFollowupPosts({
+        ...toApi(applied),
+        sort: applied.sort,
+        cursor: nextCursor,
+      });
       setItems((prev) => [...prev, ...res.items]);
       setNextCursor(res.next_cursor);
     } catch (e) {
@@ -85,5 +88,15 @@ export function useModFollowup(opts: UseModFollowupOptions): UseModFollowupResul
     if (applied) await runFresh(applied);
   }, [applied, runFresh]);
 
-  return { items, applied, nextCursor, loading, searched, error, applyAndSearch, loadMore, refresh };
+  return {
+    items,
+    applied,
+    nextCursor,
+    loading,
+    searched,
+    error,
+    applyAndSearch,
+    loadMore,
+    refresh,
+  };
 }

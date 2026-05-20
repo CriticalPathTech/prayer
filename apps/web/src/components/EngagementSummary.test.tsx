@@ -18,7 +18,13 @@ describe('EngagementSummary', () => {
     render(
       <EngagementSummary
         createdAt={tenDaysAgo}
-        appliedFilters={{ noPrayers: true, noReactions: false, noComments: true, noUpdates: false, noModResponse: true }}
+        appliedFilters={{
+          noPrayers: true,
+          noReactions: false,
+          noComments: true,
+          noUpdates: false,
+          noModResponse: true,
+        }}
       />,
     );
     expect(screen.getByText(/0 prayers/)).toBeInTheDocument();

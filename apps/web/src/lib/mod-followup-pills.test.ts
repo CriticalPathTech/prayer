@@ -1,10 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import {
-  FOLLOWUP_PILLS,
-  matchPill,
-  type FollowupDraft,
-} from './mod-followup-pills';
+import { FOLLOWUP_PILLS, matchPill, type FollowupDraft } from './mod-followup-pills';
 
 describe('mod-followup pills', () => {
   it('exposes six pills with stable ids', () => {
@@ -21,7 +17,13 @@ describe('mod-followup pills', () => {
 
   it('matchPill returns the pill id when a draft exactly matches', () => {
     const stale: FollowupDraft = {
-      filters: { noPrayers: true, noReactions: false, noComments: true, noUpdates: true, noModResponse: false },
+      filters: {
+        noPrayers: true,
+        noReactions: false,
+        noComments: true,
+        noUpdates: true,
+        noModResponse: false,
+      },
       minAge: { value: 14, unit: 'days' },
     };
     expect(matchPill(stale)).toBe('stale-14d');
@@ -29,7 +31,13 @@ describe('mod-followup pills', () => {
 
   it('matchPill returns null when no pill matches', () => {
     const custom: FollowupDraft = {
-      filters: { noPrayers: true, noReactions: true, noComments: false, noUpdates: false, noModResponse: false },
+      filters: {
+        noPrayers: true,
+        noReactions: true,
+        noComments: false,
+        noUpdates: false,
+        noModResponse: false,
+      },
       minAge: { value: 0, unit: 'days' },
     };
     expect(matchPill(custom)).toBeNull();
