@@ -113,3 +113,4 @@ pnpm --filter @prayer/api build      # tsc → dist/
 - **Migration numbering:** run `ls packages/db/migrations/` before writing a new SQL file — the next number is sequential (not guessable from context).
 - Kysely treats `ColumnType<T, never, never>` columns as read-only: they're selectable but cannot appear in `.values()` / `.set()`. Use this for `popularity_count` (Postgres-generated).
 - The `requireAuth` middleware currently does a round-trip to the DB on every request to resolve the user. Fine for M1 scale; if it becomes a hotspot, cache by `supabase_auth_id`.
+- **Ignore the `test.poolOptions was removed in Vitest 4` deprecation warning.** The setting still applies functionally, and `fileParallelism: false` is what actually serializes the DB-backed files. "Migrating" `singleFork` to top-level makes things WORSE (~50 file failures). Leave the config alone.
