@@ -101,10 +101,10 @@ export function MobileDrawer({ onClose }: MobileDrawerProps): JSX.Element {
 
           <SectionLabel>Account</SectionLabel>
           <Item
-            to="/me/profile"
+            to={`/u/${me?.id}`}
             icon="user"
-            label="Profile"
-            active={location.pathname === '/me/profile'}
+            label="My profile"
+            active={location.pathname === `/u/${me?.id}`}
             onClose={onClose}
           />
           <Item
@@ -112,13 +112,6 @@ export function MobileDrawer({ onClose }: MobileDrawerProps): JSX.Element {
             icon="mail"
             label="My invites"
             active={location.pathname === '/me/invites'}
-            onClose={onClose}
-          />
-          <Item
-            to="/me/security"
-            icon="shield"
-            label="Security"
-            active={location.pathname === '/me/security'}
             onClose={onClose}
           />
 

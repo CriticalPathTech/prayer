@@ -163,36 +163,30 @@ export function Layout(): JSX.Element {
                     <span>Invites</span>
                   </Link>
                   <Link
-                    to="/me/profile"
+                    to={`/u/${me?.id}`}
                     role="menuitem"
                     onClick={() => setMenuOpen(false)}
                     className="flex items-center gap-2 px-3 py-2 text-sm text-[var(--fg-2)] hover:bg-parchment-100 hover:text-[var(--fg-1)]"
                   >
                     <Icon name="user" size={16} />
-                    <span>Profile</span>
+                    <span>My profile</span>
                   </Link>
-                  <Link
-                    to="/me/security"
+                  <div className="border-t border-[var(--border-soft)]" />
+                  <button
+                    type="button"
                     role="menuitem"
-                    onClick={() => setMenuOpen(false)}
-                    className="flex items-center gap-2 px-3 py-2 text-sm text-[var(--fg-2)] hover:bg-parchment-100 hover:text-[var(--fg-1)]"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      void signOut();
+                    }}
+                    className="flex w-full items-center gap-2 px-3 py-2 text-sm text-[var(--fg-2)] hover:bg-parchment-100 hover:text-[var(--fg-1)]"
                   >
-                    <Icon name="shield" size={16} />
-                    <span>Security</span>
-                  </Link>
+                    <Icon name="log-out" size={16} />
+                    <span>Sign out</span>
+                  </button>
                 </div>
               ) : null}
             </div>
-            <span aria-hidden className="mx-1 h-6 w-px bg-[var(--border-soft)]" />
-            <button
-              type="button"
-              aria-label="Sign out"
-              title="Sign out"
-              onClick={() => void signOut()}
-              className="inline-flex h-8 w-8 items-center justify-center rounded-sm text-[var(--fg-3)] hover:bg-parchment-100 hover:text-[var(--fg-1)] focus:outline-none focus-visible:shadow-[var(--focus-ring)]"
-            >
-              <Icon name="log-out" size={16} />
-            </button>
           </nav>
         </div>
       </header>
