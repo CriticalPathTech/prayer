@@ -98,6 +98,15 @@ export function MobileDrawer({ onClose }: MobileDrawerProps): JSX.Element {
             active={location.pathname === '/me/archive'}
             onClose={onClose}
           />
+          {isPrivilegedRole(me?.role) ? (
+            <Item
+              to="/mod/follow-up"
+              icon="search"
+              label="Follow-up"
+              active={location.pathname === '/mod/follow-up'}
+              onClose={onClose}
+            />
+          ) : null}
 
           <SectionLabel>Account</SectionLabel>
           <Item
