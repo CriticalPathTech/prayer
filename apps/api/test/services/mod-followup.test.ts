@@ -226,4 +226,43 @@ describe('listFollowupPosts', () => {
     });
     expect(out.items.map((p) => p.id)).toEqual([stalled.id]);
   });
+
+  it('no_mod_response=true excludes posts where any comment author has mod or super_user role', async () => {
+    const author = await insertUser(db, { orgId, role: 'member' });
+    const peer = await insertUser(db, { orgId, role: 'member' });
+    const mod = await insertUser(db, { orgId, role: 'moderator' });
+
+    const onlyPeer = await insertPost(db, {
+      authorId: author.id,
+      orgId,
+      status: 'published',
+      body: 'peer commented',
+    });
+    await insertComment(db, { postId: onlyPeer.id, authorId: peer.id, orgId });
+
+    const modReplied = await insertPost(db, {
+      authorId: author.id,
+      orgId,
+      status: 'published',
+      body: 'mod commented',
+    });
+    await insertComment(db, { postId: modReplied.id, authorId: mod.id, orgId });
+
+    const out = await listFollowupPosts(db, {
+      callerRole: 'moderator',
+      callerId: author.id,
+      orgId,
+      filters: {
+        noPrayers: false,
+        noReactions: false,
+        noComments: false,
+        noUpdates: false,
+        noModResponse: true,
+      },
+      minAge: { value: 0, unit: 'days' },
+      sort: 'oldest',
+      limit: 20,
+    });
+    expect(out.items.map((p) => p.id)).toEqual([onlyPeer.id]);
+  });
 });

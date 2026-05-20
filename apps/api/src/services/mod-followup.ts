@@ -124,6 +124,23 @@ export async function listFollowupPosts(
       ),
     );
   }
+  if (input.filters.noModResponse) {
+    q = q.where((eb) =>
+      eb.not(
+        eb.exists(
+          eb
+            .selectFrom('comments as c')
+            .innerJoin('user_orgs as uo', (j) =>
+              j.onRef('uo.user_id', '=', 'c.author_id').on('uo.org_id', '=', input.orgId),
+            )
+            .select(sql<number>`1`.as('one'))
+            .whereRef('c.post_id', '=', 'posts.id')
+            .where('c.is_hidden', '=', false)
+            .where('uo.role', 'in', ['moderator', 'super_user'] as const),
+        ),
+      ),
+    );
+  }
 
   q = q.limit(input.limit + 1);
 
