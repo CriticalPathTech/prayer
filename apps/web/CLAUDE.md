@@ -29,7 +29,7 @@ src/
     AvatarCropDialog.tsx  Profile-photo crop+zoom+rotate dialog (react-easy-crop → canvas → WebP → POST /me/avatar)
     CheckEmailPanel.tsx   Shared "check your email" panel for signup + password-reset flows
     CopyCode.tsx          Copy-to-clipboard widget for invite codes
-    ModTabs.tsx           Queue | Invites tabs under /mod
+    ModTabs.tsx           Desktop /mod/* — 4 flat tabs: Pending approval | Invites | Flagged | Hidden. Mobile does NOT use this — see views/mobile/MobileReportsTabs.tsx.
     NewActivityBanner.tsx "New activity" banner on feed when snapshotId advances
     PrayButton.tsx        Prayer toggle (optimistic, debounced)
     ui/                   Avatar, Button, Field, Icon, Pill, Reactions (+ tests co-located)
@@ -59,6 +59,7 @@ src/
   views/mobile/          Parallel mobile page tree (~25 files: Mobile<PageName>.tsx + Mobile{Layout,Drawer,PageHeader,...}.tsx)
                          App.tsx switches between desktop pages/ and mobile views/ via useIsMobile (IsMobileContext).
                          Add a mobile counterpart for any new page that needs touch-optimized layout.
+                         Mod surface diverges from desktop: drawer has 3 items (Review / Reports / Grant invites) and MobileReportsTabs.tsx renders Flagged | Hidden pills only on the Reports sub-pages.
 test/
   mobile/                 Playwright specs (smoke.spec.ts + axe.spec.ts) — iPhone SE + iPhone 12 Pro
   e2e/
@@ -120,3 +121,4 @@ pnpm --filter @prayer/web test:mobile    # Playwright — needs a running dev se
 - **`FeedPost` now includes `reactions: Record<string, {count, mine}>`** — any test fixture constructing a `FeedPost` must include this field (or `reactions: {}`). Same applies when adding new `FeedPost` fields: update `PostCard.test.tsx`, `FeedPage.test.tsx`, `PostDetailPage.test.tsx`, `ComposePage.test.tsx`, and `useDraft.test.tsx`.
 - **Gravatar 404 errors in the dev console are expected.** Seeded users have no uploaded avatar, so the `Avatar` component falls back to gravatar with `d=404` (we get a 404 instead of a placeholder image, then render initials). Not a regression — ignore them when reading console output during E2E or smoke tests.
 - **Tests that mutate hydrated controlled inputs must `waitFor` the hydrated value before `user.clear()` / `user.type()`.** If a component populates a controlled input from server data in a `useEffect` (e.g., `EditPostPage`'s textarea), `findByLabelText` resolves before hydration writes the value — `user.clear()` then races with hydration, and `user.type()` appends to the hydrated body instead of replacing it. Pattern: `const ta = await screen.findByLabelText(/body/i); await waitFor(() => expect(ta).toHaveValue('expected server value')); await user.clear(ta);`. React 18 + vitest 3 hid this race; React 19 + vitest 4 expose it.
+- **`/feed` returns `pinned` unfiltered by `?filter=`.** The chronological `posts` array honors `filter=all|mine|answered`, but the `pinned` slice always comes back complete. `useFeed` re-filters `pinned` client-side using `is_own_post` (mine) and `is_answered_prayer` on parent or any update (answered). If you change that rule, update both `useFeed.ts` and the API at the same time, not just one.
