@@ -195,6 +195,39 @@ describe('MobileDrawer', () => {
     expect(screen.queryByRole('link', { name: /^review$/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: /^reports$/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: /^grant invites$/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /^follow-up$/i })).not.toBeInTheDocument();
+  });
+
+  it('moderator: Follow-up link under Prayer wall section points at /mod/follow-up', () => {
+    useAuthMock.mockReturnValue({
+      ...baseAuth,
+      me: { ...baseAuth.me, role: 'moderator' as const },
+    });
+    render(
+      <MemoryRouter>
+        <MobileDrawer onClose={() => {}} />
+      </MemoryRouter>,
+    );
+    expect(screen.getByRole('link', { name: /^follow-up$/i })).toHaveAttribute(
+      'href',
+      '/mod/follow-up',
+    );
+  });
+
+  it('marks Follow-up active when on /mod/follow-up', () => {
+    useAuthMock.mockReturnValue({
+      ...baseAuth,
+      me: { ...baseAuth.me, role: 'moderator' as const },
+    });
+    render(
+      <MemoryRouter initialEntries={['/mod/follow-up']}>
+        <MobileDrawer onClose={() => {}} />
+      </MemoryRouter>,
+    );
+    expect(screen.getByRole('link', { name: /^follow-up$/i })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
   });
 
   it('moderator without approval gate: Reports + Grant invites, no Review', () => {

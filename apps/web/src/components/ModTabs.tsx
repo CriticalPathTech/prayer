@@ -14,6 +14,7 @@ interface TabDef {
 // approvals queue first, then invites, then the two reactive surfaces.
 const ALL_TABS: TabDef[] = [
   { to: '/mod/approvals', label: 'Pending approval', gated: true },
+  { to: '/mod/follow-up', label: 'Follow-up' },
   { to: '/mod/invites', label: 'Invites' },
   { to: '/mod/queue', label: 'Flagged' },
   { to: '/mod/hidden', label: 'Hidden' },
