@@ -1,4 +1,5 @@
 import type { JSX } from 'react';
+import { Link } from 'react-router-dom';
 
 import { useAuth } from '../hooks/useAuth';
 import type { Comment } from '../hooks/usePostComments';
@@ -69,13 +70,33 @@ export function CommentItem({
     <article className={wrapperClass}>
       <header className="mb-2 flex items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
-          <Avatar
-            name={displayName}
-            avatarUrl={comment.avatar_url}
-            anonymous={isOrphanCommenter}
-            size="sm"
-          />
-          <span className="font-serif text-sm font-medium text-[var(--fg-1)]">{displayName}</span>
+          {comment.author_id && !isOrphanCommenter ? (
+            <Link to={`/u/${comment.author_id}`} aria-label={`View ${displayName}'s profile`}>
+              <Avatar
+                name={displayName}
+                avatarUrl={comment.avatar_url}
+                anonymous={isOrphanCommenter}
+                size="sm"
+              />
+            </Link>
+          ) : (
+            <Avatar
+              name={displayName}
+              avatarUrl={comment.avatar_url}
+              anonymous={isOrphanCommenter}
+              size="sm"
+            />
+          )}
+          {comment.author_id && !isOrphanCommenter ? (
+            <Link
+              to={`/u/${comment.author_id}`}
+              className="font-serif text-sm font-medium text-[var(--fg-1)] hover:underline"
+            >
+              {displayName}
+            </Link>
+          ) : (
+            <span className="font-serif text-sm font-medium text-[var(--fg-1)]">{displayName}</span>
+          )}
           <span className="text-xs text-[var(--fg-3)]">· {formatAgo(comment.created_at)}</span>
         </div>
         {canRemove && onDelete ? (

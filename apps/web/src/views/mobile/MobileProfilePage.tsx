@@ -10,14 +10,21 @@ import { useProfileForm } from '../../hooks/useProfileForm';
 
 import { MobilePageHeader } from './MobilePageHeader';
 
-export function MobileProfilePage(): JSX.Element {
+interface MobileProfilePageProps {
+  /** When true, omit the `MobilePageHeader` and outer container padding so the
+   * form renders cleanly inside a tab parent (e.g. `MobileMemberProfilePage`).
+   * Default false. */
+  embedded?: boolean;
+}
+
+export function MobileProfilePage({ embedded = false }: MobileProfilePageProps = {}): JSX.Element {
   const { me } = useAuth();
   const f = useProfileForm();
 
   if (!me) {
     return (
       <>
-        <MobilePageHeader variant={{ kind: 'back', title: 'Profile' }} />
+        {embedded ? null : <MobilePageHeader variant={{ kind: 'back', title: 'Profile' }} />}
         <div className="px-4 py-16 text-center text-sm text-[var(--fg-3)]">Loading…</div>
       </>
     );
@@ -25,8 +32,10 @@ export function MobileProfilePage(): JSX.Element {
 
   return (
     <>
-      <MobilePageHeader variant={{ kind: 'back', title: 'Profile' }} />
-      <div className="flex flex-1 flex-col gap-4 px-4 pb-6 pt-3">
+      {embedded ? null : <MobilePageHeader variant={{ kind: 'back', title: 'Profile' }} />}
+      <div
+        className={embedded ? 'flex flex-col gap-4' : 'flex flex-1 flex-col gap-4 px-4 pb-6 pt-3'}
+      >
         <form
           onSubmit={(e) => {
             e.preventDefault();

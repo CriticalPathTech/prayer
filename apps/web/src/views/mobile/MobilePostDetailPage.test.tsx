@@ -252,6 +252,44 @@ describe('MobilePostDetailPage', () => {
     expect(screen.getByRole('button', { name: /add update/i })).toBeInTheDocument();
   });
 
+  it('author avatar and name link to /u/:author_id for non-anonymous post', () => {
+    usePostMock.mockReturnValue({
+      data: {
+        post: basePost({ author_id: 'u1', is_anonymous: false, display_name: 'Mary' }),
+        updates: [],
+        reactions: {},
+        prayer: { prayer_count: 0, prayed: false },
+      },
+      loading: false,
+      notFound: false,
+      error: null,
+      reload: vi.fn(),
+    });
+    renderAt();
+    const links = screen.getAllByRole('link');
+    const profileLink = links.find((l) => l.getAttribute('href') === '/u/u1');
+    expect(profileLink).toBeDefined();
+  });
+
+  it('no /u/... link when post is anonymous', () => {
+    usePostMock.mockReturnValue({
+      data: {
+        post: basePost({ author_id: null, is_anonymous: true, display_name: null }),
+        updates: [],
+        reactions: {},
+        prayer: { prayer_count: 0, prayed: false },
+      },
+      loading: false,
+      notFound: false,
+      error: null,
+      reload: vi.fn(),
+    });
+    renderAt();
+    const links = screen.queryAllByRole('link');
+    const profileLink = links.find((l) => (l.getAttribute('href') ?? '').startsWith('/u/'));
+    expect(profileLink).toBeUndefined();
+  });
+
   it('non-author: does NOT show "Add update"', () => {
     usePostMock.mockReturnValue({
       data: {

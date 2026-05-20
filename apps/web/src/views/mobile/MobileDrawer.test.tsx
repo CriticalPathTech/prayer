@@ -67,7 +67,7 @@ describe('MobileDrawer', () => {
     expect(screen.getByText('Super user')).toBeInTheDocument();
   });
 
-  it('renders all 7 menu items + sign out', () => {
+  it('renders all menu items + sign out', () => {
     render(
       <MemoryRouter>
         <MobileDrawer onClose={() => {}} />
@@ -83,13 +83,36 @@ describe('MobileDrawer', () => {
       '/?filter=answered',
     );
     expect(screen.getByRole('link', { name: /archive/i })).toHaveAttribute('href', '/me/archive');
-    expect(screen.getByRole('link', { name: /^profile$/i })).toHaveAttribute('href', '/me/profile');
+    expect(screen.getByRole('link', { name: /^my profile$/i })).toHaveAttribute('href', '/u/me');
     expect(screen.getByRole('link', { name: /^my invites$/i })).toHaveAttribute(
       'href',
       '/me/invites',
     );
-    expect(screen.getByRole('link', { name: /security/i })).toHaveAttribute('href', '/me/security');
+    expect(screen.queryByRole('link', { name: /^security$/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /^profile$/i })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: /sign out/i })).toBeInTheDocument();
+  });
+
+  it('"My profile" link points at /u/:meId and Security entry is absent', () => {
+    render(
+      <MemoryRouter>
+        <MobileDrawer onClose={() => {}} />
+      </MemoryRouter>,
+    );
+    expect(screen.getByRole('link', { name: /^my profile$/i })).toHaveAttribute('href', '/u/me');
+    expect(screen.queryByRole('link', { name: /security/i })).not.toBeInTheDocument();
+  });
+
+  it('marks My profile active when on /u/:meId', () => {
+    render(
+      <MemoryRouter initialEntries={['/u/me']}>
+        <MobileDrawer onClose={() => {}} />
+      </MemoryRouter>,
+    );
+    expect(screen.getByRole('link', { name: /^my profile$/i })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
   });
 
   it('marks the active filter item via aria-current=page', () => {

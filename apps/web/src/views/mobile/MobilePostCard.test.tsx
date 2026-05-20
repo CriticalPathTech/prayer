@@ -337,4 +337,31 @@ describe('MobilePostCard', () => {
     expect(updateArticle!.className).toContain('[var(--border-soft)]');
     expect(screen.getByText('Answered')).toBeInTheDocument();
   });
+
+  it('wraps author name and avatar in Link to /u/:author_id for non-anonymous post', () => {
+    render(
+      <MemoryRouter>
+        <MobilePostCard
+          post={makeFeedPost({ author_id: 'u1', display_name: 'Alice', is_anonymous: false })}
+        />
+      </MemoryRouter>,
+    );
+    const links = screen.getAllByRole('link');
+    const profileLink = links.find((l) => l.getAttribute('href') === '/u/u1');
+    expect(profileLink).toBeDefined();
+  });
+
+  it('renders Anonymous name with no profile Link for anonymous post', () => {
+    render(
+      <MemoryRouter>
+        <MobilePostCard
+          post={makeFeedPost({ author_id: null, display_name: null, is_anonymous: true })}
+        />
+      </MemoryRouter>,
+    );
+    const links = screen.queryAllByRole('link');
+    const profileLink = links.find((l) => l.getAttribute('href')?.startsWith('/u/'));
+    expect(profileLink).toBeUndefined();
+    expect(screen.getByText('Anonymous')).toBeDefined();
+  });
 });

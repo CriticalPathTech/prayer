@@ -256,6 +256,28 @@ describe('PostDetailPage', () => {
     expect(unpinPostMock).toHaveBeenCalledWith('p1');
   });
 
+  it('author avatar and name link to /u/:author_id for non-anonymous post', async () => {
+    postFetch.mockResolvedValueOnce(
+      baseDetail({ author_id: 'u1', is_anonymous: false, display_name: 'Alice' }),
+    );
+    renderAt('p1');
+    await screen.findByText('Please pray');
+    const links = screen.getAllByRole('link');
+    const profileLink = links.find((l) => l.getAttribute('href') === '/u/u1');
+    expect(profileLink).toBeDefined();
+  });
+
+  it('no /u/... link when post is anonymous', async () => {
+    postFetch.mockResolvedValueOnce(
+      baseDetail({ author_id: null, is_anonymous: true, display_name: null }),
+    );
+    renderAt('p1');
+    await screen.findByText('Please pray');
+    const links = screen.queryAllByRole('link');
+    const profileLink = links.find((l) => (l.getAttribute('href') ?? '').startsWith('/u/'));
+    expect(profileLink).toBeUndefined();
+  });
+
   it('moderator sees a Comment button in every thread and a post-level new-thread composer', async () => {
     useAuthMock.mockReturnValue({
       session: { user: { id: 'supabase-mod' } },

@@ -573,3 +573,59 @@ describe('PostCard kebab menu', () => {
     );
   });
 });
+
+describe('PostCard author profile link', () => {
+  const basePost: FeedPost = {
+    id: 'p1',
+    parent_id: null,
+    author_id: 'other',
+    display_name: 'Mary',
+    avatar_url: null,
+    status: 'published' as const,
+    is_anonymous: false,
+    is_answered_prayer: false,
+    body: 'Please pray.',
+    reaction_count: 0,
+    prayer_count: 0,
+    updates: [],
+    expires_at: null,
+    edit_deadline: new Date(Date.now() + 3600_000).toISOString(),
+    created_at: new Date().toISOString(),
+    pinned_at: null,
+    prayed: false,
+    reactions: {},
+    is_own_post: false,
+    hidden_by: null,
+    hidden_source: null,
+    is_former_member: false,
+  };
+
+  function makeTestPost(overrides: Partial<FeedPost>): FeedPost {
+    return { ...basePost, ...overrides };
+  }
+
+  it('wraps author name and avatar in Link to /u/:author_id for non-anonymous post', () => {
+    const post = makeTestPost({ author_id: 'u1', display_name: 'Alice', is_anonymous: false });
+    render(
+      <MemoryRouter>
+        <PostCard post={post} />
+      </MemoryRouter>,
+    );
+    const links = screen.getAllByRole('link');
+    const profileLink = links.find((l) => l.getAttribute('href') === '/u/u1');
+    expect(profileLink).toBeDefined();
+  });
+
+  it('renders Anonymous name with no profile Link for anonymous post', () => {
+    const post = makeTestPost({ author_id: null, display_name: null, is_anonymous: true });
+    render(
+      <MemoryRouter>
+        <PostCard post={post} />
+      </MemoryRouter>,
+    );
+    const links = screen.queryAllByRole('link');
+    const profileLink = links.find((l) => l.getAttribute('href')?.startsWith('/u/'));
+    expect(profileLink).toBeUndefined();
+    expect(screen.getByText('Anonymous')).toBeDefined();
+  });
+});

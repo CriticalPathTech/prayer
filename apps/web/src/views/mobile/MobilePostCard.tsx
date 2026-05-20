@@ -136,12 +136,26 @@ export function MobilePostCard({ post, onChange, onRepost }: MobilePostCardProps
   return (
     <article className={cardClass}>
       <header className="flex items-start gap-2.5">
-        <Avatar name={name} avatarUrl={post.avatar_url} anonymous={isOrphanAuthor} size="md" />
+        {post.author_id ? (
+          <Link
+            to={`/u/${post.author_id}`}
+            aria-label={`View ${name}'s profile`}
+            className="shrink-0"
+          >
+            <Avatar name={name} avatarUrl={post.avatar_url} anonymous={isOrphanAuthor} size="md" />
+          </Link>
+        ) : (
+          <Avatar name={name} avatarUrl={post.avatar_url} anonymous={isOrphanAuthor} size="md" />
+        )}
         <div className="min-w-0 flex-1">
           <div className="font-serif text-[15px] font-semibold leading-tight text-[var(--fg-1)]">
-            <Link to={`/posts/${post.id}`} className="hover:underline">
-              {name}
-            </Link>
+            {post.author_id ? (
+              <Link to={`/u/${post.author_id}`} className="hover:underline">
+                {name}
+              </Link>
+            ) : (
+              <span>{name}</span>
+            )}
           </div>
           <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-[var(--fg-3)]">
             <span>{formatAgo(post.created_at)}</span>

@@ -42,6 +42,7 @@ import { moderationRouter } from './routes/moderation.js';
 import { notificationsRouter } from './routes/notifications.js';
 import { orgRouter } from './routes/org.js';
 import { postsRouter } from './routes/posts.js';
+import { usersRouter } from './routes/users.js';
 import { createEventWorker, type EventHandler, type EventWorker } from './services/event-worker.js';
 import { createExpirySweeper, type ExpiryJobHandle } from './services/expiry-job.js';
 import { flagConsumer } from './services/flag-consumer.js';
@@ -159,6 +160,7 @@ export function buildApp(deps: AppDependencies): Express {
   app.use(auth, meDraftRouter({ db: deps.db }));
   app.use(auth, postsRouter({ db: deps.db }));
   app.use(auth, feedRouter({ db: deps.db }));
+  app.use(auth, usersRouter({ db: deps.db }));
   app.use(auth, commentsRouter({ db: deps.db }));
   app.use(auth, notificationsRouter({ db: deps.db }));
   app.use(auth, requireModerator(), moderationRouter({ db: deps.db }));
