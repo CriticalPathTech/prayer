@@ -364,4 +364,22 @@ describe('MobilePostCard', () => {
     expect(profileLink).toBeUndefined();
     expect(screen.getByText('Anonymous')).toBeDefined();
   });
+
+  it('renders an inline pin icon (a11y-labeled) when pinned, in the metadata row', () => {
+    render(
+      <MemoryRouter>
+        <MobilePostCard post={makeFeedPost({ pinned_at: '2026-05-01T12:00:00Z' })} />
+      </MemoryRouter>,
+    );
+    expect(screen.getByRole('img', { name: /pinned/i })).toBeInTheDocument();
+  });
+
+  it('does not render the pin icon when pinned_at is null', () => {
+    render(
+      <MemoryRouter>
+        <MobilePostCard post={makeFeedPost({ pinned_at: null })} />
+      </MemoryRouter>,
+    );
+    expect(screen.queryByRole('img', { name: /pinned/i })).not.toBeInTheDocument();
+  });
 });
