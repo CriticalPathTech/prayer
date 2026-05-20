@@ -382,4 +382,46 @@ describe('MobilePostCard', () => {
     );
     expect(screen.queryByRole('img', { name: /pinned/i })).not.toBeInTheDocument();
   });
+
+  describe('archived footer', () => {
+    it('renders a Repost button instead of Pray/Comment when status=archived and onRepost is provided', () => {
+      const onRepost = vi.fn();
+      render(
+        <MemoryRouter>
+          <MobilePostCard
+            post={makeFeedPost({ status: 'archived', author_id: 'me', is_own_post: true })}
+            onRepost={onRepost}
+          />
+        </MemoryRouter>,
+      );
+      expect(screen.getByRole('button', { name: /^repost$/i })).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /i will pray/i })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /^comment$/i })).not.toBeInTheDocument();
+    });
+
+    it('clicking the Repost footer button calls onRepost', async () => {
+      const onRepost = vi.fn();
+      render(
+        <MemoryRouter>
+          <MobilePostCard
+            post={makeFeedPost({ status: 'archived', author_id: 'me', is_own_post: true })}
+            onRepost={onRepost}
+          />
+        </MemoryRouter>,
+      );
+      await userEvent.click(screen.getByRole('button', { name: /^repost$/i }));
+      expect(onRepost).toHaveBeenCalledTimes(1);
+    });
+
+    it('published post still shows Pray + Comment, no Repost', () => {
+      render(
+        <MemoryRouter>
+          <MobilePostCard post={makeFeedPost({ status: 'published' })} onRepost={() => {}} />
+        </MemoryRouter>,
+      );
+      expect(screen.getByRole('button', { name: /i will pray/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /^comment$/i })).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /^repost$/i })).not.toBeInTheDocument();
+    });
+  });
 });

@@ -238,32 +238,45 @@ export function MobilePostCard({ post, onChange, onRepost }: MobilePostCardProps
       ) : null}
 
       <footer className="-mx-4 flex items-center gap-1 border-t border-[var(--border-soft)] px-4 pt-2">
-        <button
-          type="button"
-          disabled={prayer.prayed}
-          onClick={() => void prayer.toggle().catch(() => {})}
-          className={[
-            'inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-md text-[13px] font-semibold',
-            'active:bg-parchment-100',
-            prayer.prayed ? 'text-sage-600' : 'text-vesper-600',
-          ].join(' ')}
-        >
-          <Icon name={prayer.prayed ? 'check' : 'pray'} size={16} />
-          <span>
-            {prayer.prayed
-              ? `Prayed · ${prayer.prayerCount}`
-              : `I Will Pray · ${prayer.prayerCount}`}
-          </span>
-        </button>
-        <span aria-hidden className="h-[18px] w-px bg-[var(--border-soft)]" />
-        <button
-          type="button"
-          onClick={() => navigate(`/posts/${post.id}`)}
-          className="inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-md text-[13px] font-medium text-[var(--fg-3)] active:bg-parchment-100"
-        >
-          <Icon name="message" size={16} />
-          <span>Comment</span>
-        </button>
+        {post.status === 'archived' && onRepost ? (
+          <button
+            type="button"
+            onClick={() => void onRepost()}
+            className="inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-md text-[13px] font-semibold text-vesper-600 active:bg-parchment-100"
+          >
+            <Icon name="refresh" size={16} />
+            <span>Repost</span>
+          </button>
+        ) : (
+          <>
+            <button
+              type="button"
+              disabled={prayer.prayed}
+              onClick={() => void prayer.toggle().catch(() => {})}
+              className={[
+                'inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-md text-[13px] font-semibold',
+                'active:bg-parchment-100',
+                prayer.prayed ? 'text-sage-600' : 'text-vesper-600',
+              ].join(' ')}
+            >
+              <Icon name={prayer.prayed ? 'check' : 'pray'} size={16} />
+              <span>
+                {prayer.prayed
+                  ? `Prayed · ${prayer.prayerCount}`
+                  : `I Will Pray · ${prayer.prayerCount}`}
+              </span>
+            </button>
+            <span aria-hidden className="h-[18px] w-px bg-[var(--border-soft)]" />
+            <button
+              type="button"
+              onClick={() => navigate(`/posts/${post.id}`)}
+              className="inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-md text-[13px] font-medium text-[var(--fg-3)] active:bg-parchment-100"
+            >
+              <Icon name="message" size={16} />
+              <span>Comment</span>
+            </button>
+          </>
+        )}
       </footer>
     </article>
   );
