@@ -120,8 +120,8 @@ export function MobileMemberProfilePage(): JSX.Element {
           </div>
         ) : null}
 
-        {isSelf && activeTab === 'settings' ? <MobileProfilePage /> : null}
-        {isSelf && activeTab === 'security' ? <MobileSecurityPage /> : null}
+        {isSelf && activeTab === 'settings' ? <MobileProfilePage embedded /> : null}
+        {isSelf && activeTab === 'security' ? <MobileSecurityPage embedded /> : null}
         {!isSelf || activeTab === 'requests' ? (
           <PostList
             posts={posts}

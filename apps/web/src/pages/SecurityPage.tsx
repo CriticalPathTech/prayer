@@ -5,7 +5,13 @@ import { Field, inputClass } from '../components/ui/Field';
 import { useAuth } from '../hooks/useAuth';
 import { useChangePassword } from '../hooks/useChangePassword';
 
-export function SecurityPage(): JSX.Element {
+interface SecurityPageProps {
+  /** When true, omit the page title and outer container so the form renders
+   * cleanly inside a tab parent (e.g. `MemberProfilePage`). Default false. */
+  embedded?: boolean;
+}
+
+export function SecurityPage({ embedded = false }: SecurityPageProps = {}): JSX.Element {
   const { me } = useAuth();
   const f = useChangePassword();
 
@@ -14,10 +20,12 @@ export function SecurityPage(): JSX.Element {
   }
 
   return (
-    <div className="mx-auto max-w-feed">
-      <h1 className="mb-6 font-serif text-[28px] font-semibold tracking-[-0.02em] text-[var(--fg-1)]">
-        Security
-      </h1>
+    <div className={embedded ? '' : 'mx-auto max-w-feed'}>
+      {embedded ? null : (
+        <h1 className="mb-6 font-serif text-[28px] font-semibold tracking-[-0.02em] text-[var(--fg-1)]">
+          Security
+        </h1>
+      )}
       <form
         onSubmit={(e) => {
           e.preventDefault();

@@ -113,8 +113,8 @@ export function MemberProfilePage(): JSX.Element {
         </div>
       ) : null}
 
-      {isSelf && activeTab === 'settings' ? <ProfilePage /> : null}
-      {isSelf && activeTab === 'security' ? <SecurityPage /> : null}
+      {isSelf && activeTab === 'settings' ? <ProfilePage embedded /> : null}
+      {isSelf && activeTab === 'security' ? <SecurityPage embedded /> : null}
       {!isSelf || activeTab === 'requests' ? (
         <PostList
           posts={posts}

@@ -8,7 +8,13 @@ import { Field, inputClass } from '../components/ui/Field';
 import { useAuth } from '../hooks/useAuth';
 import { useProfileForm } from '../hooks/useProfileForm';
 
-export function ProfilePage(): JSX.Element {
+interface ProfilePageProps {
+  /** When true, omit the page title and outer container so the form renders
+   * cleanly inside a tab parent (e.g. `MemberProfilePage`). Default false. */
+  embedded?: boolean;
+}
+
+export function ProfilePage({ embedded = false }: ProfilePageProps = {}): JSX.Element {
   const { me } = useAuth();
   const f = useProfileForm();
 
@@ -18,10 +24,12 @@ export function ProfilePage(): JSX.Element {
 
   return (
     <>
-      <div className="mx-auto max-w-feed">
-        <h1 className="mb-6 font-serif text-[28px] font-semibold tracking-[-0.02em] text-[var(--fg-1)]">
-          Profile
-        </h1>
+      <div className={embedded ? '' : 'mx-auto max-w-feed'}>
+        {embedded ? null : (
+          <h1 className="mb-6 font-serif text-[28px] font-semibold tracking-[-0.02em] text-[var(--fg-1)]">
+            Profile
+          </h1>
+        )}
         <form
           onSubmit={(e) => {
             e.preventDefault();

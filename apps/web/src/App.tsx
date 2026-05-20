@@ -3,7 +3,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { Layout } from './components/Layout';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { IsMobileProvider, useIsMobileShared } from './hooks/IsMobileContext';
-import { AuthProvider } from './hooks/useAuth';
+import { AuthProvider, useAuth } from './hooks/useAuth';
 import { AdminChurchPage } from './pages/AdminChurchPage';
 import { AuthCallbackPage } from './pages/AuthCallbackPage';
 import { CheckEmailPage } from './pages/CheckEmailPage';
@@ -12,6 +12,7 @@ import { EditPostPage } from './pages/EditPostPage';
 import { FeedPage } from './pages/FeedPage';
 import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
 import { LoginPage } from './pages/LoginPage';
+import { MemberProfilePage } from './pages/MemberProfilePage';
 import { ModApprovalsPage } from './pages/ModApprovalsPage';
 import { ModHiddenPage } from './pages/ModHiddenPage';
 import { ModInvitesPage } from './pages/ModInvitesPage';
@@ -35,6 +36,7 @@ import { MobileFeedPage } from './views/mobile/MobileFeedPage';
 import { MobileForgotPasswordPage } from './views/mobile/MobileForgotPasswordPage';
 import { MobileLayout } from './views/mobile/MobileLayout';
 import { MobileLoginPage } from './views/mobile/MobileLoginPage';
+import { MobileMemberProfilePage } from './views/mobile/MobileMemberProfilePage';
 import { MobileModApprovalsPage } from './views/mobile/MobileModApprovalsPage';
 import { MobileModHiddenPage } from './views/mobile/MobileModHiddenPage';
 import { MobileModInvitesPage } from './views/mobile/MobileModInvitesPage';
@@ -76,6 +78,19 @@ export function AdaptiveProfilePage(): JSX.Element {
 }
 export function AdaptiveSecurityPage(): JSX.Element {
   return useIsMobileShared() ? <MobileSecurityPage /> : <SecurityPage />;
+}
+export function AdaptiveMemberProfilePage(): JSX.Element {
+  return useIsMobileShared() ? <MobileMemberProfilePage /> : <MemberProfilePage />;
+}
+export function MeProfileRedirect(): JSX.Element {
+  const { me } = useAuth();
+  if (!me) return <Navigate to="/" replace />;
+  return <Navigate to={`/u/${me.id}?tab=settings`} replace />;
+}
+export function MeSecurityRedirect(): JSX.Element {
+  const { me } = useAuth();
+  if (!me) return <Navigate to="/" replace />;
+  return <Navigate to={`/u/${me.id}?tab=security`} replace />;
 }
 export function AdaptiveMyInvitesPage(): JSX.Element {
   return useIsMobileShared() ? <MobileMyInvitesPage /> : <MyInvitesPage />;
@@ -145,9 +160,10 @@ export function App(): JSX.Element {
               <Route path="/posts/:id" element={<AdaptivePostDetailPage />} />
               <Route path="/posts/:id/edit" element={<AdaptiveEditPostPage />} />
               <Route path="/me/invites" element={<AdaptiveMyInvitesPage />} />
-              <Route path="/me/profile" element={<AdaptiveProfilePage />} />
-              <Route path="/me/security" element={<AdaptiveSecurityPage />} />
+              <Route path="/me/profile" element={<MeProfileRedirect />} />
+              <Route path="/me/security" element={<MeSecurityRedirect />} />
               <Route path="/me/archive" element={<AdaptiveArchivePage />} />
+              <Route path="/u/:userId" element={<AdaptiveMemberProfilePage />} />
               <Route path="/notifications" element={<AdaptiveNotificationsPage />} />
               <Route path="/mod" element={<Navigate to="/mod/approvals" replace />} />
               <Route path="/mod/approvals" element={<AdaptiveModApprovalsPage />} />

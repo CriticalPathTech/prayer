@@ -7,14 +7,23 @@ import { useChangePassword } from '../../hooks/useChangePassword';
 
 import { MobilePageHeader } from './MobilePageHeader';
 
-export function MobileSecurityPage(): JSX.Element {
+interface MobileSecurityPageProps {
+  /** When true, omit the `MobilePageHeader` and outer container padding so the
+   * form renders cleanly inside a tab parent (e.g. `MobileMemberProfilePage`).
+   * Default false. */
+  embedded?: boolean;
+}
+
+export function MobileSecurityPage({
+  embedded = false,
+}: MobileSecurityPageProps = {}): JSX.Element {
   const { me } = useAuth();
   const f = useChangePassword();
 
   if (!me) {
     return (
       <>
-        <MobilePageHeader variant={{ kind: 'back', title: 'Security' }} />
+        {embedded ? null : <MobilePageHeader variant={{ kind: 'back', title: 'Security' }} />}
         <div className="px-4 py-16 text-center text-sm text-[var(--fg-3)]">Loading…</div>
       </>
     );
@@ -22,8 +31,14 @@ export function MobileSecurityPage(): JSX.Element {
 
   return (
     <>
-      <MobilePageHeader variant={{ kind: 'back', title: 'Security' }} />
-      <div className="flex flex-1 flex-col gap-4 px-4 pb-6 pt-3">
+      {embedded ? null : <MobilePageHeader variant={{ kind: 'back', title: 'Security' }} />}
+      <div
+        className={
+          embedded
+            ? 'flex flex-col gap-4'
+            : 'flex flex-1 flex-col gap-4 px-4 pb-6 pt-3'
+        }
+      >
         <form
           onSubmit={(e) => {
             e.preventDefault();
