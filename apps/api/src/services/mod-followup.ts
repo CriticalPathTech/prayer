@@ -141,6 +141,13 @@ export async function listFollowupPosts(
       ),
     );
   }
+  if (input.minAge.value > 0) {
+    const interval =
+      input.minAge.unit === 'hours'
+        ? sql<Date>`NOW() - make_interval(hours => ${input.minAge.value})`
+        : sql<Date>`NOW() - make_interval(days => ${input.minAge.value})`;
+    q = q.where('posts.created_at', '<', interval);
+  }
 
   q = q.limit(input.limit + 1);
 

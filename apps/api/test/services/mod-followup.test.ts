@@ -265,4 +265,82 @@ describe('listFollowupPosts', () => {
     });
     expect(out.items.map((p) => p.id)).toEqual([onlyPeer.id]);
   });
+
+  it('min_age_value=7 unit=days excludes posts younger than 7 days', async () => {
+    const author = await insertUser(db, { orgId, role: 'member' });
+    const fresh = await insertPost(db, {
+      authorId: author.id,
+      orgId,
+      status: 'published',
+      body: 'today',
+    });
+    const aged = await insertPost(db, {
+      authorId: author.id,
+      orgId,
+      status: 'published',
+      body: '10 days ago',
+    });
+    await db
+      .updateTable('posts')
+      .set({ created_at: new Date(Date.now() - 10 * 24 * 3600_000) })
+      .where('id', '=', aged.id)
+      .execute();
+
+    const out = await listFollowupPosts(db, {
+      callerRole: 'moderator',
+      callerId: author.id,
+      orgId,
+      filters: {
+        noPrayers: false,
+        noReactions: false,
+        noComments: false,
+        noUpdates: false,
+        noModResponse: false,
+      },
+      minAge: { value: 7, unit: 'days' },
+      sort: 'oldest',
+      limit: 20,
+    });
+    expect(out.items.map((p) => p.id)).toEqual([aged.id]);
+    expect(out.items.map((p) => p.id)).not.toContain(fresh.id);
+  });
+
+  it('min_age_value=24 unit=hours excludes posts younger than 24 hours', async () => {
+    const author = await insertUser(db, { orgId, role: 'member' });
+    const fresh = await insertPost(db, {
+      authorId: author.id,
+      orgId,
+      status: 'published',
+      body: 'recent',
+    });
+    const aged = await insertPost(db, {
+      authorId: author.id,
+      orgId,
+      status: 'published',
+      body: '2 days ago',
+    });
+    await db
+      .updateTable('posts')
+      .set({ created_at: new Date(Date.now() - 2 * 24 * 3600_000) })
+      .where('id', '=', aged.id)
+      .execute();
+
+    const out = await listFollowupPosts(db, {
+      callerRole: 'moderator',
+      callerId: author.id,
+      orgId,
+      filters: {
+        noPrayers: false,
+        noReactions: false,
+        noComments: false,
+        noUpdates: false,
+        noModResponse: false,
+      },
+      minAge: { value: 24, unit: 'hours' },
+      sort: 'oldest',
+      limit: 20,
+    });
+    expect(out.items.map((p) => p.id)).toEqual([aged.id]);
+    expect(out.items.map((p) => p.id)).not.toContain(fresh.id);
+  });
 });
