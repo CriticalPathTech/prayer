@@ -79,6 +79,27 @@ describe('useSignupAccount', () => {
     await waitFor(() => expect(result.current.alreadyRegistered).toBe(true));
   });
 
+  it('surfaces formError and does not navigate when signUp returns null user (supabase-js 2.106.0 regression shape)', async () => {
+    previewMock.mockResolvedValue({ status: 'valid' });
+    signUpMock.mockResolvedValue({
+      data: { user: null, session: null },
+      error: null,
+    });
+    const { result } = renderHook(() => useSignupAccount('abcde'));
+    await waitFor(() => expect(result.current.preview.kind).toBe('ok'));
+    act(() => {
+      result.current.setEmail('m@t.local');
+      result.current.setPassword('aaaaaaaa');
+      result.current.setConfirm('aaaaaaaa');
+    });
+    await act(async () => {
+      await result.current.submit();
+    });
+    await waitFor(() => expect(result.current.formError).toBeTruthy());
+    expect(result.current.alreadyRegistered).toBe(false);
+    expect(navigateMock).not.toHaveBeenCalled();
+  });
+
   it('navigates to /signup/check-email on successful signUp', async () => {
     previewMock.mockResolvedValue({ status: 'valid' });
     signUpMock.mockResolvedValue({
