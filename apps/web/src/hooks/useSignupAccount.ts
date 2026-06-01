@@ -99,7 +99,15 @@ export function useSignupAccount(code: string): UseSignupAccountResult {
         setFormError(authErrorCopy(error).text);
         return;
       }
-      const identities = (data?.user as { identities?: unknown[] } | null)?.identities;
+      // Defense-in-depth: supabase-js 2.106.0 regressed and returned
+      // data.user: null for successful sign-ups; without this guard the
+      // hook would silently navigate to /signup/check-email and the user
+      // would wait for an email that never comes.
+      if (data?.user == null) {
+        setFormError(authErrorCopy(null).text);
+        return;
+      }
+      const identities = (data.user as { identities?: unknown[] }).identities;
       if (Array.isArray(identities) && identities.length === 0) {
         setAlreadyRegistered(true);
         return;
