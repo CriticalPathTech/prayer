@@ -41,7 +41,8 @@
   },
   "pnpm": {
     "overrides": {
-      "@types/node": "^24"
+      "@types/node": "^24",
+      "qs": "^6.15.2"
     }
   }
 }
