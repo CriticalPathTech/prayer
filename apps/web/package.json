@@ -17,7 +17,7 @@
     "@fontsource/inter": "^5.2.8",
     "@fontsource/source-serif-4": "^5.2.9",
     "@prayer/shared": "workspace:*",
-    "@supabase/supabase-js": "^2.106.2",
+    "@supabase/supabase-js": "^2.107.0",
     "blueimp-md5": "^2.19.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
