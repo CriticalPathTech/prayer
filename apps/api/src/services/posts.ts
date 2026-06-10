@@ -32,6 +32,13 @@ export interface PostRow {
   edit_deadline: Date;
   created_at: Date;
   pinned_at: Date | null;
+  /** Optional — only the projections that read post columns directly select it.
+   * Drives the "Extended by a moderator" mark. */
+  extended_at?: Date | null;
+  /** Populated via a left join on `posts.extended_by → users` in the single-post
+   * projections (fetchPostRow, post detail). Both arrive together or are null. */
+  extended_by_id?: string | null;
+  extended_by_display_name?: string | null;
   /** Populated via a lateral join on the latest `moderator.hide` event.
    * All three fields arrive together or are all null. */
   hidden_by_id?: string | null;
@@ -42,6 +49,11 @@ export interface PostRow {
 export type HideSource = 'auto' | 'manual';
 
 export interface HiddenByRef {
+  id: string;
+  display_name: string;
+}
+
+export interface ExtendedByRef {
   id: string;
   display_name: string;
 }
@@ -65,6 +77,13 @@ export interface PostDto {
    * Drives the vesper card-pinned styling client-side. The pinner's identity
    * is stored on `posts.pinned_by` for audit but not projected through reads. */
   pinned_at: string | null;
+  /** ISO timestamp of the most recent moderator extension; null when never
+   * extended. Visible to all viewers — drives the "Extended by a moderator" mark. */
+  extended_at: string | null;
+  /** The extending moderator's identity. Projected only for moderator/super_user
+   * callers and only where the projection joins it (single-post reads). Null
+   * otherwise — the generic mark still renders from `extended_at`. */
+  extended_by: ExtendedByRef | null;
   /** True when the caller authored this post. Computed from the real
    * author_id before anonymity masking, so clients can tell "mine vs
    * not mine" without seeing the identity of anonymous authors. */
@@ -133,6 +152,8 @@ export function toPostDto(
       edit_deadline: row.edit_deadline.toISOString(),
       created_at: row.created_at.toISOString(),
       pinned_at: null,
+      extended_at: null,
+      extended_by: null,
       is_own_post: false,
       hidden_by: null,
       hidden_source: null,
@@ -150,6 +171,13 @@ export function toPostDto(
     showHideAttribution && (row.hidden_source === 'auto' || row.hidden_source === 'manual')
       ? row.hidden_source
       : null;
+  // `extended_at` is visible to everyone (generic mark). The extending
+  // moderator's identity is privileged-only, mirroring hide attribution, and
+  // is present only where the projection joined it.
+  const extendedBy: ExtendedByRef | null =
+    isPrivileged && row.extended_by_id && row.extended_by_display_name
+      ? { id: row.extended_by_id, display_name: row.extended_by_display_name }
+      : null;
   return {
     id: row.id,
     parent_id: row.parent_id,
@@ -166,6 +194,8 @@ export function toPostDto(
     edit_deadline: row.edit_deadline.toISOString(),
     created_at: row.created_at.toISOString(),
     pinned_at: row.pinned_at ? row.pinned_at.toISOString() : null,
+    extended_at: row.extended_at ? row.extended_at.toISOString() : null,
+    extended_by: extendedBy,
     is_own_post: isAuthor,
     hidden_by: hiddenBy,
     hidden_source: hiddenSource,
@@ -211,6 +241,7 @@ export async function fetchPostRow(
   const row = await db
     .selectFrom('posts')
     .innerJoin('users', 'users.id', 'posts.author_id')
+    .leftJoin('users as extender', 'extender.id', 'posts.extended_by')
     .select([
       'posts.id',
       'posts.parent_id',
@@ -227,6 +258,9 @@ export async function fetchPostRow(
       'posts.edit_deadline',
       'posts.created_at',
       'posts.pinned_at',
+      'posts.extended_at',
+      'posts.extended_by as extended_by_id',
+      'extender.display_name as extended_by_display_name',
     ])
     .where('posts.id', '=', args.postId)
     .where('posts.org_id', '=', args.orgId)
@@ -444,6 +478,7 @@ export async function getPostWithUpdates(
   const parentRow = await db
     .selectFrom('posts')
     .innerJoin('users', 'users.id', 'posts.author_id')
+    .leftJoin('users as extender', 'extender.id', 'posts.extended_by')
     .select([
       'posts.id',
       'posts.parent_id',
@@ -460,6 +495,9 @@ export async function getPostWithUpdates(
       'posts.edit_deadline',
       'posts.created_at',
       'posts.pinned_at',
+      'posts.extended_at',
+      'posts.extended_by as extended_by_id',
+      'extender.display_name as extended_by_display_name',
     ])
     .where('posts.id', '=', args.postId)
     .where('posts.org_id', '=', args.orgId)
@@ -818,6 +856,7 @@ async function listByStatus(
       'posts.expires_at',
       'posts.edit_deadline',
       'posts.created_at',
+      'posts.extended_at',
     ])
     .where('posts.author_id', '=', args.authorId)
     .where('posts.org_id', '=', args.orgId)
@@ -859,5 +898,71 @@ export async function archivePost(
       .where('id', '=', args.postId)
       .where('org_id', '=', args.orgId)
       .execute();
+  });
+}
+
+export const EXTEND_DAY_CHOICES = [1, 3, 7, 14, 30] as const;
+export type ExtendDurationDays = (typeof EXTEND_DAY_CHOICES)[number];
+
+/**
+ * Moderator-driven expiry extension. Pushes `expires_at` to `now + durationDays`
+ * and, if the prayer had already auto-archived, un-archives it (status → published).
+ * UPDATE-in-place — preserves id / created_at / comments / reactions / prayers
+ * (NOT the DELETE+INSERT used by publishOwnDraft). Writes a `post.extended` event
+ * in the same transaction; the notification builder DMs the author.
+ *
+ * Eligible: top-level prayers in `published` or `archived` status. Children
+ * (updates) carry no independent expiry; `hidden` / `pending` / `rejected` /
+ * `draft` have deliberate states extension must not silently override.
+ */
+export async function extendPost(
+  db: Kysely<Database>,
+  args: { postId: string; orgId: string; moderatorId: string; durationDays: ExtendDurationDays },
+): Promise<{ kind: 'ok'; row: PostRow } | { kind: 'not_extendable' }> {
+  return db.transaction().execute(async (trx) => {
+    const existing = await trx
+      .selectFrom('posts')
+      .select(['id', 'status', 'expires_at', 'parent_id'])
+      .where('id', '=', args.postId)
+      .where('org_id', '=', args.orgId)
+      .executeTakeFirst();
+    if (!existing) throw new NotFoundError('Post not found');
+    if (existing.parent_id !== null) return { kind: 'not_extendable' as const };
+    if (existing.status !== 'published' && existing.status !== 'archived') {
+      return { kind: 'not_extendable' as const };
+    }
+
+    const now = new Date();
+    const wasArchived = existing.status === 'archived';
+    const newExpiresAt = new Date(now.getTime() + args.durationDays * 86_400_000);
+
+    await trx
+      .updateTable('posts')
+      .set({
+        status: 'published', // no-op when already published; un-archives otherwise
+        expires_at: newExpiresAt,
+        extended_at: now,
+        extended_by: args.moderatorId,
+      })
+      .where('id', '=', args.postId)
+      .where('org_id', '=', args.orgId)
+      .execute();
+
+    await writePostEvent(trx, {
+      kind: 'post.extended',
+      orgId: args.orgId,
+      postId: args.postId,
+      actorId: args.moderatorId,
+      payload: {
+        old_expires_at: existing.expires_at ? existing.expires_at.toISOString() : null,
+        new_expires_at: newExpiresAt.toISOString(),
+        duration_days: args.durationDays,
+        was_archived: wasArchived,
+        extended_by: args.moderatorId,
+      },
+    });
+
+    const row = await fetchPostRow(trx, { postId: args.postId, orgId: args.orgId });
+    return { kind: 'ok' as const, row };
   });
 }

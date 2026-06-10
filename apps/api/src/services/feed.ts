@@ -58,6 +58,7 @@ export async function fetchFeed(
       'posts.edit_deadline',
       'posts.created_at',
       'posts.pinned_at',
+      'posts.extended_at',
     ])
     .where('posts.org_id', '=', args.orgId)
     .where('posts.parent_id', 'is', null)
@@ -225,6 +226,7 @@ export async function fetchFeed(
         'posts.edit_deadline',
         'posts.created_at',
         'posts.pinned_at',
+        'posts.extended_at',
       ])
       .where('posts.org_id', '=', args.orgId)
       .where('posts.parent_id', 'is', null)

@@ -204,6 +204,16 @@ export async function unpinPost(postId: string): Promise<{ post: FeedPost }> {
   return apiFetch<{ post: FeedPost }>(`/mod/posts/${postId}/unpin`, { method: 'POST' });
 }
 
+export async function extendPost(
+  postId: string,
+  durationDays: 1 | 3 | 7 | 14 | 30,
+): Promise<{ post: FeedPost }> {
+  return apiFetch<{ post: FeedPost }>(`/mod/posts/${postId}/extend`, {
+    method: 'POST',
+    body: JSON.stringify({ duration_days: durationDays }),
+  });
+}
+
 // ——— Mod approvals ——————————————————————————————————————————————————
 
 export interface ApprovalItem extends FeedPost {

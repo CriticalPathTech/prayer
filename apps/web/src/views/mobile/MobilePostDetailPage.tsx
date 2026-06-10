@@ -2,6 +2,7 @@ import type { JSX } from 'react';
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 
+import { ExtendDialog } from '../../components/ExtendDialog';
 import { PinDialog } from '../../components/PinDialog';
 import { PostMenu } from '../../components/PostMenu';
 import { UpdatePostItem } from '../../components/UpdatePostItem';
@@ -10,7 +11,7 @@ import { Icon } from '../../components/ui/Icon';
 import { useAuth } from '../../hooks/useAuth';
 import { usePost } from '../../hooks/usePost';
 import { usePostComments } from '../../hooks/usePostComments';
-import { apiFetch, pinPost, unpinPost } from '../../lib/api';
+import { apiFetch, extendPost, pinPost, unpinPost } from '../../lib/api';
 import { isPrivilegedRole } from '../../lib/roles';
 import { formatAgo } from '../../lib/time';
 
@@ -24,6 +25,7 @@ export function MobilePostDetailPage(): JSX.Element {
   const { threads, reload: reloadComments } = usePostComments(id);
   const { me } = useAuth();
   const [pinDialogOpen, setPinDialogOpen] = useState(false);
+  const [extendDialogOpen, setExtendDialogOpen] = useState(false);
 
   if (notFound) {
     return (
@@ -109,6 +111,16 @@ export function MobilePostDetailPage(): JSX.Element {
                   </span>
                 ) : null}
                 <span>{formatAgo(post.created_at)}</span>
+                {post.extended_at ? (
+                  <>
+                    <span aria-hidden>·</span>
+                    <span className="text-vesper-600">
+                      {post.extended_by
+                        ? `Extended by ${post.extended_by.display_name}`
+                        : 'Extended by a moderator'}
+                    </span>
+                  </>
+                ) : null}
               </div>
             </div>
             <PostMenu
@@ -124,6 +136,7 @@ export function MobilePostDetailPage(): JSX.Element {
                 await unpinPost(post.id);
                 await reload();
               }}
+              onExtend={() => setExtendDialogOpen(true)}
               onDelete={async () => {
                 await apiFetch(`/posts/${post.id}`, { method: 'DELETE' });
               }}
@@ -185,6 +198,17 @@ export function MobilePostDetailPage(): JSX.Element {
         onConfirm={async (days) => {
           await pinPost(post.id, days as 1 | 3 | 7 | 14 | 30);
           setPinDialogOpen(false);
+          await reload();
+        }}
+      />
+
+      <ExtendDialog
+        open={extendDialogOpen}
+        wasArchived={post.status === 'archived'}
+        onCancel={() => setExtendDialogOpen(false)}
+        onConfirm={async (days) => {
+          await extendPost(post.id, days);
+          setExtendDialogOpen(false);
           await reload();
         }}
       />

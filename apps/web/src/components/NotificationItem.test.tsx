@@ -52,6 +52,41 @@ describe('NotificationItem', () => {
     expect(onClick).toHaveBeenCalledWith('n1');
   });
 
+  it('renders post.extended copy with the duration label and links to the post', () => {
+    const n = {
+      id: 'n3',
+      user_id: 'u',
+      type: 'post.extended',
+      payload: { post_id: 'p9', duration_days: 14, was_archived: false },
+      read_at: null,
+      created_at: new Date().toISOString(),
+    };
+    render(
+      <MemoryRouter>
+        <NotificationItem notification={n} onClick={() => {}} />
+      </MemoryRouter>,
+    );
+    expect(screen.getByText(/extended your prayer for another 2 weeks/i)).toBeInTheDocument();
+    expect(screen.getByRole('link')).toHaveAttribute('href', '/posts/p9');
+  });
+
+  it('renders post.extended "brought back" copy when the prayer was archived', () => {
+    const n = {
+      id: 'n4',
+      user_id: 'u',
+      type: 'post.extended',
+      payload: { post_id: 'p9', duration_days: 7, was_archived: true },
+      read_at: null,
+      created_at: new Date().toISOString(),
+    };
+    render(
+      <MemoryRouter>
+        <NotificationItem notification={n} onClick={() => {}} />
+      </MemoryRouter>,
+    );
+    expect(screen.getByText(/brought your prayer back for another 1 week/i)).toBeInTheDocument();
+  });
+
   it('renders a generic fallback for unknown types', () => {
     const unknown = { ...commentNotif, id: 'n2', type: 'unknown.type', payload: {} };
     render(

@@ -8,6 +8,26 @@ export function formatAgo(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
+/** Human label for a moderator-extension / pin duration, matching the picker
+ * choices (1 / 3 / 7 / 14 / 30 days). Used in notification copy
+ * ("…extended your prayer for another 2 weeks"). */
+export function durationLabel(days: number): string {
+  switch (days) {
+    case 1:
+      return '1 day';
+    case 3:
+      return '3 days';
+    case 7:
+      return '1 week';
+    case 14:
+      return '2 weeks';
+    case 30:
+      return '1 month';
+    default:
+      return `${days} days`;
+  }
+}
+
 export function expiringSoon(iso: string | null): string | null {
   if (!iso) return null;
   const d = (new Date(iso).getTime() - Date.now()) / 86400000;

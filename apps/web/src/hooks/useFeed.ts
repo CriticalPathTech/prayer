@@ -23,6 +23,13 @@ export interface FeedPost {
    * Drives the vesper card-pinned styling client-side. The server stores
    * `posts.pinned_by` for audit but does not project it. */
   pinned_at: string | null;
+  /** ISO timestamp of the most recent moderator extension; null when never
+   * extended. Drives the "Extended by a moderator" mark. */
+  extended_at: string | null;
+  /** The extending moderator's identity — present only for privileged viewers
+   * and only on single-post reads (post detail). Null otherwise; the generic
+   * mark still renders from `extended_at`. */
+  extended_by: { id: string; display_name: string } | null;
   prayed: boolean;
   reactions: Record<string, { count: number; mine: boolean }>;
   is_own_post: boolean;
