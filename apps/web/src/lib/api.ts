@@ -48,13 +48,50 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
   return body as T;
 }
 
+export type LogoFillMode = 'original' | 'adaptive' | 'custom';
+
+export interface OrgLogo {
+  svg: string;
+  fillMode: LogoFillMode;
+  color: string | null;
+}
+
 export interface OrgBranding {
   slug: string;
   displayName: string;
+  logo: OrgLogo | null;
 }
 
 export async function fetchOrgBranding(): Promise<OrgBranding> {
   return apiFetch<OrgBranding>('/org');
+}
+
+export interface LogoPreviewResult {
+  sanitizedSvg: string;
+  warnings: { strippedTags: string[]; multiColor: boolean };
+  detectedColors: string[];
+}
+
+export async function previewChurchLogo(svg: string): Promise<LogoPreviewResult> {
+  return apiFetch<LogoPreviewResult>('/admin/church/logo/preview', {
+    method: 'POST',
+    body: JSON.stringify({ svg }),
+  });
+}
+
+export async function saveChurchLogo(input: {
+  svg: string;
+  fillMode: LogoFillMode;
+  color?: string;
+}): Promise<{ logo: OrgLogo }> {
+  return apiFetch<{ logo: OrgLogo }>('/admin/church/logo', {
+    method: 'PUT',
+    body: JSON.stringify(input),
+  });
+}
+
+export async function removeChurchLogo(): Promise<void> {
+  await apiFetch<null>('/admin/church/logo', { method: 'DELETE' });
 }
 
 export type InviteCodePreview =
