@@ -2,6 +2,7 @@ import { useEffect, useState, type JSX } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 
 import { ChangeMemberRoleDialog } from '../components/ChangeMemberRoleDialog';
+import { ChurchLogoSettings } from '../components/ChurchLogoSettings';
 import { RemoveMemberDialog } from '../components/RemoveMemberDialog';
 import { Avatar } from '../components/ui/Avatar';
 import { Button } from '../components/ui/Button';
@@ -133,6 +134,8 @@ export function AdminChurchPage(): JSX.Element {
           </Button>
         </div>
       </section>
+
+      <ChurchLogoSettings />
 
       {/* Feature flags */}
       <section className="mb-8 rounded-md border border-[var(--border-soft)] bg-[var(--bg-raised)] p-4">

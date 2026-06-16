@@ -289,6 +289,96 @@ describe('PATCH /admin/church/settings', () => {
   });
 });
 
+describe('church logo endpoints', () => {
+  let app: TestApp;
+  let suToken: string;
+  let memberToken: string;
+  const HOST = 'church-logo.prays.online';
+  const SVG =
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><circle cx="5" cy="5" r="5" fill="#000000"/><rect x="2" y="2" width="6" height="6" fill="#ffffff"/></svg>';
+
+  beforeAll(async () => {
+    app = await createTestApp();
+    const orgId = await insertOrg(app.db, { slug: 'church-logo', displayName: 'Church Logo' });
+    const su = await insertUser(app.db, { email: 'su@cl.com', orgId, role: 'super_user' });
+    const member = await insertUser(app.db, { email: 'm@cl.com', orgId, role: 'member' });
+    suToken = await mintTestJwt({ sub: su.supabaseAuthId, email: su.email });
+    memberToken = await mintTestJwt({ sub: member.supabaseAuthId, email: member.email });
+  });
+  afterAll(async () => {
+    await app.close();
+  });
+
+  it('403 for a member calling preview', async () => {
+    const res = await request(app.app)
+      .post('/admin/church/logo/preview')
+      .set('Host', HOST)
+      .set('Authorization', `Bearer ${memberToken}`)
+      .send({ svg: SVG });
+    expect(res.status).toBe(403);
+  });
+
+  it('preview returns sanitized svg + multiColor warning', async () => {
+    const res = await request(app.app)
+      .post('/admin/church/logo/preview')
+      .set('Host', HOST)
+      .set('Authorization', `Bearer ${suToken}`)
+      .send({ svg: `${SVG}<script>alert(1)</script>` });
+    expect(res.status).toBe(200);
+    expect(res.body.sanitizedSvg).toContain('<svg');
+    expect(res.body.sanitizedSvg).not.toContain('script');
+    expect(res.body.warnings.multiColor).toBe(true);
+    expect(res.body.warnings.strippedTags).toContain('script');
+    expect(res.body.detectedColors).toEqual(expect.arrayContaining(['#000000', '#ffffff']));
+  });
+
+  it('preview 400 on non-svg', async () => {
+    const res = await request(app.app)
+      .post('/admin/church/logo/preview')
+      .set('Host', HOST)
+      .set('Authorization', `Bearer ${suToken}`)
+      .send({ svg: '<div>nope</div>' });
+    expect(res.status).toBe(400);
+  });
+
+  it('put saves the logo and GET /org reflects it', async () => {
+    const put = await request(app.app)
+      .put('/admin/church/logo')
+      .set('Host', HOST)
+      .set('Authorization', `Bearer ${suToken}`)
+      .send({ svg: SVG, fillMode: 'custom', color: '#123456' });
+    expect(put.status).toBe(200);
+    expect(put.body.logo).toMatchObject({ fillMode: 'custom', color: '#123456' });
+
+    const org = await request(app.app).get('/org').set('Host', HOST);
+    expect(org.body.logo.fillMode).toBe('custom');
+  });
+
+  it('put 400 when custom mode has no hex color', async () => {
+    const res = await request(app.app)
+      .put('/admin/church/logo')
+      .set('Host', HOST)
+      .set('Authorization', `Bearer ${suToken}`)
+      .send({ svg: SVG, fillMode: 'custom' });
+    expect(res.status).toBe(400);
+  });
+
+  it('delete clears the logo', async () => {
+    await request(app.app)
+      .put('/admin/church/logo')
+      .set('Host', HOST)
+      .set('Authorization', `Bearer ${suToken}`)
+      .send({ svg: SVG, fillMode: 'original' });
+    const del = await request(app.app)
+      .delete('/admin/church/logo')
+      .set('Host', HOST)
+      .set('Authorization', `Bearer ${suToken}`);
+    expect(del.status).toBe(204);
+    const org = await request(app.app).get('/org').set('Host', HOST);
+    expect(org.body.logo).toBeNull();
+  });
+});
+
 describe('PATCH /admin/church/settings — approval gate', () => {
   // Reset the testchurch row + clear any leftover posts/events after every
   // test in this block so subsequent test files don't trip the

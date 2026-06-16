@@ -2,6 +2,7 @@ import type { JSX, ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
 import { Icon } from '../../components/ui/Icon';
+import { LogoMark } from '../../components/ui/LogoMark';
 
 type Variant =
   | { kind: 'feed'; onMenu: () => void; unreadCount: number; brandLabel?: string }
@@ -48,7 +49,7 @@ export function MobilePageHeader({ variant }: MobilePageHeaderProps): JSX.Elemen
           to="/"
           className="inline-flex items-center gap-2 font-serif text-[19px] font-semibold tracking-[-0.02em] text-[var(--fg-1)] no-underline"
         >
-          <Icon name="pray" size={20} />
+          <LogoMark size={20} />
           <span>{variant.brandLabel || 'Prayer'}</span>
         </Link>
         <div className="flex items-center justify-end">
