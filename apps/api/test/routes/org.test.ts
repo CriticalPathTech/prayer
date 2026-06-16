@@ -3,8 +3,8 @@ import request from 'supertest';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
 import { saveOrgLogo } from '../../src/services/logo.js';
-import { createTestApp, type TestApp } from '../helpers/supertest.js';
 import { insertOrg } from '../helpers/seed.js';
+import { createTestApp, type TestApp } from '../helpers/supertest.js';
 
 describe('GET /org', () => {
   let ctx: TestApp;

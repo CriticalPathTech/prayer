@@ -147,41 +147,41 @@ export function App(): JSX.Element {
       <BrowserRouter>
         <IsMobileProvider>
           <OrgLogoProvider>
-          <Routes>
-            <Route path="/login" element={<AdaptiveLoginPage />} />
-            <Route path="/signup" element={<AdaptiveSignupCodePage />} />
-            <Route path="/signup/account" element={<AdaptiveSignupAccountPage />} />
-            <Route path="/signup/check-email" element={<AdaptiveCheckEmailPage />} />
-            <Route path="/forgot-password" element={<AdaptiveForgotPasswordPage />} />
-            <Route path="/auth/reset-password" element={<AdaptiveResetPasswordPage />} />
-            <Route path="/auth/callback" element={<AdaptiveAuthCallbackPage />} />
-            <Route
-              element={
-                <ProtectedRoute>
-                  <AdaptiveLayout />
-                </ProtectedRoute>
-              }
-            >
-              <Route path="/" element={<AdaptiveFeedPage />} />
-              <Route path="/compose" element={<AdaptiveComposePage />} />
-              <Route path="/posts/:id" element={<AdaptivePostDetailPage />} />
-              <Route path="/posts/:id/edit" element={<AdaptiveEditPostPage />} />
-              <Route path="/me/invites" element={<AdaptiveMyInvitesPage />} />
-              <Route path="/me/profile" element={<MeProfileRedirect />} />
-              <Route path="/me/security" element={<MeSecurityRedirect />} />
-              <Route path="/me/archive" element={<AdaptiveArchivePage />} />
-              <Route path="/u/:userId" element={<AdaptiveMemberProfilePage />} />
-              <Route path="/notifications" element={<AdaptiveNotificationsPage />} />
-              <Route path="/mod" element={<Navigate to="/mod/approvals" replace />} />
-              <Route path="/mod/approvals" element={<AdaptiveModApprovalsPage />} />
-              <Route path="/mod/follow-up" element={<AdaptiveModFollowupPage />} />
-              <Route path="/mod/invites" element={<AdaptiveModInvitesPage />} />
-              <Route path="/mod/queue" element={<AdaptiveModQueuePage />} />
-              <Route path="/mod/hidden" element={<AdaptiveModHiddenPage />} />
-              <Route path="/admin/church" element={<AdaptiveAdminChurchPage />} />
-            </Route>
-            <Route path="*" element={<AdaptiveNotFoundPage />} />
-          </Routes>
+            <Routes>
+              <Route path="/login" element={<AdaptiveLoginPage />} />
+              <Route path="/signup" element={<AdaptiveSignupCodePage />} />
+              <Route path="/signup/account" element={<AdaptiveSignupAccountPage />} />
+              <Route path="/signup/check-email" element={<AdaptiveCheckEmailPage />} />
+              <Route path="/forgot-password" element={<AdaptiveForgotPasswordPage />} />
+              <Route path="/auth/reset-password" element={<AdaptiveResetPasswordPage />} />
+              <Route path="/auth/callback" element={<AdaptiveAuthCallbackPage />} />
+              <Route
+                element={
+                  <ProtectedRoute>
+                    <AdaptiveLayout />
+                  </ProtectedRoute>
+                }
+              >
+                <Route path="/" element={<AdaptiveFeedPage />} />
+                <Route path="/compose" element={<AdaptiveComposePage />} />
+                <Route path="/posts/:id" element={<AdaptivePostDetailPage />} />
+                <Route path="/posts/:id/edit" element={<AdaptiveEditPostPage />} />
+                <Route path="/me/invites" element={<AdaptiveMyInvitesPage />} />
+                <Route path="/me/profile" element={<MeProfileRedirect />} />
+                <Route path="/me/security" element={<MeSecurityRedirect />} />
+                <Route path="/me/archive" element={<AdaptiveArchivePage />} />
+                <Route path="/u/:userId" element={<AdaptiveMemberProfilePage />} />
+                <Route path="/notifications" element={<AdaptiveNotificationsPage />} />
+                <Route path="/mod" element={<Navigate to="/mod/approvals" replace />} />
+                <Route path="/mod/approvals" element={<AdaptiveModApprovalsPage />} />
+                <Route path="/mod/follow-up" element={<AdaptiveModFollowupPage />} />
+                <Route path="/mod/invites" element={<AdaptiveModInvitesPage />} />
+                <Route path="/mod/queue" element={<AdaptiveModQueuePage />} />
+                <Route path="/mod/hidden" element={<AdaptiveModHiddenPage />} />
+                <Route path="/admin/church" element={<AdaptiveAdminChurchPage />} />
+              </Route>
+              <Route path="*" element={<AdaptiveNotFoundPage />} />
+            </Routes>
           </OrgLogoProvider>
         </IsMobileProvider>
       </BrowserRouter>

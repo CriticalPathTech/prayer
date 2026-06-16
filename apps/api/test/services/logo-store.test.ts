@@ -1,4 +1,3 @@
-import type { Database } from '@prayer/db';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import { initDb } from '../../src/db/index.js';

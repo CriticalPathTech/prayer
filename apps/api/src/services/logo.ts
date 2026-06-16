@@ -1,8 +1,7 @@
+import type { Database } from '@prayer/db';
 import createDOMPurify from 'dompurify';
 import { JSDOM } from 'jsdom';
 import type { Kysely } from 'kysely';
-
-import type { Database } from '@prayer/db';
 
 import { ValidationError } from '../middleware/error.js';
 

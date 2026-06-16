@@ -69,7 +69,7 @@ export function ChurchLogoSettings(): JSX.Element {
       {preview ? (
         <div>
           <p className="mb-3 text-sm text-[var(--fg-2)]">
-            Preview your logo, choose how it's colored, then confirm to make it live.
+            Preview your logo, choose how it’s colored, then confirm to make it live.
           </p>
 
           <div className="mb-4 flex flex-wrap items-center gap-4">
@@ -109,7 +109,10 @@ export function ChurchLogoSettings(): JSX.Element {
             <legend className="mb-1 text-sm font-medium text-[var(--fg-1)]">Logo color</legend>
             <div className="flex flex-col gap-1.5">
               {FILL_OPTIONS.map((opt) => (
-                <label key={opt.value} className="flex items-center gap-2 text-sm text-[var(--fg-2)]">
+                <label
+                  key={opt.value}
+                  className="flex items-center gap-2 text-sm text-[var(--fg-2)]"
+                >
                   <input
                     type="radio"
                     name="fill-mode"
@@ -135,7 +138,7 @@ export function ChurchLogoSettings(): JSX.Element {
 
           {preview.warnings.multiColor ? (
             <p className="mb-3 rounded border border-[var(--border-soft)] bg-[var(--bg-page)] px-3 py-2 text-xs text-[var(--fg-2)]">
-              This logo uses multiple colors — recoloring may flatten detail. Use "Original colors"
+              This logo uses multiple colors — recoloring may flatten detail. Use “Original colors”
               to keep it as designed.
             </p>
           ) : null}
@@ -178,7 +181,7 @@ export function ChurchLogoSettings(): JSX.Element {
       ) : (
         <div className="flex items-center gap-4">
           <p className="text-sm text-[var(--fg-2)]">
-            Using the default prayer-hands icon. Upload an SVG to use your church's own mark.
+            Using the default prayer-hands icon. Upload an SVG to use your church’s own mark.
           </p>
           <Button variant="quiet" onClick={() => fileRef.current?.click()}>
             Choose SVG…
