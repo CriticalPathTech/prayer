@@ -150,7 +150,7 @@ export function buildApp(deps: AppDependencies): Express {
   const orgResolver = createOrgResolver(deps.db);
   app.use(orgContext({ db: deps.db, resolver: orgResolver }));
 
-  app.use(orgRouter());
+  app.use(orgRouter({ db: deps.db }));
 
   app.use(
     requireSession({ jwtVerifier: deps.jwtVerifier }),
