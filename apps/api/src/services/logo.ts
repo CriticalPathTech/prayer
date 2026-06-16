@@ -1,5 +1,8 @@
 import createDOMPurify from 'dompurify';
 import { JSDOM } from 'jsdom';
+import type { Kysely } from 'kysely';
+
+import type { Database } from '@prayer/db';
 
 import { ValidationError } from '../middleware/error.js';
 
@@ -80,4 +83,66 @@ export function sanitizeLogoSvg(raw: string): SanitizeResult {
 
   const detectedColors = collectColors(doc);
   return { svg: clean, strippedTags, detectedColors, multiColor: detectedColors.length > 1 };
+}
+
+// ---------------------------------------------------------------------------
+// Storage helpers
+// ---------------------------------------------------------------------------
+
+const VALID_FILL_MODES: readonly LogoFillMode[] = ['original', 'adaptive', 'custom'];
+const HEX_COLOR_RE = /^#[0-9a-fA-F]{6}$/;
+
+export async function getOrgLogo(db: Kysely<Database>, orgId: string): Promise<OrgLogo | null> {
+  const row = await db
+    .selectFrom('orgs')
+    .select(['logo_svg', 'logo_fill_mode', 'logo_color'])
+    .where('id', '=', orgId)
+    .executeTakeFirst();
+  if (!row || !row.logo_svg) return null;
+  return {
+    svg: row.logo_svg,
+    fillMode: (row.logo_fill_mode ?? 'original') as LogoFillMode,
+    color: row.logo_color ?? null,
+  };
+}
+
+export interface SaveOrgLogoInput {
+  orgId: string;
+  svg: string;
+  fillMode: LogoFillMode;
+  color?: string | null;
+}
+
+export async function saveOrgLogo(db: Kysely<Database>, input: SaveOrgLogoInput): Promise<OrgLogo> {
+  if (!VALID_FILL_MODES.includes(input.fillMode)) {
+    throw new ValidationError('fillMode must be original, adaptive, or custom');
+  }
+  let color: string | null = null;
+  if (input.fillMode === 'custom') {
+    if (!input.color || !HEX_COLOR_RE.test(input.color)) {
+      throw new ValidationError('color must be a #RRGGBB hex string when fillMode is custom');
+    }
+    color = input.color.toLowerCase();
+  }
+  // Re-sanitize authoritatively — never trust a previously-sanitized blob.
+  const { svg } = sanitizeLogoSvg(input.svg);
+  await db
+    .updateTable('orgs')
+    .set({
+      logo_svg: svg,
+      logo_fill_mode: input.fillMode,
+      logo_color: color,
+      logo_updated_at: new Date(),
+    })
+    .where('id', '=', input.orgId)
+    .execute();
+  return { svg, fillMode: input.fillMode, color };
+}
+
+export async function removeOrgLogo(db: Kysely<Database>, orgId: string): Promise<void> {
+  await db
+    .updateTable('orgs')
+    .set({ logo_svg: null, logo_fill_mode: null, logo_color: null, logo_updated_at: new Date() })
+    .where('id', '=', orgId)
+    .execute();
 }
