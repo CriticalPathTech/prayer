@@ -28,7 +28,6 @@ export function LogoMark({ size = 20, className }: LogoMarkProps): JSX.Element {
 
   return (
     <span
-      role="img"
       aria-hidden
       className={['logo-mark', tinted ? 'logo-mark--tinted' : '', className ?? '']
         .filter(Boolean)
