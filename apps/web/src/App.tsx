@@ -4,6 +4,7 @@ import { Layout } from './components/Layout';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { IsMobileProvider, useIsMobileShared } from './hooks/IsMobileContext';
 import { AuthProvider, useAuth } from './hooks/useAuth';
+import { OrgLogoProvider } from './hooks/useOrgLogo';
 import { AdminChurchPage } from './pages/AdminChurchPage';
 import { AuthCallbackPage } from './pages/AuthCallbackPage';
 import { CheckEmailPage } from './pages/CheckEmailPage';
@@ -145,6 +146,7 @@ export function App(): JSX.Element {
     <AuthProvider>
       <BrowserRouter>
         <IsMobileProvider>
+          <OrgLogoProvider>
           <Routes>
             <Route path="/login" element={<AdaptiveLoginPage />} />
             <Route path="/signup" element={<AdaptiveSignupCodePage />} />
@@ -180,6 +182,7 @@ export function App(): JSX.Element {
             </Route>
             <Route path="*" element={<AdaptiveNotFoundPage />} />
           </Routes>
+          </OrgLogoProvider>
         </IsMobileProvider>
       </BrowserRouter>
     </AuthProvider>
