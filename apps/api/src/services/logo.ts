@@ -57,7 +57,14 @@ export function sanitizeLogoSvg(raw: string): SanitizeResult {
 
   const clean = DOMPurify.sanitize(raw, {
     USE_PROFILES: { svg: true, svgFilters: true },
-    FORBID_TAGS: ['script', 'foreignObject'],
+    // Beyond script/foreignObject (XSS), forbid elements that can reference
+    // external resources: <image>/<feImage> (href to a remote URL) and <style>
+    // (@import / url() to a remote stylesheet). A logo rendered inline on the
+    // public pre-auth login page could otherwise beacon every visitor's IP to a
+    // third party. This makes v1 SVG-vector-only — raster logos (a future S3
+    // path) are out of scope, and logos must carry fills as presentation
+    // attributes rather than a <style> block.
+    FORBID_TAGS: ['script', 'foreignObject', 'image', 'style', 'feImage'],
     ADD_ATTR: ['viewBox'],
   });
 

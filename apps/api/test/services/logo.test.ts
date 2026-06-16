@@ -47,6 +47,18 @@ describe('sanitizeLogoSvg', () => {
     expect(r.svg.toLowerCase()).not.toContain('foreignobject');
   });
 
+  it('strips external-resource references (<image>, <style> @import) — beacon defense', () => {
+    const r = sanitizeLogoSvg(
+      '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">' +
+        '<image href="https://evil.example/beacon.png" width="10" height="10"/>' +
+        '<style>@import url("https://evil.example/track.css");</style>' +
+        '<path fill="currentColor" d="M0 0"/></svg>',
+    );
+    expect(r.svg.toLowerCase()).not.toContain('<image');
+    expect(r.svg.toLowerCase()).not.toContain('<style');
+    expect(r.svg).not.toContain('evil.example');
+  });
+
   it('rejects empty input', () => {
     expect(() => sanitizeLogoSvg('   ')).toThrow(ValidationError);
   });

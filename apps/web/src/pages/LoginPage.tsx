@@ -4,6 +4,7 @@ import { Link, Navigate } from 'react-router-dom';
 import { Button } from '../components/ui/Button';
 import { Field, inputClass } from '../components/ui/Field';
 import { Icon } from '../components/ui/Icon';
+import { LogoMark } from '../components/ui/LogoMark';
 import { useAuth } from '../hooks/useAuth';
 import { useLogin } from '../hooks/useLogin';
 import { useOrgBranding } from '../hooks/useOrgBranding';
@@ -28,7 +29,7 @@ export function LoginPage(): JSX.Element {
       </div>
       <div className="relative z-10 mx-auto mt-24 max-w-sm rounded-lg border border-[var(--border-soft)] bg-[var(--bg-raised)] p-7 shadow-warm-sm">
         <div className="mb-5 inline-flex items-center gap-2.5 font-serif font-semibold text-[28px] tracking-[-0.02em] text-[var(--fg-1)]">
-          <Icon name="pray" size={24} />
+          <LogoMark size={24} />
           <span>{wordmark}</span>
         </div>
         <p className="mb-4 text-[13px] text-[var(--fg-3)]">Carrying each other in prayer</p>
