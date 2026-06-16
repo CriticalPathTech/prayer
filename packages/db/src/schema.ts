@@ -3,6 +3,7 @@ import type { ColumnType, Generated } from 'kysely';
 export type UserRole = 'member' | 'moderator' | 'super_user';
 export type PostStatus = 'draft' | 'published' | 'archived' | 'hidden' | 'pending' | 'rejected';
 export type ReactionTargetType = 'post' | 'comment';
+export type LogoFillMode = 'original' | 'adaptive' | 'custom';
 
 type Timestamp = ColumnType<Date, Date | string | undefined, Date | string>;
 
@@ -12,6 +13,10 @@ export interface OrgsTable {
   display_name: string;
   status: Generated<string>;
   requires_post_approval: Generated<boolean>;
+  logo_svg: string | null;
+  logo_fill_mode: LogoFillMode | null;
+  logo_color: string | null;
+  logo_updated_at: ColumnType<Date | null, Date | string | null, Date | string | null>;
   created_at: Generated<Timestamp>;
 }
 
