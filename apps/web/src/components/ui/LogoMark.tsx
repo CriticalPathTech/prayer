@@ -17,7 +17,7 @@ export function LogoMark({ size = 20, className }: LogoMarkProps): JSX.Element {
   const logo = useOrgLogo();
 
   if (!logo) {
-    return <Icon name="pray" size={size} className={className} />;
+    return <Icon name="pray" size={size} {...(className !== undefined ? { className } : {})} />;
   }
 
   const tinted = logo.fillMode === 'adaptive' || logo.fillMode === 'custom';
