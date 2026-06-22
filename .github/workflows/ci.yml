@@ -24,7 +24,7 @@ jobs:
       root: ${{ steps.filter.outputs.root }}
       docker: ${{ steps.filter.outputs.docker }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: dorny/paths-filter@v4
         id: filter
         with:
@@ -60,7 +60,7 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v6
         with: { node-version: 24, cache: pnpm }
@@ -91,7 +91,7 @@ jobs:
       AUTH_JWKS_URL: http://localhost:0/jwks
       CORS_ORIGIN: http://localhost:5173
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Start MinIO for storage integration tests
         run: |
           docker run -d --rm --name minio \
@@ -121,7 +121,7 @@ jobs:
       VITE_AUTH_URL: http://localhost:0
       VITE_AUTH_ANON_KEY: test
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v6
         with: { node-version: 24, cache: pnpm }
@@ -152,7 +152,7 @@ jobs:
       TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/prayer_test
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/prayer_test
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v6
         with: { node-version: 24, cache: pnpm }
@@ -167,7 +167,7 @@ jobs:
     if: needs.changes.outputs.api == 'true' || needs.changes.outputs.web == 'true' || needs.changes.outputs.db == 'true' || needs.changes.outputs.shared == 'true' || needs.changes.outputs.root == 'true' || needs.changes.outputs.docker == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v6
         with: { node-version: 24, cache: pnpm }
