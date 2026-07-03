@@ -72,9 +72,7 @@ export function ExtendDialog({
         </h2>
         <div className="mb-4 flex flex-col gap-2 text-sm text-[var(--fg-2)]">
           <span>
-            {wasArchived
-              ? 'Return it to the wall and keep it visible for…'
-              : 'Keep this prayer visible for…'}
+            {wasArchived ? 'Return it to the wall and keep it visible for…' : 'Extend it by…'}
           </span>
           <PinDurationPicker value={days} onChange={setDays} />
         </div>

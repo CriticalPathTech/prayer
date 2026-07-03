@@ -934,7 +934,12 @@ export async function extendPost(
 
     const now = new Date();
     const wasArchived = existing.status === 'archived';
-    const newExpiresAt = new Date(now.getTime() + args.durationDays * 86_400_000);
+    // Stack the extension on top of the later of (now, current expiry) so an
+    // "extend" always pushes expiry forward and never shortens an active prayer.
+    // For an archived/expired post the existing expiry is in the past, so the
+    // base collapses to `now` (a fresh full window from the moment of rescue).
+    const base = Math.max(now.getTime(), existing.expires_at?.getTime() ?? 0);
+    const newExpiresAt = new Date(base + args.durationDays * 86_400_000);
 
     await trx
       .updateTable('posts')

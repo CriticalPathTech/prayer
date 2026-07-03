@@ -15,7 +15,7 @@ describe('ExtendDialog', () => {
   it('renders the extend copy, duration picker, and buttons when open', () => {
     render(<ExtendDialog open onCancel={() => {}} onConfirm={() => {}} />);
     expect(screen.getByRole('alertdialog', { name: /extend this prayer/i })).toBeInTheDocument();
-    expect(screen.getByText(/keep this prayer visible for/i)).toBeInTheDocument();
+    expect(screen.getByText(/extend it by/i)).toBeInTheDocument();
     expect(screen.getByRole('radiogroup')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Extend' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /cancel/i })).toBeInTheDocument();

@@ -62,7 +62,7 @@ describe('POST /mod/posts/:id/extend', () => {
     return { ...u, token: await mintTestJwt({ sub: u.supabaseAuthId, email: u.email }) };
   }
 
-  it('mod extends a published post → 200, expires_at = now+N, audit columns set, event written', async () => {
+  it('mod extends a published post → 200, expires_at = remaining+N, audit columns set, event written', async () => {
     const mod = await makeMod();
     const author = await makeMember();
     const { id } = await insertPost(db, {
@@ -89,7 +89,8 @@ describe('POST /mod/posts/:id/extend', () => {
     expect(row.status).toBe('published');
     expect(row.extended_by).toBe(mod.id);
     expect(row.extended_at).not.toBeNull();
-    const expectedExpiry = Date.now() + 14 * DAY_MS;
+    // stack semantics: (now + 2d remaining) + 14d extension = now + 16d
+    const expectedExpiry = Date.now() + 16 * DAY_MS;
     expect(Math.abs(row.expires_at!.getTime() - expectedExpiry)).toBeLessThan(60_000);
 
     const events = await db
@@ -100,6 +101,34 @@ describe('POST /mod/posts/:id/extend', () => {
       .execute();
     expect(events.length).toBe(1);
     expect(events[0]!.actor_id).toBe(mod.id);
+  });
+
+  it('extending an active post stacks onto the remaining time and never shortens', async () => {
+    const mod = await makeMod();
+    const author = await makeMember();
+    // 10 days of life left; a "1 day" extension must PUSH expiry out, not pull it in.
+    const { id } = await insertPost(db, {
+      authorId: author.id,
+      orgId,
+      status: 'published',
+      expiresAt: new Date(Date.now() + 10 * DAY_MS),
+    });
+    const res = await request(app)
+      .post(`/mod/posts/${id}/extend`)
+      .set('Authorization', `Bearer ${mod.token}`)
+      .send({ duration_days: 1 });
+
+    expect(res.status).toBe(200);
+    const row = await db
+      .selectFrom('posts')
+      .select(['expires_at'])
+      .where('id', '=', id)
+      .executeTakeFirstOrThrow();
+    // stack semantics: max(now, existing.expires_at) + N = (now + 10d) + 1d
+    const expected = Date.now() + 11 * DAY_MS;
+    expect(Math.abs(row.expires_at!.getTime() - expected)).toBeLessThan(60_000);
+    // never moved backward past the original expiry
+    expect(row.expires_at!.getTime()).toBeGreaterThan(Date.now() + 10 * DAY_MS - 60_000);
   });
 
   it('mod extends an archived post → 200, un-archives it (status → published) with future expiry', async () => {
