@@ -1,8 +1,8 @@
 # Post Extension Specification
 
-> **Status:** Draft — open decisions in §5 still need the spec owner's call.
+> **Status:** Decided — every §5 question is resolved and matches the shipped behavior on `post-extension`.
 > **Branch:** `post-extension`
-> **Last updated:** 06-09-2026
+> **Last updated:** 07-07-2026
 
 ## 1. Summary
 
@@ -36,50 +36,49 @@ So the feature serves two recurring cases:
 - Bulk / multi-post extension.
 - Changing the cross-org cron sweep policy (it already reads `expires_at < NOW()` and needs no change).
 
-## 5. Open Questions (for spec owner)
+## 5. Resolved Decisions
 
-The motivation answered "who" (moderators) and "why" (comment-thread signals). These remain:
+The motivation answered "who" (moderators) and "why" (comment-thread signals). Each remaining question is now **Decided** and reflected in the shipped code (`services/posts.ts#extendPost`, `routes/mod-posts-extend.ts`, the `post.extended` notification builder, and the web `ExtendDialog`):
 
-1. **Can a moderator extend a post that has _already_ expired/archived?**
-   The motivation ("a prayer hits its set expiry but the situation hasn't resolved") suggests **yes** — extension should also rescue a post that just auto-archived, flipping it back to `published` with a new future `expires_at`. Need to confirm: extend only while `published`, or also un-archive within a grace window / from the archive at any time? _TBD_
-2. **How much can be added?** A fresh full window (re-pick 1–365 days, like `ExpiryPicker`)? A fixed bump (e.g. +30 days)? Is there a max total lifespan or a cap on number of extensions per post? _TBD_
-3. **Measured from when?** New expiry = `now + N days`, or `existing expires_at + N days`? (For an already-expired post these collapse to `now + N`.) _TBD_
-4. **Who gets notified?** The original author? Everyone who prayed/commented? Nobody? _TBD_
-5. **Is the extension visible?** An "extended by a moderator on …" marker on the post, or silent? Does the author see who extended it? _TBD_
-6. **Is there a moderator-facing surface to find extension candidates,** or is it purely a per-post action from the post detail / mod queue? (Mod-followup already surfaces threads worth attention — possible home.) _TBD_
+1. **Can a moderator extend a post that has _already_ expired/archived?** **Yes — un-archive on extend.** An eligible post is one in `published` **or** `archived` status; extending an archived post flips it back to `published` with the new future `expires_at`, rescuing it into the active feed. `draft` / `hidden` / `pending` / `rejected` and child updates stay ineligible (`409 { error: 'not_extendable' }`) — those are deliberate states extension must not silently override.
+2. **How much can be added?** A **fixed set of duration choices** — `EXTEND_DAY_CHOICES = [1, 3, 7, 14, 30]` days (not the free-form 1–365 `ExpiryPicker`). There is **no cap** on total lifespan and **no limit** on the number of extensions per post; a moderator can keep extending an active request as long as it stays relevant.
+3. **Measured from when?** **Stack, don't replace** — new expiry = `max(now, existing expires_at) + N days`. For a still-live post this adds `N` days on top of the time already remaining (never truncating it back to `now + N`); for an already-expired/archived post the stale `expires_at` is in the past, so the base collapses to `now` and the post gets a fresh full `N`-day window from the moment of rescue.
+4. **Who gets notified?** **The original author**, via a `post.extended` notification. Only the author is notified (not everyone who prayed/commented), and the notification is **skipped when the moderator extending the post is the author**.
+5. **Is the extension visible?** **Yes — persisted and visible.** The post carries an `extended_at` timestamp that drives a generic "Extended by a moderator" mark visible to **all** viewers. The extending moderator's identity (`extended_by`) is projected **only to moderators/super_users**; plain members and the author see the generic mark without the moderator's name.
+6. **Is there a moderator-facing surface to find extension candidates?** It is a **per-post action**, reachable from both the post-detail page and each prayer card's ⋯ menu (feed + archive, desktop + mobile) for moderators/super_users — see §11. There is no dedicated "extension candidates" queue.
 
-## 6. Proposed Behavior (placeholder — pending §5)
+## 6. Behavior (as shipped — per §5)
 
 ### Moderator-facing
 
-- A moderator viewing a post (post detail, or a mod surface) sees an **Extend** action in `PostMenu` (privileged-only, alongside Pin / Hide).
-- Selecting it opens a duration picker (reuse `ExpiryPicker`, 1–365 days).
-- Confirming sets a new `expires_at`; the post stays (or returns) in the active feed and the "expiring soon" pill (`time.ts#expiringSoon`) clears if the new window is far out.
-- _TBD: behavior when the target post is already archived (un-archive vs. reject) — see §5.1._
+- A moderator viewing a post (post detail, or each prayer card's ⋯ menu) sees an **Extend** action (privileged-only, alongside Pin / Hide); on an archived card it reads "Bring back…".
+- Selecting it opens the `ExtendDialog` with the fixed duration choices (`EXTEND_DAY_CHOICES = [1, 3, 7, 14, 30]` days).
+- Confirming stacks a new `expires_at` (`max(now, expires_at) + N`); the post stays (or returns, if archived) in the active feed and the "expiring soon" pill (`time.ts#expiringSoon`) clears if the new window is far out.
+- An already-archived post is un-archived (status → `published`) rather than rejected — see §5.1.
 
 ### Server-side
 
-- New endpoint `POST /mod/posts/:id/extend`, `requireModerator`-gated, org-scoped — modeled directly on `routes/mod-posts-pin.ts`.
-- In one transaction: validate the requested window (§5.2 caps), `UPDATE posts SET expires_at = …` (and `status = 'published'` if rescuing an archived post per §5.1) — **UPDATE-in-place**, never DELETE+INSERT, so id / created_at / thread survive.
+- Endpoint `POST /mod/posts/:id/extend`, `requireModerator`-gated, org-scoped — modeled directly on `routes/mod-posts-pin.ts`.
+- In one transaction: validate `duration_days` against `EXTEND_DAY_CHOICES` (§5.2 — no cap), `UPDATE posts SET expires_at = max(now, expires_at) + N` (and `status = 'published'` if rescuing an archived post per §5.1) — **UPDATE-in-place**, never DELETE+INSERT, so id / created_at / thread survive.
 - Write a `post.extended` row to the `events` outbox in the same transaction:
   `{ post_id, old_expires_at, new_expires_at, extended_by }`.
-- `event-worker.ts` registers a handler — a notification builder if §5.4 = yes, otherwise a no-op (reserved), following the `post.pinned` precedent.
+- `event-worker.ts` registers a `post.extended` handler — a notification builder that DMs the author (§5.4), skipped when the moderator is the author, following the `post.pinned` precedent.
 - Return the re-fetched DTO via `toPostDto` (same as pin/unpin).
 
 ## 7. Affected Surfaces (codebase map)
 
-| Area          | File(s)                                                                                  | Change                                                                                                                                                      |
-| ------------- | ---------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Schema        | `packages/db/migrations/*`                                                               | Likely **no** new column (`expires_at` exists). A new migration only if §5.5 needs an `extended_at` / `extended_by` column instead of deriving from events. |
-| Expiry policy | `apps/api/src/services/expiry-job.ts`                                                    | No change — sweep already reads `expires_at < NOW()`.                                                                                                       |
-| Posts service | `apps/api/src/services/posts.ts`                                                         | New `extendPost` (UPDATE expires_at [+ status]; write event).                                                                                               |
-| Mod routes    | new `apps/api/src/routes/mod-posts-extend.ts` (or fold into pin router)                  | `POST /mod/posts/:id/extend`, mounted with `requireModerator()` in `app.ts`.                                                                                |
-| Events        | `apps/api/src/services/events.ts`                                                        | Add `post.extended` event kind + payload shape.                                                                                                             |
-| Event worker  | `apps/api/src/app.ts`, `event-worker.ts`                                                 | Register `post.extended` handler (builder or no-op).                                                                                                        |
-| Notifications | `apps/api/src/services/notification-builders/`                                           | New builder if §5.4 = yes.                                                                                                                                  |
-| Web — desktop | `PostMenu.tsx`, `PostDetailPage.tsx`, reuse `ExpiryPicker.tsx`, new `useExtendPost` hook | Privileged-only Extend action + duration dialog.                                                                                                            |
-| Web — mobile  | `views/mobile/MobilePostCard.tsx`, `MobilePostDetailPage.tsx`                            | Mobile counterpart (parallel tree).                                                                                                                         |
-| Web — roles   | `apps/web/src/lib/roles.ts`                                                              | Gate the action with `isPrivilegedRole`.                                                                                                                    |
+| Area          | File(s)                                                                                  | Change                                                                                                                                             |
+| ------------- | ---------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Schema        | `packages/db/migrations/*`                                                               | New migration adds `extended_at` / `extended_by` columns to `posts` (per §5.5 — persisted, not derived from events); `expires_at` already existed. |
+| Expiry policy | `apps/api/src/services/expiry-job.ts`                                                    | No change — sweep already reads `expires_at < NOW()`.                                                                                              |
+| Posts service | `apps/api/src/services/posts.ts`                                                         | New `extendPost` (UPDATE expires_at [+ status]; write event).                                                                                      |
+| Mod routes    | new `apps/api/src/routes/mod-posts-extend.ts` (or fold into pin router)                  | `POST /mod/posts/:id/extend`, mounted with `requireModerator()` in `app.ts`.                                                                       |
+| Events        | `apps/api/src/services/events.ts`                                                        | Add `post.extended` event kind + payload shape.                                                                                                    |
+| Event worker  | `apps/api/src/app.ts`, `event-worker.ts`                                                 | Register `post.extended` handler (builder or no-op).                                                                                               |
+| Notifications | `apps/api/src/services/notification-builders/`                                           | New builder if §5.4 = yes.                                                                                                                         |
+| Web — desktop | `PostMenu.tsx`, `PostDetailPage.tsx`, reuse `ExpiryPicker.tsx`, new `useExtendPost` hook | Privileged-only Extend action + duration dialog.                                                                                                   |
+| Web — mobile  | `views/mobile/MobilePostCard.tsx`, `MobilePostDetailPage.tsx`                            | Mobile counterpart (parallel tree).                                                                                                                |
+| Web — roles   | `apps/web/src/lib/roles.ts`                                                              | Gate the action with `isPrivilegedRole`.                                                                                                           |
 
 ## 8. Constraints & Conventions to honor
 
@@ -93,7 +92,7 @@ The motivation answered "who" (moderators) and "why" (comment-thread signals). T
 
 ## 9. Acceptance Criteria
 
-**Decisions resolved** (see `docs/post-extension-implementation.md` §0): §5.1 = **yes, un-archive on extend**; §5.2 = no cap; §5.3 = `now + N`; §5.4 = **yes, notify the author**; §5.5 = **persist + visible "Extended by a moderator" mark**.
+**Decisions resolved** (see §5 above and `docs/post-extension-implementation.md` §0): §5.1 = **yes, un-archive on extend**; §5.2 = fixed `[1, 3, 7, 14, 30]`-day choices, no cap; §5.3 = **stack, `max(now, expires_at) + N`**; §5.4 = **yes, notify the author**; §5.5 = **persist + visible "Extended by a moderator" mark**.
 
 All criteria below are **met and covered by automated tests**:
 
