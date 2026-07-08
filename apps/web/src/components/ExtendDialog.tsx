@@ -1,3 +1,4 @@
+import type { ExtendDurationDays } from '@prayer/shared';
 import type { JSX } from 'react';
 import { useEffect, useId, useRef, useState } from 'react';
 
@@ -9,7 +10,7 @@ export interface ExtendDialogProps {
    * frames the action as bringing it back rather than just extending. */
   wasArchived?: boolean;
   onCancel: () => void;
-  onConfirm: (durationDays: 1 | 3 | 7 | 14 | 30) => Promise<void> | void;
+  onConfirm: (durationDays: ExtendDurationDays) => Promise<void> | void;
 }
 
 export function ExtendDialog({
@@ -45,7 +46,7 @@ export function ExtendDialog({
   async function handle(): Promise<void> {
     setBusy(true);
     try {
-      await onConfirm(days as 1 | 3 | 7 | 14 | 30);
+      await onConfirm(days as ExtendDurationDays);
     } finally {
       setBusy(false);
     }

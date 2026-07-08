@@ -1,5 +1,6 @@
 import type { Database, PostStatus, UserRole } from '@prayer/db';
 import { newId } from '@prayer/db';
+import { EXTEND_DAY_CHOICES, type ExtendDurationDays } from '@prayer/shared';
 import type { Kysely, Transaction } from 'kysely';
 import { sql } from 'kysely';
 import { z } from 'zod';
@@ -901,15 +902,33 @@ export async function archivePost(
   });
 }
 
-export const EXTEND_DAY_CHOICES = [1, 3, 7, 14, 30] as const;
-export type ExtendDurationDays = (typeof EXTEND_DAY_CHOICES)[number];
+// Canonical definition lives in @prayer/shared so the web app's ExtendDialog can
+// reference the same source of truth. Re-exported here to keep existing
+// `services/posts` importers working unchanged.
+export { EXTEND_DAY_CHOICES, type ExtendDurationDays };
 
 /**
- * Moderator-driven expiry extension. Pushes `expires_at` to `now + durationDays`
- * and, if the prayer had already auto-archived, un-archives it (status → published).
- * UPDATE-in-place — preserves id / created_at / comments / reactions / prayers
- * (NOT the DELETE+INSERT used by publishOwnDraft). Writes a `post.extended` event
- * in the same transaction; the notification builder DMs the author.
+ * Moderator-driven expiry extension. Stacks `durationDays` onto the *later* of
+ * `now` and the current `expires_at` — i.e. `max(now, expires_at) + durationDays`
+ * — so an extension always pushes expiry forward and never shortens an active
+ * prayer. If the prayer had already auto-archived, un-archives it (status →
+ * published). UPDATE-in-place — preserves id / created_at / comments / reactions
+ * / prayers (NOT the DELETE+INSERT used by publishOwnDraft). Writes a
+ * `post.extended` event in the same transaction; the notification builder DMs
+ * the author.
+ *
+ * The `max(now, expires_at)` base is what makes stacking safe: for a still-live
+ * prayer the base is its future `expires_at`, so the new window is added on top
+ * of the time already remaining; for an archived/expired prayer the stale
+ * `expires_at` is in the past, so the base collapses to `now` and the prayer
+ * gets a fresh full window from the moment of rescue.
+ *
+ * Examples (durationDays = 7):
+ * - Live prayer, 3 days left  → expires_at moves from now+3d to now+10d
+ *   (stacks onto the remaining 3 days, never truncates to now+7d).
+ * - Live prayer, 20 days left → expires_at moves from now+20d to now+27d.
+ * - Expired/archived prayer (expires_at 5 days ago) → base collapses to now,
+ *   new expires_at is now+7d, and status flips archived → published.
  *
  * Eligible: top-level prayers in `published` or `archived` status. Children
  * (updates) carry no independent expiry; `hidden` / `pending` / `rejected` /
