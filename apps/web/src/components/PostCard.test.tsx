@@ -29,12 +29,6 @@ vi.mock('../hooks/useReactions', () => ({
   useReactions: () => ({ reactions: {}, toggle: vi.fn() }),
 }));
 
-const navigateMock = vi.fn();
-vi.mock('react-router-dom', async () => {
-  const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom');
-  return { ...actual, useNavigate: () => navigateMock };
-});
-
 describe('PostCard Answered Prayer', () => {
   const base = {
     id: 'p1',
@@ -714,56 +708,5 @@ describe('PostCard author profile link', () => {
       expect(screen.getByRole('link', { name: /^comment$/i })).toBeInTheDocument();
       expect(screen.queryByRole('button', { name: /^repost$/i })).not.toBeInTheDocument();
     });
-  });
-});
-
-describe('PostCard click-to-open', () => {
-  const clickPost: FeedPost = {
-    id: 'pc1',
-    parent_id: null,
-    author_id: 'other',
-    display_name: 'Mary',
-    avatar_url: null,
-    status: 'published',
-    is_anonymous: false,
-    is_answered_prayer: false,
-    body: 'Please pray for my family.',
-    reaction_count: 0,
-    prayer_count: 0,
-    updates: [],
-    expires_at: null,
-    edit_deadline: new Date(Date.now() + 3600_000).toISOString(),
-    created_at: new Date().toISOString(),
-    pinned_at: null,
-    extended_at: null,
-    extended_by: null,
-    prayed: false,
-    reactions: {},
-    is_own_post: false,
-    hidden_by: null,
-    hidden_source: null,
-    is_former_member: false,
-  };
-
-  beforeEach(() => navigateMock.mockClear());
-
-  it('navigates to the post detail when the card body is clicked', async () => {
-    render(
-      <MemoryRouter>
-        <PostCard post={clickPost} />
-      </MemoryRouter>,
-    );
-    await userEvent.click(screen.getByText('Please pray for my family.'));
-    expect(navigateMock).toHaveBeenCalledWith('/posts/pc1');
-  });
-
-  it('does not navigate when an interactive control (the ⋯ menu) is clicked', async () => {
-    render(
-      <MemoryRouter>
-        <PostCard post={clickPost} />
-      </MemoryRouter>,
-    );
-    await userEvent.click(screen.getByRole('button', { name: /more actions/i }));
-    expect(navigateMock).not.toHaveBeenCalled();
   });
 });

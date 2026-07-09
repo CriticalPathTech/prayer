@@ -1,13 +1,12 @@
 import type { JSX } from 'react';
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 
 import { useAuth } from '../hooks/useAuth';
 import type { FeedPost } from '../hooks/useFeed';
 import { usePrayer } from '../hooks/usePrayer';
 import { useReactions } from '../hooks/useReactions';
 import { apiFetch, extendPost } from '../lib/api';
-import { isCardBodyClick } from '../lib/cardClick';
 import { isPrivilegedRole } from '../lib/roles';
 import { expiringSoon, formatAgo } from '../lib/time';
 
@@ -35,7 +34,6 @@ export interface PostCardProps {
 
 export function PostCard({ post, onChange, onRepost }: PostCardProps): JSX.Element {
   const { me } = useAuth();
-  const navigate = useNavigate();
   const [extendOpen, setExtendOpen] = useState(false);
   const prayer = usePrayer({
     postId: post.id,
@@ -155,16 +153,7 @@ export function PostCard({ post, onChange, onRepost }: PostCardProps): JSX.Eleme
 
   return (
     <>
-      {/* Whole-card click is a mouse convenience; keyboard users reach the post
-          via the author link and the "Comment"/"View thread" links inside, so the
-          card itself stays a plain (non-focusable) region rather than a nested link. */}
-      {/* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions, jsx-a11y/click-events-have-key-events */}
-      <article
-        className={cardClass}
-        onClick={(e) => {
-          if (isCardBodyClick(e)) navigate(`/posts/${post.id}`);
-        }}
-      >
+      <article className={cardClass}>
         <header className="mb-2.5 flex items-center gap-3">
           {post.author_id ? (
             <Link
