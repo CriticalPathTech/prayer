@@ -11,6 +11,12 @@ import {
   removeMember,
   updateChurchSettings,
 } from '../services/church-admin.js';
+import {
+  removeOrgLogo,
+  sanitizeLogoSvg,
+  saveOrgLogo,
+  type LogoFillMode,
+} from '../services/logo.js';
 import type { OrgResolver } from '../services/orgs.js';
 
 const VALID_ROLES: readonly UserRole[] = ['member', 'moderator', 'super_user'];
@@ -111,6 +117,50 @@ export function adminChurchRouter(deps: {
           requiresPostApproval: result.requiresPostApproval,
         },
       });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  router.post('/admin/church/logo/preview', (req, res, next) => {
+    try {
+      if (!req.user) throw new UnauthorizedError();
+      const body = (req.body ?? {}) as { svg?: unknown };
+      if (typeof body.svg !== 'string') throw new ValidationError('svg must be a string');
+      const result = sanitizeLogoSvg(body.svg);
+      res.json({
+        sanitizedSvg: result.svg,
+        warnings: { strippedTags: result.strippedTags, multiColor: result.multiColor },
+        detectedColors: result.detectedColors,
+      });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  router.put('/admin/church/logo', async (req, res, next) => {
+    try {
+      if (!req.user) throw new UnauthorizedError();
+      const body = (req.body ?? {}) as { svg?: unknown; fillMode?: unknown; color?: unknown };
+      if (typeof body.svg !== 'string') throw new ValidationError('svg must be a string');
+      if (typeof body.fillMode !== 'string') throw new ValidationError('fillMode must be a string');
+      const logo = await saveOrgLogo(deps.db, {
+        orgId: req.user.orgId,
+        svg: body.svg,
+        fillMode: body.fillMode as LogoFillMode,
+        ...(typeof body.color === 'string' ? { color: body.color } : {}),
+      });
+      res.json({ logo });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  router.delete('/admin/church/logo', async (req, res, next) => {
+    try {
+      if (!req.user) throw new UnauthorizedError();
+      await removeOrgLogo(deps.db, req.user.orgId);
+      res.status(204).send();
     } catch (err) {
       next(err);
     }

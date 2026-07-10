@@ -1,6 +1,7 @@
 import type { JSX, ReactNode } from 'react';
 
 import { Icon } from './ui/Icon';
+import { LogoMark } from './ui/LogoMark';
 
 export function AuthShell({ children }: { children: ReactNode }): JSX.Element {
   return (
@@ -13,7 +14,7 @@ export function AuthShell({ children }: { children: ReactNode }): JSX.Element {
       </div>
       <div className="relative z-10 mx-auto mt-24 max-w-sm rounded-lg border border-[var(--border-soft)] bg-[var(--bg-raised)] p-7 shadow-warm-sm">
         <div className="mb-5 inline-flex items-center gap-2.5 font-serif font-semibold text-[28px] tracking-[-0.02em] text-[var(--fg-1)]">
-          <Icon name="pray" size={24} />
+          <LogoMark size={24} />
           <span>Prayer</span>
         </div>
         {children}

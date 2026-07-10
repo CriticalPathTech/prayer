@@ -2,6 +2,8 @@ import { newId } from '@prayer/db';
 import request from 'supertest';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
+import { saveOrgLogo } from '../../src/services/logo.js';
+import { insertOrg } from '../helpers/seed.js';
 import { createTestApp, type TestApp } from '../helpers/supertest.js';
 
 describe('GET /org', () => {
@@ -25,6 +27,7 @@ describe('GET /org', () => {
     expect(res.body).toEqual({
       slug: 'testchurch',
       displayName: 'Testchurch (test default)',
+      logo: null,
     });
   });
 
@@ -42,11 +45,31 @@ describe('GET /org', () => {
     expect(res.body).toEqual({
       slug: 'graceview',
       displayName: 'Graceview Community Church',
+      logo: null,
     });
   });
 
   it('returns 404 for an unknown host', async () => {
     const res = await request(ctx.app).get('/org').set('Host', 'nope.prays.online');
     expect(res.status).toBe(404);
+  });
+
+  it('includes logo: null when the org has no custom logo', async () => {
+    const res = await request(ctx.app).get('/org').set('Host', 'testchurch.prays.online');
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveProperty('logo', null);
+  });
+
+  it('returns the saved logo for an org that has one', async () => {
+    const orgId = await insertOrg(ctx.db, { slug: 'org-logo-host', displayName: 'Org Logo Host' });
+    await saveOrgLogo(ctx.db, {
+      orgId,
+      svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><path fill="currentColor" d="M0 0h10v10H0z"/></svg>',
+      fillMode: 'adaptive',
+    });
+    const res = await request(ctx.app).get('/org').set('Host', 'org-logo-host.prays.online');
+    expect(res.status).toBe(200);
+    expect(res.body.logo.fillMode).toBe('adaptive');
+    expect(res.body.logo.svg).toContain('<svg');
   });
 });

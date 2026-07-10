@@ -11,6 +11,7 @@ import { NotificationBell } from './NotificationBell';
 import { NotificationPanel } from './NotificationPanel';
 import { Avatar } from './ui/Avatar';
 import { Icon, type IconName } from './ui/Icon';
+import { LogoMark } from './ui/LogoMark';
 
 type RoleBadge = { label: string; icon: IconName } | null;
 
@@ -67,7 +68,7 @@ export function Layout(): JSX.Element {
             to="/"
             className="inline-flex items-center gap-2.5 font-serif font-semibold text-[22px] tracking-[-0.02em] text-[var(--fg-1)] no-underline"
           >
-            <Icon name="pray" size={20} aria-hidden />
+            <LogoMark size={20} />
             <span>{headerLabel}</span>
           </Link>
           <div className="flex-1" />
