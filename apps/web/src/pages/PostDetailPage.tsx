@@ -4,6 +4,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 
 import { CommentForm } from '../components/CommentForm';
 import { CommentThread } from '../components/CommentThread';
+import { ExtendDialog } from '../components/ExtendDialog';
 import { FlagCountPill } from '../components/FlagCountPill';
 import { HiddenBanner } from '../components/HiddenBanner';
 import { HideTombstone } from '../components/HideTombstone';
@@ -22,7 +23,7 @@ import { usePost } from '../hooks/usePost';
 import { usePostComments } from '../hooks/usePostComments';
 import { usePrayer } from '../hooks/usePrayer';
 import { useReactions } from '../hooks/useReactions';
-import { ApiError, apiFetch, pinPost, unpinPost } from '../lib/api';
+import { ApiError, apiFetch, extendPost, pinPost, unpinPost } from '../lib/api';
 import { isPrivilegedRole } from '../lib/roles';
 import { formatAgo, expiringSoon } from '../lib/time';
 
@@ -62,6 +63,7 @@ function PostDetailView({ data, reload, error }: PostDetailViewProps): JSX.Eleme
   const [updateBody, setUpdateBody] = useState('');
   const [isAnswered, setIsAnswered] = useState(false);
   const [pinDialogOpen, setPinDialogOpen] = useState(false);
+  const [extendDialogOpen, setExtendDialogOpen] = useState(false);
 
   const { post, updates } = data;
   const postId = post.id;
@@ -179,6 +181,16 @@ function PostDetailView({ data, reload, error }: PostDetailViewProps): JSX.Eleme
                   </Pill>
                 </>
               ) : null}
+              {post.extended_at ? (
+                <>
+                  <span aria-hidden>·</span>
+                  <Pill kind="default" leadingIcon="clock">
+                    {post.extended_by
+                      ? `Extended by ${post.extended_by.display_name}`
+                      : 'Extended by a moderator'}
+                  </Pill>
+                </>
+              ) : null}
             </div>
           </div>
           <PostMenu
@@ -194,6 +206,7 @@ function PostDetailView({ data, reload, error }: PostDetailViewProps): JSX.Eleme
               await unpinPost(post.id);
               await reload();
             }}
+            onExtend={() => setExtendDialogOpen(true)}
             onDelete={async () => {
               await apiFetch(`/posts/${post.id}`, { method: 'DELETE' });
               navigate('/');
@@ -342,6 +355,19 @@ function PostDetailView({ data, reload, error }: PostDetailViewProps): JSX.Eleme
           await pinPost(post.id, days as 1 | 3 | 7 | 14 | 30);
           setPinDialogOpen(false);
           await reload();
+        }}
+      />
+
+      <ExtendDialog
+        open={extendDialogOpen}
+        wasArchived={post.status === 'archived'}
+        onCancel={() => setExtendDialogOpen(false)}
+        onConfirm={async (days) => {
+          await act(async () => {
+            await extendPost(post.id, days);
+            setExtendDialogOpen(false);
+            await reload();
+          });
         }}
       />
 
