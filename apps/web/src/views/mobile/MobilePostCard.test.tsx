@@ -15,6 +15,12 @@ vi.mock('../../hooks/usePrayer', () => ({ usePrayer: () => usePrayerMock() }));
 const useReactionsMock = vi.fn();
 vi.mock('../../hooks/useReactions', () => ({ useReactions: () => useReactionsMock() }));
 
+const navigateMock = vi.fn();
+vi.mock('react-router-dom', async () => {
+  const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom');
+  return { ...actual, useNavigate: () => navigateMock };
+});
+
 describe('MobilePostCard', () => {
   beforeEach(() => {
     useAuthMock.mockReturnValue({
@@ -431,6 +437,39 @@ describe('MobilePostCard', () => {
       expect(screen.getByRole('button', { name: /i will pray/i })).toBeInTheDocument();
       expect(screen.getByRole('button', { name: /^comment$/i })).toBeInTheDocument();
       expect(screen.queryByRole('button', { name: /^repost$/i })).not.toBeInTheDocument();
+    });
+  });
+
+  describe('tap-to-open', () => {
+    it('navigates to the post detail when the card body is tapped', async () => {
+      const post = makeFeedPost({ body: 'Please pray for my family.' });
+      render(
+        <MemoryRouter>
+          <MobilePostCard post={post} />
+        </MemoryRouter>,
+      );
+      await userEvent.click(screen.getByText('Please pray for my family.'));
+      expect(navigateMock).toHaveBeenCalledWith(`/posts/${post.id}`);
+    });
+
+    it('does not navigate when an interactive control (the ⋯ menu) is tapped', async () => {
+      render(
+        <MemoryRouter>
+          <MobilePostCard post={makeFeedPost()} />
+        </MemoryRouter>,
+      );
+      await userEvent.click(screen.getByRole('button', { name: /more actions/i }));
+      expect(navigateMock).not.toHaveBeenCalled();
+    });
+
+    it('does not navigate when the author profile link is tapped', async () => {
+      render(
+        <MemoryRouter>
+          <MobilePostCard post={makeFeedPost({ display_name: 'Alice' })} />
+        </MemoryRouter>,
+      );
+      await userEvent.click(screen.getByText('Alice'));
+      expect(navigateMock).not.toHaveBeenCalled();
     });
   });
 });
