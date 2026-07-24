@@ -17,6 +17,7 @@ import type { FeedPost } from '../../hooks/useFeed';
 import { usePrayer } from '../../hooks/usePrayer';
 import { useReactions } from '../../hooks/useReactions';
 import { apiFetch, extendPost } from '../../lib/api';
+import { isCardBodyClick } from '../../lib/cardClick';
 import { isPrivilegedRole } from '../../lib/roles';
 import { expiringSoon, formatAgo } from '../../lib/time';
 
@@ -138,7 +139,16 @@ export function MobilePostCard({ post, onChange, onRepost }: MobilePostCardProps
 
   return (
     <>
-      <article className={cardClass}>
+      {/* Whole-card tap is a pointer convenience; keyboard users reach the post
+          via the author link and the "Comment"/"View thread" links inside, so the
+          card itself stays a plain (non-focusable) region rather than a nested link. */}
+      {/* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions, jsx-a11y/click-events-have-key-events */}
+      <article
+        className={cardClass}
+        onClick={(e) => {
+          if (isCardBodyClick(e)) navigate(`/posts/${post.id}`);
+        }}
+      >
         <header className="flex items-start gap-2.5">
           {post.author_id ? (
             <Link
