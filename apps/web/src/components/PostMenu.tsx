@@ -23,6 +23,9 @@ export interface PostMenuProps {
   isPinned?: boolean;
   onPin?: () => void;
   onUnpin?: () => void | Promise<void>;
+  /** Moderator-only: opens the extend-expiry dialog. Eligible on published
+   * (still active) and archived (auto-expired → un-archive) prayers. */
+  onExtend?: () => void;
   className?: string;
 }
 
@@ -38,6 +41,7 @@ export function PostMenu({
   isPinned,
   onPin,
   onUnpin,
+  onExtend,
   className,
 }: PostMenuProps): JSX.Element | null {
   const navigate = useNavigate();
@@ -61,7 +65,9 @@ export function PostMenu({
   const isPrivileged = viewerRole === 'moderator' || viewerRole === 'super_user';
   const canPin = isPrivileged && status === 'published' && !isPinned && !!onPin;
   const canUnpin = isPrivileged && status === 'published' && !!isPinned && !!onUnpin;
-  const hasAnyItem = canEdit || canDelete || canReport || canRepost || canPin || canUnpin;
+  const canExtend = isPrivileged && (status === 'published' || status === 'archived') && !!onExtend;
+  const hasAnyItem =
+    canEdit || canDelete || canReport || canRepost || canPin || canUnpin || canExtend;
 
   const close = useCallback(() => {
     setOpen(false);
@@ -220,6 +226,20 @@ export function PostMenu({
             >
               <Icon name="pin" size={16} />
               <span>Unpin</span>
+            </button>
+          ) : null}
+          {canExtend ? (
+            <button
+              role="menuitem"
+              type="button"
+              onClick={() => {
+                setOpen(false);
+                onExtend?.();
+              }}
+              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-[var(--fg-1)] hover:bg-parchment-100"
+            >
+              <Icon name="clock" size={16} />
+              <span>{status === 'archived' ? 'Bring back…' : 'Extend…'}</span>
             </button>
           ) : null}
         </div>

@@ -2,6 +2,7 @@ import type { JSX } from 'react';
 import { Link } from 'react-router-dom';
 
 import type { Notification } from '../hooks/useNotifications';
+import { durationLabel } from '../lib/time';
 
 function relativeTime(iso: string): string {
   const diffMs = Date.now() - new Date(iso).getTime();
@@ -115,6 +116,30 @@ export function NotificationItem({ notification, onClick }: NotificationItemProp
           {p.moderation_note ? ` · ${p.moderation_note}` : ''} ·{' '}
           {relativeTime(notification.created_at)}
         </div>
+      </Link>
+    );
+  }
+
+  if (notification.type === 'post.extended') {
+    const p = notification.payload as unknown as {
+      post_id: string;
+      duration_days: number;
+      was_archived?: boolean;
+    };
+    const border = unread ? 'border-l-vesper-500' : 'border-l-transparent';
+    const bg = unread ? 'bg-vesper-50/50' : '';
+    return (
+      <Link
+        to={`/posts/${p.post_id}`}
+        onClick={() => onClick(notification.id)}
+        className={`${BASE} ${border} ${bg}`}
+      >
+        <div className={titleClass}>
+          {p.was_archived
+            ? `A moderator brought your prayer back for another ${durationLabel(p.duration_days)}`
+            : `A moderator extended your prayer for another ${durationLabel(p.duration_days)}`}
+        </div>
+        <div className={metaClass}>{relativeTime(notification.created_at)}</div>
       </Link>
     );
   }

@@ -35,7 +35,10 @@ export function FeedPage(): JSX.Element {
     await refresh();
   }
 
-  const empty = posts.length === 0 && !loading && !error;
+  // Pinned posts are real prayer requests that render below this block, so a
+  // feed holding nothing but pinned items is not empty. `pinned` is already
+  // scoped to the active filter by useFeed.
+  const empty = posts.length === 0 && pinned.length === 0 && !loading && !error;
 
   return (
     <div className="mx-auto max-w-feed px-4 py-6">

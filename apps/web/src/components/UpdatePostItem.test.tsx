@@ -23,6 +23,8 @@ const base: FeedPost = {
   edit_deadline: new Date().toISOString(),
   created_at: new Date().toISOString(),
   pinned_at: null,
+  extended_at: null,
+  extended_by: null,
   prayed: false,
   reactions: {},
   is_own_post: false,

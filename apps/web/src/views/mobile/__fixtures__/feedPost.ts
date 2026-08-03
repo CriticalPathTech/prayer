@@ -20,6 +20,8 @@ export function makeFeedPost(over: Partial<FeedPost> = {}): FeedPost {
     edit_deadline: new Date(Date.now() + 3600_000).toISOString(),
     created_at: new Date().toISOString(),
     pinned_at: null,
+    extended_at: null,
+    extended_by: null,
     prayed: false,
     reactions: {},
     is_own_post: false,

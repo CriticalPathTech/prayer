@@ -241,3 +241,36 @@ describe('PostMenu', () => {
     expect(screen.queryByRole('menuitem', { name: 'Edit' })).not.toBeInTheDocument();
   });
 });
+
+describe('PostMenu extend', () => {
+  it('moderator on published post sees "Extend…"', async () => {
+    renderMenu({ status: 'published', viewerRole: 'moderator', onExtend: vi.fn() });
+    await userEvent.click(screen.getByRole('button', { name: /more actions/i }));
+    expect(screen.getByRole('menuitem', { name: /^Extend/i })).toBeInTheDocument();
+  });
+
+  it('moderator on archived post sees "Bring back…"', async () => {
+    renderMenu({ status: 'archived', viewerRole: 'moderator', onExtend: vi.fn() });
+    await userEvent.click(screen.getByRole('button', { name: /more actions/i }));
+    expect(screen.getByRole('menuitem', { name: /Bring back/i })).toBeInTheDocument();
+  });
+
+  it('member never sees the extend item', async () => {
+    renderMenu({
+      status: 'published',
+      isOwnPost: false,
+      viewerRole: 'member',
+      onExtend: vi.fn(),
+    });
+    await userEvent.click(screen.getByRole('button', { name: /more actions/i }));
+    expect(screen.queryByRole('menuitem', { name: /Extend|Bring back/i })).not.toBeInTheDocument();
+  });
+
+  it('fires onExtend when clicked', async () => {
+    const onExtend = vi.fn();
+    renderMenu({ status: 'published', viewerRole: 'moderator', onExtend });
+    await userEvent.click(screen.getByRole('button', { name: /more actions/i }));
+    await userEvent.click(screen.getByRole('menuitem', { name: /^Extend/i }));
+    expect(onExtend).toHaveBeenCalledOnce();
+  });
+});
