@@ -170,6 +170,122 @@ describe('FeedPage', () => {
     expect(allText.indexOf('pinned content')).toBeLessThan(allText.indexOf('chrono content'));
   });
 
+  it('shows the empty state when there are no posts at all', async () => {
+    feedFetch.mockResolvedValueOnce({
+      posts: [],
+      pinned: [],
+      nextCursor: null,
+      snapshotId: 's1',
+    });
+    render(
+      <MemoryRouter>
+        <FeedPage />
+      </MemoryRouter>,
+    );
+    expect(await screen.findByText(/nothing on the wall yet/i)).toBeInTheDocument();
+  });
+
+  it('does not show the empty state when only pinned posts exist', async () => {
+    feedFetch.mockResolvedValueOnce({
+      posts: [],
+      pinned: [
+        post({
+          id: 'pinned-only',
+          body: 'pinned content',
+          pinned_at: new Date().toISOString(),
+        }),
+      ],
+      nextCursor: null,
+      snapshotId: 's1',
+    });
+    render(
+      <MemoryRouter>
+        <FeedPage />
+      </MemoryRouter>,
+    );
+    await screen.findByText('pinned content');
+    expect(screen.queryByText(/nothing on the wall yet/i)).not.toBeInTheDocument();
+  });
+
+  it('shows the empty state under My Requests when the only pinned post is not mine', async () => {
+    // filter=all: someone else's pinned post is visible, so no empty state.
+    feedFetch.mockResolvedValueOnce({
+      posts: [],
+      pinned: [
+        post({
+          id: 'pinned-other',
+          body: 'someone-elses pinned',
+          pinned_at: new Date().toISOString(),
+          is_own_post: false,
+        }),
+      ],
+      nextCursor: null,
+      snapshotId: 's1',
+    });
+    // filter=mine: the pinned post is filtered out client-side → empty state.
+    feedFetch.mockResolvedValueOnce({
+      posts: [],
+      pinned: [
+        post({
+          id: 'pinned-other',
+          body: 'someone-elses pinned',
+          pinned_at: new Date().toISOString(),
+          is_own_post: false,
+        }),
+      ],
+      nextCursor: null,
+      snapshotId: 's1',
+    });
+    render(
+      <MemoryRouter>
+        <FeedPage />
+      </MemoryRouter>,
+    );
+    await screen.findByText('someone-elses pinned');
+    expect(screen.queryByText(/nothing on the wall yet/i)).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('tab', { name: /my requests/i }));
+    expect(await screen.findByText(/nothing on the wall yet/i)).toBeInTheDocument();
+  });
+
+  it('renders my own pinned post under the My Requests filter without the empty state', async () => {
+    feedFetch.mockResolvedValueOnce({
+      posts: [],
+      pinned: [
+        post({
+          id: 'pinned-mine',
+          body: 'mine pinned',
+          pinned_at: new Date().toISOString(),
+          is_own_post: true,
+        }),
+      ],
+      nextCursor: null,
+      snapshotId: 's1',
+    });
+    feedFetch.mockResolvedValueOnce({
+      posts: [],
+      pinned: [
+        post({
+          id: 'pinned-mine',
+          body: 'mine pinned',
+          pinned_at: new Date().toISOString(),
+          is_own_post: true,
+        }),
+      ],
+      nextCursor: null,
+      snapshotId: 's1',
+    });
+    render(
+      <MemoryRouter>
+        <FeedPage />
+      </MemoryRouter>,
+    );
+    await screen.findByText('mine pinned');
+    await userEvent.click(screen.getByRole('tab', { name: /my requests/i }));
+    await waitFor(() => expect(feedFetch).toHaveBeenCalledTimes(2));
+    expect(screen.getByText('mine pinned')).toBeInTheDocument();
+    expect(screen.queryByText(/nothing on the wall yet/i)).not.toBeInTheDocument();
+  });
+
   it('hides pinned posts not authored by me under the My Requests filter', async () => {
     // First fetch (filter=all): both pinned shown.
     feedFetch.mockResolvedValueOnce({
