@@ -98,6 +98,30 @@ describe('MobileFeedPage', () => {
     expect(screen.getByText(/nothing on the wall yet/i)).toBeInTheDocument();
   });
 
+  it('does not show empty-state copy when only pinned posts exist', () => {
+    useFeedMock.mockReturnValue({
+      posts: [],
+      pinned: [
+        makeFeedPost({
+          id: 'pinned-1',
+          body: 'pinned content',
+          pinned_at: new Date().toISOString(),
+        }),
+      ],
+      filter: 'all',
+      setFilter: vi.fn(),
+      loading: false,
+      error: null,
+      hasMore: false,
+      loadMore: vi.fn(),
+      snapshotId: 's1',
+      refresh: vi.fn(),
+    });
+    renderAtUrl('/');
+    expect(screen.getByText('pinned content')).toBeInTheDocument();
+    expect(screen.queryByText(/nothing on the wall yet/i)).not.toBeInTheDocument();
+  });
+
   it('seeds filter from URL ?filter=mine via initialFilter', () => {
     renderAtUrl('/?filter=mine');
     expect(useFeedMock).toHaveBeenCalledWith({ initialFilter: 'mine' });
