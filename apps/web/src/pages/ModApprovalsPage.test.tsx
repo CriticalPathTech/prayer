@@ -114,7 +114,7 @@ describe('ModApprovalsPage', () => {
     expect(screen.getByText('Mary Okafor')).toBeInTheDocument();
   });
 
-  it('renders "Anonymous member" for null display_name', async () => {
+  it('renders "Anonymous" for an anonymous request, matching the feed', async () => {
     useAuthMock.mockReturnValue({ me: modMe });
     listApprovalsMock.mockResolvedValue({
       items: [makeItem({ display_name: null, is_anonymous: true })],
@@ -124,7 +124,35 @@ describe('ModApprovalsPage', () => {
         <ModApprovalsPage />
       </MemoryRouter>,
     );
-    await waitFor(() => expect(screen.getByText('Anonymous member')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('Anonymous')).toBeInTheDocument());
+    expect(screen.getByLabelText('Anonymous')).toBeInTheDocument();
+  });
+
+  it("renders the author's uploaded avatar", async () => {
+    useAuthMock.mockReturnValue({ me: modMe });
+    listApprovalsMock.mockResolvedValue({
+      items: [makeItem({ avatar_url: 'https://cdn.test.local/avatars/u1.webp' })],
+    });
+    render(
+      <MemoryRouter>
+        <ModApprovalsPage />
+      </MemoryRouter>,
+    );
+    const img = await screen.findByRole('img', { name: /mary okafor/i });
+    expect(img).toHaveAttribute('src', expect.stringContaining('cdn.test.local/avatars/u1.webp'));
+  });
+
+  it('renders "Former member" rather than treating a null name as anonymous', async () => {
+    useAuthMock.mockReturnValue({ me: modMe });
+    listApprovalsMock.mockResolvedValue({
+      items: [makeItem({ display_name: null, is_anonymous: false, is_former_member: true })],
+    });
+    render(
+      <MemoryRouter>
+        <ModApprovalsPage />
+      </MemoryRouter>,
+    );
+    await waitFor(() => expect(screen.getByText('Former member')).toBeInTheDocument());
   });
 
   it('Approve button calls approve endpoint and removes card', async () => {
