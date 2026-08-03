@@ -24,7 +24,7 @@ jobs:
       root: ${{ steps.filter.outputs.root }}
       docker: ${{ steps.filter.outputs.docker }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: dorny/paths-filter@v4
         id: filter
         with:
@@ -60,9 +60,9 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with: { node-version: 24, cache: pnpm }
       - run: pnpm install --frozen-lockfile
       - run: pnpm lint
@@ -91,7 +91,7 @@ jobs:
       AUTH_JWKS_URL: http://localhost:0/jwks
       CORS_ORIGIN: http://localhost:5173
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Start MinIO for storage integration tests
         run: |
           docker run -d --rm --name minio \
@@ -102,7 +102,7 @@ jobs:
           timeout 30 sh -c 'until curl -fs http://localhost:9000/minio/health/live; do sleep 1; done' \
             || (docker logs minio; exit 1)
       - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with: { node-version: 24, cache: pnpm }
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @prayer/shared build && pnpm --filter @prayer/db build
@@ -121,9 +121,9 @@ jobs:
       VITE_AUTH_URL: http://localhost:0
       VITE_AUTH_ANON_KEY: test
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with: { node-version: 24, cache: pnpm }
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @prayer/shared build
@@ -152,9 +152,9 @@ jobs:
       TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/prayer_test
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/prayer_test
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with: { node-version: 24, cache: pnpm }
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @prayer/db test
@@ -167,9 +167,9 @@ jobs:
     if: needs.changes.outputs.api == 'true' || needs.changes.outputs.web == 'true' || needs.changes.outputs.db == 'true' || needs.changes.outputs.shared == 'true' || needs.changes.outputs.root == 'true' || needs.changes.outputs.docker == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with: { node-version: 24, cache: pnpm }
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @prayer/db --filter @prayer/shared build
