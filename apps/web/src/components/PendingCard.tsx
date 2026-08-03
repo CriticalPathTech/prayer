@@ -4,6 +4,8 @@ import { useRef, useState } from 'react';
 import type { ApprovalItem } from '../lib/api';
 import { formatAgo } from '../lib/time';
 
+import { Avatar } from './ui/Avatar';
+
 const REJECT_PRESETS = [
   'Not really a prayer request',
   'Off-topic or commercial',
@@ -37,8 +39,15 @@ export function PendingCard({
   const [picked, setPicked] = useState<string | null>(null);
   const taRef = useRef<HTMLTextAreaElement>(null);
 
-  const displayName = item.display_name ?? 'Anonymous member';
-  const isAnon = item.display_name === null;
+  // Mirror PostCard's author semantics so a post reads identically before and
+  // after approval: anonymity and former-member status are explicit fields, not
+  // inferred from a null display_name (which is true for both cases).
+  const displayName = item.is_anonymous
+    ? 'Anonymous'
+    : item.is_former_member
+      ? 'Former member'
+      : (item.display_name ?? 'Anonymous');
+  const isOrphanAuthor = item.is_anonymous || item.is_former_member;
 
   function handleReject(): void {
     onReject(item.id, note);
@@ -62,7 +71,7 @@ export function PendingCard({
         <header className="space-y-1">
           <p className="text-xs font-semibold uppercase tracking-wide text-ember-600">Declining</p>
           <p className="text-sm font-medium text-[var(--fg-1)]">
-            Tell <strong>{isAnon ? 'the author' : displayName}</strong> why
+            Tell <strong>{isOrphanAuthor ? 'the author' : displayName}</strong> why
           </p>
           <p className="text-xs text-[var(--fg-3)]">
             They&apos;ll get a private note from <em>Moderator</em>. No other member sees this
@@ -133,14 +142,13 @@ export function PendingCard({
   return (
     <article className="rounded-md border border-[var(--border-soft)] bg-[var(--bg-raised)] p-4 shadow-warm-sm space-y-3">
       <header className="flex items-start gap-3">
-        <div
-          className={[
-            'flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-semibold',
-            isAnon ? 'bg-parchment-200 text-[var(--fg-3)]' : 'bg-vesper-100 text-vesper-700',
-          ].join(' ')}
-          aria-hidden
-        >
-          {isAnon ? '?' : (item.display_name ?? '?').charAt(0).toUpperCase()}
+        <div className="shrink-0">
+          <Avatar
+            name={displayName}
+            avatarUrl={item.avatar_url}
+            anonymous={isOrphanAuthor}
+            size="md"
+          />
         </div>
         <div className="min-w-0 flex-1">
           <p className="text-sm font-medium text-[var(--fg-1)]">{displayName}</p>
