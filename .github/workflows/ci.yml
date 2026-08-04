@@ -61,7 +61,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: pnpm/action-setup@v6
+      - uses: pnpm/action-setup@v6.0.9
       - uses: actions/setup-node@v7
         with: { node-version: 24, cache: pnpm }
       - run: pnpm install --frozen-lockfile
@@ -101,7 +101,7 @@ jobs:
             minio/minio:RELEASE.2025-09-07T16-13-09Z server /data
           timeout 30 sh -c 'until curl -fs http://localhost:9000/minio/health/live; do sleep 1; done' \
             || (docker logs minio; exit 1)
-      - uses: pnpm/action-setup@v6
+      - uses: pnpm/action-setup@v6.0.9
       - uses: actions/setup-node@v7
         with: { node-version: 24, cache: pnpm }
       - run: pnpm install --frozen-lockfile
@@ -122,7 +122,7 @@ jobs:
       VITE_AUTH_ANON_KEY: test
     steps:
       - uses: actions/checkout@v7
-      - uses: pnpm/action-setup@v6
+      - uses: pnpm/action-setup@v6.0.9
       - uses: actions/setup-node@v7
         with: { node-version: 24, cache: pnpm }
       - run: pnpm install --frozen-lockfile
@@ -153,7 +153,7 @@ jobs:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/prayer_test
     steps:
       - uses: actions/checkout@v7
-      - uses: pnpm/action-setup@v6
+      - uses: pnpm/action-setup@v6.0.9
       - uses: actions/setup-node@v7
         with: { node-version: 24, cache: pnpm }
       - run: pnpm install --frozen-lockfile
@@ -168,7 +168,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: pnpm/action-setup@v6
+      - uses: pnpm/action-setup@v6.0.9
       - uses: actions/setup-node@v7
         with: { node-version: 24, cache: pnpm }
       - run: pnpm install --frozen-lockfile
