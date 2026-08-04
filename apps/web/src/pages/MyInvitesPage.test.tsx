@@ -3,6 +3,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { MyInvitesPage } from './MyInvitesPage';
 
+const useAuthMock = vi.fn(() => ({ me: { orgDisplayName: 'Lakeside' } }));
+vi.mock('../hooks/useAuth', () => ({ useAuth: () => useAuthMock() }));
+
 const fetchMock = vi.fn();
 vi.mock('../lib/api', async (orig) => {
   const actual = await orig<typeof import('../lib/api')>();
@@ -66,6 +69,65 @@ describe('MyInvitesPage', () => {
     render(<MyInvitesPage />);
     await waitFor(() => expect(screen.getByText('old11')).toBeInTheDocument());
     expect(screen.getByText(/Retired/)).toBeInTheDocument();
+  });
+
+  it('offers the email template for an active code with a seat left', async () => {
+    fetchMock.mockResolvedValueOnce({
+      active: [
+        {
+          id: 'c1',
+          code: 'de32s',
+          seat_cap: 3,
+          seats_remaining: 2,
+          is_active: true,
+          created_at: '2026-03-01T00:00:00Z',
+          redemptions: [],
+        },
+      ],
+      retired: [],
+    });
+    render(<MyInvitesPage />);
+    await waitFor(() => expect(screen.getByText('Email template')).toBeInTheDocument());
+  });
+
+  it('omits the email template once every seat is used', async () => {
+    fetchMock.mockResolvedValueOnce({
+      active: [
+        {
+          id: 'c1',
+          code: 'de32s',
+          seat_cap: 1,
+          seats_remaining: 0,
+          is_active: true,
+          created_at: '2026-03-01T00:00:00Z',
+          redemptions: [],
+        },
+      ],
+      retired: [],
+    });
+    render(<MyInvitesPage />);
+    await waitFor(() => expect(screen.getByText('de32s')).toBeInTheDocument());
+    expect(screen.queryByText('Email template')).not.toBeInTheDocument();
+  });
+
+  it('omits the email template on retired codes', async () => {
+    fetchMock.mockResolvedValueOnce({
+      active: [],
+      retired: [
+        {
+          id: 'c2',
+          code: 'old11',
+          seat_cap: 3,
+          seats_remaining: 2,
+          is_active: false,
+          created_at: '2026-01-01T00:00:00Z',
+          redemptions: [],
+        },
+      ],
+    });
+    render(<MyInvitesPage />);
+    await waitFor(() => expect(screen.getByText('old11')).toBeInTheDocument());
+    expect(screen.queryByText('Email template')).not.toBeInTheDocument();
   });
 
   it('shows empty state when no codes exist', async () => {
