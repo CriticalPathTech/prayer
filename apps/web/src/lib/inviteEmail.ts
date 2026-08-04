@@ -8,7 +8,6 @@ export interface InviteEmailInput {
 }
 
 export interface InviteEmail {
-  subject: string;
   body: string;
 }
 
@@ -22,10 +21,6 @@ export function buildInviteEmail({
   signupUrl,
   seatsRemaining,
 }: InviteEmailInput): InviteEmail {
-  const subject = church
-    ? `An invitation to the ${church} prayer wall`
-    : 'An invitation to our prayer wall';
-
   const invitation = church
     ? `I'd love for you to join our prayer wall at ${church}.`
     : `I'd love for you to join our prayer wall.`;
@@ -49,5 +44,5 @@ export function buildInviteEmail({
     'Hope to see you there.',
   ].join('\n');
 
-  return { subject, body };
+  return { body };
 }

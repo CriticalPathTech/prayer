@@ -40,10 +40,6 @@ describe('buildInviteEmail', () => {
     seatsRemaining: 1,
   };
 
-  it('puts the church name in the subject', () => {
-    expect(buildInviteEmail(base).subject).toBe('An invitation to the Lakeside Church prayer wall');
-  });
-
   it('includes the church name, code and signup link in the body', () => {
     const { body } = buildInviteEmail(base);
     expect(body).toContain('Lakeside Church');
@@ -64,8 +60,7 @@ describe('buildInviteEmail', () => {
   });
 
   it('falls back to generic wording when the church has no name', () => {
-    const { subject, body } = buildInviteEmail({ ...base, church: null });
-    expect(subject).toBe('An invitation to our prayer wall');
+    const { body } = buildInviteEmail({ ...base, church: null });
     expect(body).toContain('join our prayer wall');
     expect(body).not.toContain('null');
     expect(body).not.toContain(' at .');
