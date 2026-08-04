@@ -31,10 +31,21 @@ describe('InviteEmailTemplate', () => {
   it('does not double up when the org name already ends with Church', () => {
     useAuthMock.mockReturnValue({ me: { orgDisplayName: 'Lakeside Church' } });
     render(<InviteEmailTemplate code="7QK2" seatsRemaining={1} />);
-    expect(
-      screen.getByText(/An invitation to the Lakeside Church prayer wall/),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/I'd love for you to join/)).toHaveTextContent(
+      'prayer wall at Lakeside Church.',
+    );
     expect(screen.queryByText(/Church Church/)).not.toBeInTheDocument();
+  });
+
+  it('offers the body alone — no subject line, heading or second copy button', () => {
+    render(<InviteEmailTemplate code="7QK2" seatsRemaining={1} />);
+    expect(screen.queryByText(/^Subject$/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/An invitation to the/)).not.toBeInTheDocument();
+    // Assert on the copy affordances by accessible name rather than counting
+    // role=button: the disclosure <summary> is not currently exposed as a
+    // button by dom-accessibility-api, but that mapping is not ours to depend on.
+    expect(screen.queryByRole('button', { name: /copy email subject/i })).not.toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: /copy/i })).toHaveLength(1);
   });
 
   it('copies the body to the clipboard', async () => {
@@ -45,13 +56,5 @@ describe('InviteEmailTemplate', () => {
     expect(writeText).toHaveBeenCalledTimes(1);
     expect(writeText.mock.calls[0]![0]).toContain('7QK2');
     expect(await screen.findByText('Copied')).toBeInTheDocument();
-  });
-
-  it('copies the subject separately from the body', async () => {
-    const writeText = vi.fn().mockResolvedValue(undefined);
-    Object.assign(navigator, { clipboard: { writeText } });
-    render(<InviteEmailTemplate code="7QK2" seatsRemaining={1} />);
-    await userEvent.click(screen.getByRole('button', { name: /copy email subject/i }));
-    expect(writeText.mock.calls[0]![0]).toBe('An invitation to the Lakeside Church prayer wall');
   });
 });

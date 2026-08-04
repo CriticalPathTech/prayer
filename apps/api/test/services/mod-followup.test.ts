@@ -1,4 +1,4 @@
-import type { Database } from '@prayer/db';
+import { type Database, newId } from '@prayer/db';
 import type { Kysely } from 'kysely';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
@@ -652,5 +652,179 @@ describe('listFollowupPosts', () => {
       limit: 20,
     });
     expect(out.items.map((p) => p.id)).toEqual([match.id]);
+  });
+});
+
+describe('listFollowupPosts caller-specific state', () => {
+  let db: Kysely<Database>;
+  let orgId: string;
+  beforeAll(async () => {
+    db = initDb(process.env.TEST_DATABASE_URL!);
+    orgId = (
+      await db
+        .selectFrom('orgs')
+        .select('id')
+        .where('slug', '=', 'testchurch')
+        .executeTakeFirstOrThrow()
+    ).id;
+  });
+  afterEach(async () => {
+    await db.deleteFrom('prayers').execute();
+    await db.deleteFrom('reactions').execute();
+    await db.deleteFrom('posts').execute();
+  });
+  afterAll(async () => {
+    await db.destroy();
+  });
+
+  it('reports prayed=true for a post the calling moderator has prayed for', async () => {
+    const mod = await insertUser(db, { orgId, role: 'moderator' });
+    const author = await insertUser(db, { orgId, role: 'member' });
+    const post = await insertPost(db, { authorId: author.id, orgId, status: 'published' });
+    await db
+      .insertInto('prayers')
+      .values({ id: newId(), org_id: orgId, post_id: post.id, user_id: mod.id })
+      .execute();
+
+    const out = await listFollowupPosts(db, {
+      orgId,
+      callerId: mod.id,
+      callerRole: 'moderator',
+      filters: {
+        noPrayers: false,
+        noReactions: false,
+        noComments: false,
+        noUpdates: false,
+        noModResponse: false,
+      },
+      minAge: { value: 0, unit: 'hours' },
+      sort: 'newest',
+      limit: 20,
+    });
+
+    const item = out.items.find((i) => i.id === post.id)!;
+    expect(item.prayed).toBe(true);
+  });
+
+  it('reports prayed=false when someone else prayed but the caller did not', async () => {
+    const mod = await insertUser(db, { orgId, role: 'moderator' });
+    const other = await insertUser(db, { orgId, role: 'member' });
+    const post = await insertPost(db, { authorId: other.id, orgId, status: 'published' });
+    await db
+      .insertInto('prayers')
+      .values({ id: newId(), org_id: orgId, post_id: post.id, user_id: other.id })
+      .execute();
+
+    const out = await listFollowupPosts(db, {
+      orgId,
+      callerId: mod.id,
+      callerRole: 'moderator',
+      filters: {
+        noPrayers: false,
+        noReactions: false,
+        noComments: false,
+        noUpdates: false,
+        noModResponse: false,
+      },
+      minAge: { value: 0, unit: 'hours' },
+      sort: 'newest',
+      limit: 20,
+    });
+
+    expect(out.items.find((i) => i.id === post.id)!.prayed).toBe(false);
+  });
+
+  it('returns the per-emoji reaction map with the caller-specific mine flag', async () => {
+    const mod = await insertUser(db, { orgId, role: 'moderator' });
+    const other = await insertUser(db, { orgId, role: 'member' });
+    const post = await insertPost(db, { authorId: other.id, orgId, status: 'published' });
+    await db
+      .insertInto('reactions')
+      .values([
+        {
+          id: newId(),
+          org_id: orgId,
+          target_type: 'post',
+          target_id: post.id,
+          author_id: mod.id,
+          emoji: '🙏',
+        },
+        {
+          id: newId(),
+          org_id: orgId,
+          target_type: 'post',
+          target_id: post.id,
+          author_id: other.id,
+          emoji: '🙏',
+        },
+        {
+          id: newId(),
+          org_id: orgId,
+          target_type: 'post',
+          target_id: post.id,
+          author_id: other.id,
+          emoji: '❤️',
+        },
+      ])
+      .execute();
+
+    const out = await listFollowupPosts(db, {
+      orgId,
+      callerId: mod.id,
+      callerRole: 'moderator',
+      filters: {
+        noPrayers: false,
+        noReactions: false,
+        noComments: false,
+        noUpdates: false,
+        noModResponse: false,
+      },
+      minAge: { value: 0, unit: 'hours' },
+      sort: 'newest',
+      limit: 20,
+    });
+
+    const item = out.items.find((i) => i.id === post.id)!;
+    expect(item.reactions['🙏']).toEqual({ count: 2, mine: true });
+    expect(item.reactions['❤️']).toEqual({ count: 1, mine: false });
+  });
+
+  it('inlines published child updates under the parent, oldest first', async () => {
+    const mod = await insertUser(db, { orgId, role: 'moderator' });
+    const author = await insertUser(db, { orgId, role: 'member' });
+    const parent = await insertPost(db, { authorId: author.id, orgId, status: 'published' });
+    const u1 = await insertPost(db, {
+      authorId: author.id,
+      orgId,
+      status: 'published',
+      parentId: parent.id,
+      body: 'first update',
+    });
+    const u2 = await insertPost(db, {
+      authorId: author.id,
+      orgId,
+      status: 'published',
+      parentId: parent.id,
+      body: 'second update',
+    });
+
+    const out = await listFollowupPosts(db, {
+      orgId,
+      callerId: mod.id,
+      callerRole: 'moderator',
+      filters: {
+        noPrayers: false,
+        noReactions: false,
+        noComments: false,
+        noUpdates: false,
+        noModResponse: false,
+      },
+      minAge: { value: 0, unit: 'hours' },
+      sort: 'newest',
+      limit: 20,
+    });
+
+    const item = out.items.find((i) => i.id === parent.id)!;
+    expect(item.updates.map((u) => u.id)).toEqual([u1.id, u2.id]);
   });
 });
