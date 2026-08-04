@@ -80,22 +80,29 @@ export async function redeemInvitation(
       .where('invitee_id', '=', user.id)
       .where('invitations.org_id', '=', codeRow.org_id)
       .executeTakeFirst();
-    if (existing) {
+
+    //    A past redemption only blocks a new one while the user is STILL a
+    //    member. `removeMember` drops the user_orgs row but deliberately keeps
+    //    the ledger row for audit — so a removed member re-invited later has
+    //    history but no membership, and must be allowed through. Gating on the
+    //    ledger alone locked them out of every future invitation permanently.
+    const membership = await trx
+      .selectFrom('user_orgs as uo')
+      .where('uo.user_id', '=', user.id)
+      .where('uo.org_id', '=', codeRow.org_id)
+      .select('role')
+      .executeTakeFirst();
+
+    if (existing && membership) {
       if (existing.ic_code === code) {
         // Idempotent re-redeem of the same code, same org — return success.
-        const uo = await trx
-          .selectFrom('user_orgs as uo')
-          .where('uo.user_id', '=', user.id)
-          .where('uo.org_id', '=', codeRow.org_id)
-          .select('role')
-          .executeTakeFirst();
         return {
           user: {
             id: user.id,
             supabase_auth_id: user.supabase_auth_id,
             email: user.email,
             display_name: user.display_name,
-            role: uo?.role ?? 'member',
+            role: membership.role,
           },
         };
       }
@@ -141,8 +148,26 @@ export async function redeemInvitation(
       })
       .execute();
 
-    // 7. Mint the new member's own initial code, scoped to the same org
-    await mintInviteCode(trx, { ownerId: user.id, orgId, seatCap: 3 });
+    // 7. Give the new member their own initial code, scoped to the same org.
+    //    A re-joining member already owns a code here — removeMember zeroed its
+    //    seats rather than deleting it — so refill that row instead of leaving a
+    //    dead code behind alongside a fresh one.
+    const ownCode = await trx
+      .selectFrom('invite_codes')
+      .select(['id', 'seat_cap'])
+      .where('owner_id', '=', user.id)
+      .where('org_id', '=', orgId)
+      .orderBy('id', 'desc')
+      .executeTakeFirst();
+    if (ownCode) {
+      await trx
+        .updateTable('invite_codes')
+        .set({ seats_remaining: ownCode.seat_cap, is_active: true })
+        .where('id', '=', ownCode.id)
+        .execute();
+    } else {
+      await mintInviteCode(trx, { ownerId: user.id, orgId, seatCap: 3 });
+    }
 
     // 8. Outbox event
     await writeInvitationEvent(trx, {

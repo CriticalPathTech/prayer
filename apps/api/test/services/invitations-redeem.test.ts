@@ -7,6 +7,7 @@ import {
   CodeInactiveError,
   CodeNotFoundError,
 } from '../../src/middleware/error.js';
+import { removeMember } from '../../src/services/church-admin.js';
 import { redeemInvitation } from '../../src/services/invitations.js';
 import { mintInviteCode } from '../../src/services/invite-codes.js';
 import { mintTestJwt } from '../helpers/jwt.js';
@@ -177,6 +178,146 @@ describe('redeemInvitation', () => {
     await expect(
       redeemInvitation(db, { supabaseAuthId: authId, email: 'a@example.com', code: code2.code }),
     ).rejects.toHaveProperty('code', 'ALREADY_REDEEMED');
+  });
+
+  // A removed member keeps their `invitations` ledger row (removeMember leaves it
+  // for audit). Re-joining must gate on current membership (user_orgs), not on
+  // redemption history — otherwise a re-invited user is permanently locked out.
+  it('lets a removed member re-join with a new code', async () => {
+    const owner1 = await insertBareUser('Ben');
+    const owner2 = await insertBareUser('Cara');
+    const code1 = await mintInviteCode(db, { ownerId: owner1, orgId, seatCap: 3 });
+    const code2 = await mintInviteCode(db, { ownerId: owner2, orgId, seatCap: 3 });
+    const authId = newId();
+
+    const joined = await redeemInvitation(db, {
+      supabaseAuthId: authId,
+      email: 'a@example.com',
+      code: code1.code,
+    });
+    await removeMember(db, { actorId: owner1, targetUserId: joined.user.id, orgId });
+
+    const rejoined = await redeemInvitation(db, {
+      supabaseAuthId: authId,
+      email: 'a@example.com',
+      code: code2.code,
+    });
+
+    expect(rejoined.user.id).toBe(joined.user.id);
+    expect(rejoined.user.role).toBe('member');
+
+    const uo = await db
+      .selectFrom('user_orgs')
+      .selectAll()
+      .where('user_id', '=', joined.user.id)
+      .where('org_id', '=', orgId)
+      .executeTakeFirstOrThrow();
+    expect(uo.role).toBe('member');
+
+    // Ledger is append-only history: both redemptions are recorded.
+    const invCount = await db
+      .selectFrom('invitations')
+      .select(db.fn.countAll<string>().as('n'))
+      .where('invitee_id', '=', joined.user.id)
+      .where('org_id', '=', orgId)
+      .executeTakeFirstOrThrow();
+    expect(Number(invCount.n)).toBe(2);
+
+    const cRow = await db
+      .selectFrom('invite_codes')
+      .selectAll()
+      .where('id', '=', code2.id)
+      .executeTakeFirstOrThrow();
+    expect(cRow.seats_remaining).toBe(2);
+  });
+
+  it('lets a removed member re-join with the same code they originally used', async () => {
+    const owner = await insertBareUser('Ben');
+    const code = await mintInviteCode(db, { ownerId: owner, orgId, seatCap: 3 });
+    const authId = newId();
+
+    const joined = await redeemInvitation(db, {
+      supabaseAuthId: authId,
+      email: 'a@example.com',
+      code: code.code,
+    });
+    await removeMember(db, { actorId: owner, targetUserId: joined.user.id, orgId });
+
+    await redeemInvitation(db, {
+      supabaseAuthId: authId,
+      email: 'a@example.com',
+      code: code.code,
+    });
+
+    const uo = await db
+      .selectFrom('user_orgs')
+      .selectAll()
+      .where('user_id', '=', joined.user.id)
+      .where('org_id', '=', orgId)
+      .executeTakeFirstOrThrow();
+    expect(uo.role).toBe('member');
+  });
+
+  // Removal zeroes the codes the departing member owned. Re-joining restores the
+  // seats on that same row rather than leaving a dead code behind plus a new one.
+  it('restores the re-joining member’s own invite code instead of minting a duplicate', async () => {
+    const owner1 = await insertBareUser('Ben');
+    const owner2 = await insertBareUser('Cara');
+    const code1 = await mintInviteCode(db, { ownerId: owner1, orgId, seatCap: 3 });
+    const code2 = await mintInviteCode(db, { ownerId: owner2, orgId, seatCap: 3 });
+    const authId = newId();
+
+    const joined = await redeemInvitation(db, {
+      supabaseAuthId: authId,
+      email: 'a@example.com',
+      code: code1.code,
+    });
+    await removeMember(db, { actorId: owner1, targetUserId: joined.user.id, orgId });
+    await redeemInvitation(db, {
+      supabaseAuthId: authId,
+      email: 'a@example.com',
+      code: code2.code,
+    });
+
+    const ownCodes = await db
+      .selectFrom('invite_codes')
+      .selectAll()
+      .where('owner_id', '=', joined.user.id)
+      .where('org_id', '=', orgId)
+      .execute();
+    expect(ownCodes).toHaveLength(1);
+    expect(ownCodes[0]!.seats_remaining).toBe(ownCodes[0]!.seat_cap);
+    expect(ownCodes[0]!.is_active).toBe(true);
+  });
+
+  // Demoting on re-join is deliberate: a removed moderator comes back as a plain
+  // member and has to be re-promoted.
+  it('re-joins a removed moderator as a member, not at their former role', async () => {
+    const owner1 = await insertBareUser('Ben');
+    const owner2 = await insertBareUser('Cara');
+    const code1 = await mintInviteCode(db, { ownerId: owner1, orgId, seatCap: 3 });
+    const code2 = await mintInviteCode(db, { ownerId: owner2, orgId, seatCap: 3 });
+    const authId = newId();
+
+    const joined = await redeemInvitation(db, {
+      supabaseAuthId: authId,
+      email: 'a@example.com',
+      code: code1.code,
+    });
+    await db
+      .updateTable('user_orgs')
+      .set({ role: 'moderator' })
+      .where('user_id', '=', joined.user.id)
+      .where('org_id', '=', orgId)
+      .execute();
+    await removeMember(db, { actorId: owner1, targetUserId: joined.user.id, orgId });
+
+    const rejoined = await redeemInvitation(db, {
+      supabaseAuthId: authId,
+      email: 'a@example.com',
+      code: code2.code,
+    });
+    expect(rejoined.user.role).toBe('member');
   });
 
   it('two concurrent redeems of the last-seat code: one wins, one fails', async () => {
