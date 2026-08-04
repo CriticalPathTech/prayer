@@ -3,6 +3,7 @@ import { Router } from 'express';
 import type { Kysely } from 'kysely';
 import { z } from 'zod';
 
+import type { StorageClient } from '../lib/storage.js';
 import { UnauthorizedError, ValidationError } from '../middleware/error.js';
 import { dismissFlags } from '../services/flags.js';
 import { hideTarget, listModQueue, unhideTarget } from '../services/moderation.js';
@@ -13,7 +14,7 @@ const zQueueQuery = z.object({
   limit: z.coerce.number().int().min(1).max(50).default(20),
 });
 
-export function moderationRouter(deps: { db: Kysely<Database> }): Router {
+export function moderationRouter(deps: { db: Kysely<Database>; storage: StorageClient }): Router {
   const router = Router();
 
   router.post('/mod/posts/:id/hide', async (req, res, next) => {
@@ -127,7 +128,7 @@ export function moderationRouter(deps: { db: Kysely<Database> }): Router {
       if (!req.user) throw new UnauthorizedError();
       const parsed = zQueueQuery.safeParse(req.query);
       if (!parsed.success) throw new ValidationError(parsed.error.message);
-      const out = await listModQueue(deps.db, {
+      const out = await listModQueue(deps.db, deps.storage, {
         callerRole: req.user.role,
         orgId: req.user.orgId,
         ...(parsed.data.status !== undefined ? { status: parsed.data.status } : {}),

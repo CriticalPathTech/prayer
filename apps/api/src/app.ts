@@ -163,13 +163,13 @@ export function buildApp(deps: AppDependencies): Express {
   app.use(auth, meRouter({ db: deps.db, storage, publicUrlBase }));
   app.use(auth, meImagesRouter({ db: deps.db, storage }));
   app.use(auth, meDraftRouter({ db: deps.db, storage }));
-  app.use(auth, postsRouter({ db: deps.db }));
-  app.use(auth, feedRouter({ db: deps.db }));
+  app.use(auth, postsRouter({ db: deps.db, storage }));
+  app.use(auth, feedRouter({ db: deps.db, storage }));
   app.use(auth, usersRouter({ db: deps.db }));
   app.use(auth, commentsRouter({ db: deps.db }));
   app.use(auth, notificationsRouter({ db: deps.db }));
-  app.use(auth, requireModerator(), moderationRouter({ db: deps.db }));
-  app.use(auth, requireModerator(), modApprovalsRouter({ db: deps.db }));
+  app.use(auth, requireModerator(), moderationRouter({ db: deps.db, storage }));
+  app.use(auth, requireModerator(), modApprovalsRouter({ db: deps.db, storage }));
   app.use(auth, requireModerator(), modFollowupRouter({ db: deps.db }));
   app.use(auth, requireModerator(), modPostsPinRouter({ db: deps.db }));
   app.use(auth, requireModerator(), modPostsExtendRouter({ db: deps.db }));

@@ -5,10 +5,12 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { initDb } from '../../src/db/index.js';
 import { getPostWithUpdates } from '../../src/services/posts.js';
 import { insertOrg, insertPost, insertUser } from '../helpers/seed.js';
+import { makeInMemoryStorage } from '../helpers/storage.js';
 
 describe('getPostWithUpdates tombstone logic', () => {
   let db: Kysely<Database>;
   let orgId: string;
+  const storage = makeInMemoryStorage();
   beforeAll(async () => {
     db = initDb(process.env.TEST_DATABASE_URL!);
     orgId = await insertOrg(db, { slug: 'testchurch-svc-posts-tombstone' });
@@ -31,7 +33,7 @@ describe('getPostWithUpdates tombstone logic', () => {
       status: 'hidden',
       body: 'secret body',
     });
-    const out = await getPostWithUpdates(db, {
+    const out = await getPostWithUpdates(db, storage, {
       postId: post.id,
       orgId,
       callerId: viewer.id,
@@ -50,7 +52,7 @@ describe('getPostWithUpdates tombstone logic', () => {
       status: 'hidden',
       body: 'secret body',
     });
-    const out = await getPostWithUpdates(db, {
+    const out = await getPostWithUpdates(db, storage, {
       postId: post.id,
       orgId,
       callerId: author.id,
@@ -69,7 +71,7 @@ describe('getPostWithUpdates tombstone logic', () => {
       status: 'hidden',
       body: 'secret body',
     });
-    const out = await getPostWithUpdates(db, {
+    const out = await getPostWithUpdates(db, storage, {
       postId: post.id,
       orgId,
       callerId: mod.id,

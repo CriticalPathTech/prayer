@@ -7,6 +7,9 @@ import { initDb } from '../../src/db/index.js';
 import { ForbiddenError } from '../../src/middleware/error.js';
 import { hideTarget, listModQueue, unhideTarget } from '../../src/services/moderation.js';
 import { insertComment, insertOrg, insertPost, insertUser } from '../helpers/seed.js';
+import { makeInMemoryStorage } from '../helpers/storage.js';
+
+const storage = makeInMemoryStorage();
 
 describe('hideTarget / unhideTarget', () => {
   let db: Kysely<Database>;
@@ -233,7 +236,7 @@ describe('listModQueue', () => {
       ])
       .execute();
 
-    const out = await listModQueue(db, {
+    const out = await listModQueue(db, storage, {
       callerRole: 'moderator',
       orgId,
       status: 'pending',
@@ -246,7 +249,7 @@ describe('listModQueue', () => {
 
   it('non-moderator caller throws', async () => {
     await expect(
-      listModQueue(db, { callerRole: 'member', orgId, limit: 20 }),
+      listModQueue(db, storage, { callerRole: 'member', orgId, limit: 20 }),
     ).rejects.toBeInstanceOf(ForbiddenError);
   });
 
@@ -276,7 +279,7 @@ describe('listModQueue', () => {
       })
       .execute();
 
-    const out = await listModQueue(db, {
+    const out = await listModQueue(db, storage, {
       callerRole: 'moderator',
       orgId,
       status: 'hidden',
@@ -297,7 +300,7 @@ describe('listModQueue', () => {
       status: 'hidden',
       body: 'hidden manually, never flagged',
     });
-    const out = await listModQueue(db, {
+    const out = await listModQueue(db, storage, {
       callerRole: 'moderator',
       orgId,
       status: 'hidden',

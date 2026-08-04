@@ -6,6 +6,9 @@ import { listApprovals } from '../../src/services/post-approvals.js';
 import { rejectPost } from '../../src/services/post-approvals.js';
 import { skipPostReview, unskipPostReview } from '../../src/services/post-approvals.js';
 import { getTestchurchOrgId, insertPost, insertUser } from '../helpers/seed.js';
+import { makeInMemoryStorage } from '../helpers/storage.js';
+
+const storage = makeInMemoryStorage();
 
 // Cross-file isolation: post-approve / post-reject populate posts.moderated_by,
 // which becomes an orphan FK ref once tests finish. Other test files'
@@ -58,7 +61,7 @@ describe('listApprovals', () => {
       .values({ post_id: p1.id, moderator_id: mod.id, org_id: orgId })
       .execute();
 
-    const result = await listApprovals(db, {
+    const result = await listApprovals(db, storage, {
       orgId,
       callerId: mod.id,
       callerRole: 'moderator',
@@ -96,7 +99,7 @@ describe('listApprovals', () => {
       .execute();
 
     // Mod B's queue still has p1 at the top (oldest first), p2 second.
-    const result = await listApprovals(db, {
+    const result = await listApprovals(db, storage, {
       orgId,
       callerId: modB.id,
       callerRole: 'moderator',

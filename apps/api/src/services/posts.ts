@@ -6,6 +6,7 @@ import { sql } from 'kysely';
 import { z } from 'zod';
 
 import { isPrivilegedRole } from '../lib/roles.js';
+import type { StorageClient } from '../lib/storage.js';
 import {
   EditDeadlinePassedError,
   ForbiddenError,
@@ -16,7 +17,7 @@ import {
 import { writePostEvent } from './events.js';
 import { fetchHideInfo } from './hide-info.js';
 import { fetchMemberSet } from './membership-set.js';
-import { attachImagesToPost } from './post-images.js';
+import { attachImagesToPost, hydratePostImages, type PostImageDto } from './post-images.js';
 
 export interface PostRow {
   id: string;
@@ -100,6 +101,11 @@ export interface PostDto {
    * the caller doesn't pass a memberSet, defaults to false. */
   is_former_member: boolean;
   is_tombstone?: boolean;
+  /** Empty array when the post has no attached photos — never absent.
+   * Callers that need real hydration (feed, detail, mod views) overwrite
+   * this via a batch call to hydratePostImages and spread over the DTO;
+   * toPostDto itself has no storage client, so it always defaults to []. */
+  images: PostImageDto[];
 }
 
 export interface Caller {
@@ -161,6 +167,7 @@ export function toPostDto(
       hidden_source: null,
       is_former_member: false,
       is_tombstone: true,
+      images: [],
     };
   }
   const canSeeAuthor = !row.is_anonymous || caller.role === 'super_user';
@@ -202,6 +209,7 @@ export function toPostDto(
     hidden_by: hiddenBy,
     hidden_source: hiddenSource,
     is_former_member: isFormerMember,
+    images: [],
   };
 }
 
@@ -512,6 +520,7 @@ export async function publishOwnDraft(
 
 export async function getPostWithUpdates(
   db: Kysely<Database>,
+  storage: StorageClient,
   args: { postId: string; orgId: string; callerId: string; callerRole: UserRole },
 ): Promise<PostWithUpdatesResponse> {
   const parentRow = await db
@@ -620,11 +629,20 @@ export async function getPostWithUpdates(
   );
   const memberSet = await fetchMemberSet(db, args.orgId, detailAuthorIds);
 
+  const imagesMap = await hydratePostImages(db, storage, {
+    postIds: [r.id, ...updateRows.map((u) => u.id)],
+    orgId: args.orgId,
+  });
+
   return {
-    post: toPostDto(r, { role: args.callerRole }, args.callerId, memberSet),
-    updates: updateRows.map((u) =>
-      toPostDto(u, { role: args.callerRole }, args.callerId, memberSet),
-    ),
+    post: {
+      ...toPostDto(r, { role: args.callerRole }, args.callerId, memberSet),
+      images: imagesMap.get(r.id) ?? [],
+    },
+    updates: updateRows.map((u) => ({
+      ...toPostDto(u, { role: args.callerRole }, args.callerId, memberSet),
+      images: imagesMap.get(u.id) ?? [],
+    })),
     reactions,
     prayer: {
       prayer_count: Number(prayerRows.prayer_count),

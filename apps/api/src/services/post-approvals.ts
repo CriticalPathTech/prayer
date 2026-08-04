@@ -4,10 +4,12 @@ import type { Kysely } from 'kysely';
 import { sql } from 'kysely';
 
 import { isPrivilegedRole } from '../lib/roles.js';
+import type { StorageClient } from '../lib/storage.js';
 import { ForbiddenError, NotFoundError, ValidationError } from '../middleware/error.js';
 
 import { writePostEvent } from './events.js';
 import { fetchMemberSet } from './membership-set.js';
+import { hydratePostImages } from './post-images.js';
 import { fetchPostRow, toPostDto, type PostDto, type PostRow } from './posts.js';
 
 const REJECT_NOTE_MAX = 500;
@@ -33,6 +35,7 @@ export interface ListApprovalsResult {
 
 export async function listApprovals(
   db: Kysely<Database>,
+  storage: StorageClient,
   input: ListApprovalsInput,
 ): Promise<ListApprovalsResult> {
   requireModerator(input.callerRole);
@@ -71,10 +74,14 @@ export async function listApprovals(
     new Set(rows.map((r) => r.author_id).filter((id): id is string => id !== null)),
   );
   const memberSet = await fetchMemberSet(db, input.orgId, authorIds);
+  const imagesMap = await hydratePostImages(db, storage, {
+    postIds: rows.map((r) => r.id),
+    orgId: input.orgId,
+  });
 
   const items = (rows as unknown as (PostRow & { skipped_by_me: boolean })[]).map((r) => {
     const dto = toPostDto(r, { role: input.callerRole }, input.callerId, memberSet);
-    return { ...dto, skipped_by_me: r.skipped_by_me };
+    return { ...dto, skipped_by_me: r.skipped_by_me, images: imagesMap.get(r.id) ?? [] };
   });
   return { items };
 }

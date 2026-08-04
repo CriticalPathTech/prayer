@@ -3,6 +3,7 @@ import { Router } from 'express';
 import type { Kysely } from 'kysely';
 
 import { zCreateFlag, zToggleReaction } from '../lib/schemas.js';
+import type { StorageClient } from '../lib/storage.js';
 import { UnauthorizedError, ValidationError } from '../middleware/error.js';
 import { createFlag } from '../services/flags.js';
 import {
@@ -22,7 +23,7 @@ import {
 import { togglePrayer } from '../services/prayers.js';
 import { toggleReaction } from '../services/reactions.js';
 
-export function postsRouter(deps: { db: Kysely<Database> }): Router {
+export function postsRouter(deps: { db: Kysely<Database>; storage: StorageClient }): Router {
   const router = Router();
 
   router.post('/posts', async (req, res, next) => {
@@ -79,7 +80,7 @@ export function postsRouter(deps: { db: Kysely<Database> }): Router {
   router.get('/posts/:id', async (req, res, next) => {
     try {
       if (!req.user) throw new UnauthorizedError();
-      const data = await getPostWithUpdates(deps.db, {
+      const data = await getPostWithUpdates(deps.db, deps.storage, {
         postId: req.params.id!,
         orgId: req.user.orgId,
         callerId: req.user.id,

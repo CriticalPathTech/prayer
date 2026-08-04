@@ -7,10 +7,12 @@ import { encodeCursor } from '../../src/services/cursor.js';
 import { clearSnapshotCache } from '../../src/services/feed-snapshot.js';
 import { fetchFeed } from '../../src/services/feed.js';
 import { getTestchurchOrgId, insertPost, insertUser } from '../helpers/seed.js';
+import { makeInMemoryStorage } from '../helpers/storage.js';
 
 describe('fetchFeed pinned section', () => {
   let db: Kysely<Database>;
   let orgId: string;
+  const storage = makeInMemoryStorage();
 
   beforeAll(async () => {
     db = initDb(process.env.TEST_DATABASE_URL!);
@@ -51,7 +53,7 @@ describe('fetchFeed pinned section', () => {
       .execute();
     const plain = await insertPost(db, { authorId: author.id, orgId, status: 'published' });
 
-    const feed = await fetchFeed(db, {
+    const feed = await fetchFeed(db, storage, {
       filter: 'all',
       limit: 50,
       callerRole: 'member',
@@ -74,7 +76,7 @@ describe('fetchFeed pinned section', () => {
     });
     const plain = await insertPost(db, { authorId: author.id, orgId, status: 'published' });
 
-    const feed = await fetchFeed(db, {
+    const feed = await fetchFeed(db, storage, {
       filter: 'all',
       limit: 50,
       cursor: encodeCursor({ filter: 'all', id: plain.id }),
@@ -99,7 +101,7 @@ describe('fetchFeed pinned section', () => {
       .set({ pin_until: new Date(Date.now() - 60_000) })
       .where('id', '=', id)
       .execute();
-    const feed = await fetchFeed(db, {
+    const feed = await fetchFeed(db, storage, {
       filter: 'all',
       limit: 50,
       callerRole: 'member',
