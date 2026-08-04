@@ -23,6 +23,9 @@ const baseHook = {
   submitting: false,
   alreadyRegistered: false,
   submit: vi.fn().mockResolvedValue(undefined),
+  joining: false,
+  joinError: null as string | null,
+  joinExisting: vi.fn().mockResolvedValue(undefined),
 };
 
 describe('MobileSignupAccountPage', () => {
@@ -60,6 +63,36 @@ describe('MobileSignupAccountPage', () => {
       </MemoryRouter>,
     );
     expect(screen.getByText(/already registered/i)).toBeInTheDocument();
+  });
+
+  // The Already registered panel is the only way a removed member gets back
+  // into a church, so the button that redeems the code has to be there.
+  it('offers Sign in & join on the Already registered panel and calls joinExisting', async () => {
+    const joinExisting = vi.fn().mockResolvedValue(undefined);
+    useSignupAccountMock.mockReturnValue({ ...baseHook, alreadyRegistered: true, joinExisting });
+    render(
+      <MemoryRouter>
+        <MobileSignupAccountPage />
+      </MemoryRouter>,
+    );
+    await userEvent.click(screen.getByRole('button', { name: /sign in & join/i }));
+    expect(joinExisting).toHaveBeenCalled();
+  });
+
+  it('shows joinError and disables the button while joining', () => {
+    useSignupAccountMock.mockReturnValue({
+      ...baseHook,
+      alreadyRegistered: true,
+      joining: true,
+      joinError: 'Invalid login credentials.',
+    });
+    render(
+      <MemoryRouter>
+        <MobileSignupAccountPage />
+      </MemoryRouter>,
+    );
+    expect(screen.getByText('Invalid login credentials.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /joining/i })).toBeDisabled();
   });
 
   it('renders the form (email + password + confirm + Sign up) on ok preview', () => {
