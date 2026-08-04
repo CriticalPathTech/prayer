@@ -20,15 +20,13 @@ describe('useIsMobile', () => {
     listeners = new Set();
     matchesRef = { value: false };
     originalMatchMedia = window.matchMedia;
-    window.matchMedia = vi.fn().mockImplementation(
-      (): FakeMQL => ({
-        get matches() {
-          return matchesRef.value;
-        },
-        addEventListener: (_type, cb) => listeners.add(cb),
-        removeEventListener: (_type, cb) => listeners.delete(cb),
-      }),
-    ) as never;
+    window.matchMedia = vi.fn().mockImplementation((): FakeMQL => ({
+      get matches() {
+        return matchesRef.value;
+      },
+      addEventListener: (_type, cb) => listeners.add(cb),
+      removeEventListener: (_type, cb) => listeners.delete(cb),
+    })) as never;
   });
 
   afterEach(() => {

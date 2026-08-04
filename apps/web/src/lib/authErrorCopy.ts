@@ -1,9 +1,5 @@
 export type ErrorAction =
-  | 'retry'
-  | 'disable60s'
-  | 'disable300s'
-  | 'linkSignIn'
-  | 'linkContactInviter';
+  'retry' | 'disable60s' | 'disable300s' | 'linkSignIn' | 'linkContactInviter';
 
 export interface ErrorCopy {
   text: string;

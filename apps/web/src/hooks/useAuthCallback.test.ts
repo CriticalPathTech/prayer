@@ -4,8 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useAuthCallback } from './useAuthCallback';
 
 let authStateCallback:
-  | ((event: string, session: { user?: { user_metadata?: unknown } } | null) => void)
-  | null = null;
+  ((event: string, session: { user?: { user_metadata?: unknown } } | null) => void) | null = null;
 const subscriptionUnsubscribe = vi.fn();
 vi.mock('../lib/supabase', () => ({
   supabase: {

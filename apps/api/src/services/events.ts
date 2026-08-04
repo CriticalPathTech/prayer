@@ -23,9 +23,7 @@ export type ModerationEventKind = 'moderator.hide' | 'moderator.unhide';
 export type InvitationEventKind = 'invite.accepted' | 'invitation.redeemed';
 
 export type AdminEventKind =
-  | 'admin.member_removed'
-  | 'admin.org_settings_updated'
-  | 'admin.role_changed';
+  'admin.member_removed' | 'admin.org_settings_updated' | 'admin.role_changed';
 
 export type EventKind =
   | PostEventKind
@@ -212,8 +210,7 @@ export interface WriteInvitationRedeemedEventInput {
 }
 
 export type WriteInvitationEventInput =
-  | WriteInviteAcceptedEventInput
-  | WriteInvitationRedeemedEventInput;
+  WriteInviteAcceptedEventInput | WriteInvitationRedeemedEventInput;
 
 export async function writeInvitationEvent(
   db: Kysely<Database> | Transaction<Database>,
@@ -271,9 +268,7 @@ export interface WriteRoleChangedEventInput {
 }
 
 export type WriteAdminEventInput =
-  | WriteMemberRemovedEventInput
-  | WriteOrgSettingsUpdatedEventInput
-  | WriteRoleChangedEventInput;
+  WriteMemberRemovedEventInput | WriteOrgSettingsUpdatedEventInput | WriteRoleChangedEventInput;
 
 export async function writeAdminEvent(
   db: Kysely<Database> | Transaction<Database>,
