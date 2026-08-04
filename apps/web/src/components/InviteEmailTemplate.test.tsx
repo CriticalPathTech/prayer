@@ -41,7 +41,11 @@ describe('InviteEmailTemplate', () => {
     render(<InviteEmailTemplate code="7QK2" seatsRemaining={1} />);
     expect(screen.queryByText(/^Subject$/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/An invitation to the/)).not.toBeInTheDocument();
-    expect(screen.getAllByRole('button')).toHaveLength(1);
+    // Assert on the copy affordances by accessible name rather than counting
+    // role=button: the disclosure <summary> is not currently exposed as a
+    // button by dom-accessibility-api, but that mapping is not ours to depend on.
+    expect(screen.queryByRole('button', { name: /copy email subject/i })).not.toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: /copy/i })).toHaveLength(1);
   });
 
   it('copies the body to the clipboard', async () => {
