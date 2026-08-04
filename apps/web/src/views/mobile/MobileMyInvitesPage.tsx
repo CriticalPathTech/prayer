@@ -1,6 +1,7 @@
 import type { JSX } from 'react';
 
 import { CopyCode } from '../../components/CopyCode';
+import { InviteEmailTemplate } from '../../components/InviteEmailTemplate';
 import { Pill } from '../../components/ui/Pill';
 import { useMyInvites } from '../../hooks/useMyInvites';
 
@@ -63,6 +64,7 @@ export function MobileMyInvitesPage(): JSX.Element {
                 ))}
               </ul>
             ) : null}
+            <InviteEmailTemplate code={c.code} seatsRemaining={c.seats_remaining} />
           </div>
         ))}
         {data.retired.map((c) => (
