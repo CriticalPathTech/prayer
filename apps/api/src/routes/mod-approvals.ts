@@ -56,7 +56,7 @@ export function modApprovalsRouter(deps: { db: Kysely<Database>; storage: Storag
       if (!req.user) throw new UnauthorizedError();
       const parsed = zRejectBody.safeParse(req.body ?? {});
       if (!parsed.success) throw new ValidationError(parsed.error.message);
-      const post = await rejectPost(deps.db, {
+      const post = await rejectPost(deps.db, deps.storage, {
         postId: req.params.id!,
         orgId: req.user.orgId,
         callerId: req.user.id,

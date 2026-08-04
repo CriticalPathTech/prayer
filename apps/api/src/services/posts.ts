@@ -17,7 +17,12 @@ import {
 import { writePostEvent } from './events.js';
 import { fetchHideInfo } from './hide-info.js';
 import { fetchMemberSet } from './membership-set.js';
-import { attachImagesToPost, hydratePostImages, type PostImageDto } from './post-images.js';
+import {
+  attachImagesToPost,
+  hydratePostImages,
+  purgeFullSizeForPosts,
+  type PostImageDto,
+} from './post-images.js';
 
 export interface PostRow {
   id: string;
@@ -935,9 +940,10 @@ export async function listArchive(
 
 export async function archivePost(
   db: Kysely<Database>,
+  storage: StorageClient,
   args: { postId: string; orgId: string; callerId: string; reason: 'author' | 'expiry' },
 ): Promise<void> {
-  await db.transaction().execute(async (trx) => {
+  const didArchive = await db.transaction().execute(async (trx) => {
     const existing = await trx
       .selectFrom('posts')
       .select(['id', 'author_id', 'status'])
@@ -948,14 +954,18 @@ export async function archivePost(
     if (args.reason === 'author' && existing.author_id !== args.callerId) {
       throw new ForbiddenError();
     }
-    if (existing.status === 'archived') return;
+    if (existing.status === 'archived') return false;
     await trx
       .updateTable('posts')
       .set({ status: 'archived' })
       .where('id', '=', args.postId)
       .where('org_id', '=', args.orgId)
       .execute();
+    return true;
   });
+  if (didArchive) {
+    await purgeFullSizeForPosts(db, storage, { postIds: [args.postId] });
+  }
 }
 
 // Canonical definition lives in @prayer/shared so the web app's ExtendDialog can

@@ -114,7 +114,7 @@ export function postsRouter(deps: { db: Kysely<Database>; storage: StorageClient
   router.delete('/posts/:id', async (req, res, next) => {
     try {
       if (!req.user) throw new UnauthorizedError();
-      await archivePost(deps.db, {
+      await archivePost(deps.db, deps.storage, {
         postId: req.params.id!,
         orgId: req.user.orgId,
         callerId: req.user.id,

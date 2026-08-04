@@ -12,8 +12,13 @@ import type { Kysely } from 'kysely';
 import cron, { type ScheduledTask } from 'node-cron';
 import type { Logger } from 'pino';
 
+import type { StorageClient } from '../lib/storage.js';
+
+import { purgeFullSizeForPosts } from './post-images.js';
+
 export interface ExpiryJobDeps {
   db: Kysely<Database>;
+  storage: StorageClient;
   logger: Logger;
   schedule?: string;
 }
@@ -26,6 +31,7 @@ export interface ExpiryJobHandle {
 
 export async function sweepExpired(
   db: Kysely<Database>,
+  storage: StorageClient,
   opts: { logger: Logger },
 ): Promise<number> {
   const expired = await db
@@ -47,6 +53,7 @@ export async function sweepExpired(
       )
       .execute();
   });
+  await purgeFullSizeForPosts(db, storage, { postIds: expired.map((r) => r.id) });
   opts.logger.info({ archived: expired.length }, 'expiry sweep');
   return expired.length;
 }
@@ -59,7 +66,7 @@ export function createExpirySweeper(deps: ExpiryJobDeps): ExpiryJobHandle {
     start() {
       task = cron.schedule(schedule, async () => {
         try {
-          await sweepExpired(deps.db, { logger: deps.logger });
+          await sweepExpired(deps.db, deps.storage, { logger: deps.logger });
         } catch (err) {
           deps.logger.error({ err }, 'expiry sweep failed');
         }
@@ -70,7 +77,7 @@ export function createExpirySweeper(deps: ExpiryJobDeps): ExpiryJobHandle {
       task = null;
     },
     async runOnce() {
-      return sweepExpired(deps.db, { logger: deps.logger });
+      return sweepExpired(deps.db, deps.storage, { logger: deps.logger });
     },
   };
 }

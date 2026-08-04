@@ -176,7 +176,7 @@ export function buildApp(deps: AppDependencies): Express {
   app.use(auth, requireModerator(), modInviteCodesRouter({ db: deps.db }));
   app.use(auth, requireSuperUser(), adminChurchRouter({ db: deps.db, orgResolver }));
 
-  const expirySweeper = createExpirySweeper({ db: deps.db, logger: deps.logger });
+  const expirySweeper = createExpirySweeper({ db: deps.db, storage, logger: deps.logger });
   const pinSweeper = createPinSweeper({ db: deps.db, logger: deps.logger });
   if (process.env.NODE_ENV !== 'test') {
     expirySweeper.start();

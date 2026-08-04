@@ -195,7 +195,7 @@ describe('rejectPost', () => {
     const mod = await insertUser(db, { orgId, role: 'moderator' });
     const author = await insertUser(db, { orgId, role: 'member' });
     const p = await insertPost(db, { authorId: author.id, orgId, status: 'pending', body: 'orig' });
-    const dto = await rejectPost(db, {
+    const dto = await rejectPost(db, storage, {
       postId: p.id,
       orgId,
       callerId: mod.id,
@@ -226,7 +226,12 @@ describe('rejectPost', () => {
     const mod = await insertUser(db, { orgId, role: 'moderator' });
     const author = await insertUser(db, { orgId, role: 'member' });
     const p = await insertPost(db, { authorId: author.id, orgId, status: 'pending', body: 'orig' });
-    await rejectPost(db, { postId: p.id, orgId, callerId: mod.id, callerRole: 'moderator' });
+    await rejectPost(db, storage, {
+      postId: p.id,
+      orgId,
+      callerId: mod.id,
+      callerRole: 'moderator',
+    });
     const stored = await db
       .selectFrom('posts')
       .select('moderation_note')
@@ -241,7 +246,7 @@ describe('rejectPost', () => {
     const author = await insertUser(db, { orgId, role: 'member' });
     const p = await insertPost(db, { authorId: author.id, orgId, status: 'pending' });
     await expect(
-      rejectPost(db, {
+      rejectPost(db, storage, {
         postId: p.id,
         orgId,
         callerId: mod.id,

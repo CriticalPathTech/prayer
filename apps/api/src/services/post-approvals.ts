@@ -9,7 +9,7 @@ import { ForbiddenError, NotFoundError, ValidationError } from '../middleware/er
 
 import { writePostEvent } from './events.js';
 import { fetchMemberSet } from './membership-set.js';
-import { hydratePostImages } from './post-images.js';
+import { hydratePostImages, purgeAllForPost } from './post-images.js';
 import { fetchPostRow, toPostDto, type PostDto, type PostRow } from './posts.js';
 
 const REJECT_NOTE_MAX = 500;
@@ -188,13 +188,17 @@ export interface RejectPostInput {
   note?: string;
 }
 
-export async function rejectPost(db: Kysely<Database>, input: RejectPostInput): Promise<PostDto> {
+export async function rejectPost(
+  db: Kysely<Database>,
+  storage: StorageClient,
+  input: RejectPostInput,
+): Promise<PostDto> {
   requireModerator(input.callerRole);
   const note = input.note?.trim() ? input.note.trim() : null;
   if (note !== null && note.length > REJECT_NOTE_MAX) {
     throw new ValidationError(`note must be ${REJECT_NOTE_MAX} characters or fewer`);
   }
-  return db.transaction().execute(async (trx) => {
+  const dto = await db.transaction().execute(async (trx) => {
     const existing = await trx
       .selectFrom('posts')
       .select(['id', 'author_id', 'body', 'status'])
@@ -232,4 +236,6 @@ export async function rejectPost(db: Kysely<Database>, input: RejectPostInput): 
     const row = await fetchPostRow(trx, { postId: input.postId, orgId: input.orgId });
     return toPostDto(row, { role: input.callerRole }, input.callerId);
   });
+  await purgeAllForPost(db, storage, { postId: input.postId });
+  return dto;
 }
