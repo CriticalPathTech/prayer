@@ -2,6 +2,7 @@ import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 
 import { initDb } from '../../src/db/index.js';
 import {
+  attachImagesToPost,
   deleteOwnPostImage,
   hydratePostImages,
   purgeAllForPost,
@@ -249,5 +250,138 @@ describe('post-images service', () => {
 
     const remaining = await db.selectFrom('post_images').select('id').execute();
     expect(remaining.map((r) => r.id).sort()).toEqual([attached.id, freshOrphan.id].sort());
+  });
+
+  describe('attachImagesToPost', () => {
+    it('re-attaching a subset detaches the dropped image and keeps the rest at their position', async () => {
+      const post = await insertPost(db, { authorId: userId, orgId, status: 'draft' });
+      const a = await uploadPostImage(db, storage, {
+        ownerId: userId,
+        orgId,
+        bytes: await makeJpeg(100, 100),
+      });
+      const b = await uploadPostImage(db, storage, {
+        ownerId: userId,
+        orgId,
+        bytes: await makeJpeg(100, 100),
+      });
+
+      await db.transaction().execute((trx) =>
+        attachImagesToPost(trx, {
+          imageIds: [a.id, b.id],
+          postId: post.id,
+          ownerId: userId,
+          orgId,
+        }),
+      );
+      await db.transaction().execute((trx) =>
+        attachImagesToPost(trx, {
+          imageIds: [a.id],
+          postId: post.id,
+          ownerId: userId,
+          orgId,
+        }),
+      );
+
+      const rowA = await db
+        .selectFrom('post_images')
+        .select(['post_id', 'position'])
+        .where('id', '=', a.id)
+        .executeTakeFirstOrThrow();
+      expect(rowA.post_id).toBe(post.id);
+      expect(rowA.position).toBe(0);
+
+      const rowB = await db
+        .selectFrom('post_images')
+        .select(['post_id'])
+        .where('id', '=', b.id)
+        .executeTakeFirstOrThrow();
+      expect(rowB.post_id).toBeNull();
+    });
+
+    it('attaching an empty list detaches every image currently on the post', async () => {
+      const post = await insertPost(db, { authorId: userId, orgId, status: 'draft' });
+      const a = await uploadPostImage(db, storage, {
+        ownerId: userId,
+        orgId,
+        bytes: await makeJpeg(100, 100),
+      });
+
+      await db.transaction().execute((trx) =>
+        attachImagesToPost(trx, {
+          imageIds: [a.id],
+          postId: post.id,
+          ownerId: userId,
+          orgId,
+        }),
+      );
+      await db.transaction().execute((trx) =>
+        attachImagesToPost(trx, {
+          imageIds: [],
+          postId: post.id,
+          ownerId: userId,
+          orgId,
+        }),
+      );
+
+      const row = await db
+        .selectFrom('post_images')
+        .select('post_id')
+        .where('id', '=', a.id)
+        .executeTakeFirstOrThrow();
+      expect(row.post_id).toBeNull();
+    });
+
+    it('rewrites positions to match the order of the imageIds argument', async () => {
+      const post = await insertPost(db, { authorId: userId, orgId, status: 'draft' });
+      const a = await uploadPostImage(db, storage, {
+        ownerId: userId,
+        orgId,
+        bytes: await makeJpeg(100, 100),
+      });
+      const b = await uploadPostImage(db, storage, {
+        ownerId: userId,
+        orgId,
+        bytes: await makeJpeg(100, 100),
+      });
+
+      await db.transaction().execute((trx) =>
+        attachImagesToPost(trx, {
+          imageIds: [b.id, a.id],
+          postId: post.id,
+          ownerId: userId,
+          orgId,
+        }),
+      );
+
+      const rows = await db
+        .selectFrom('post_images')
+        .select(['id', 'position'])
+        .where('post_id', '=', post.id)
+        .execute();
+      expect(rows.find((r) => r.id === b.id)?.position).toBe(0);
+      expect(rows.find((r) => r.id === a.id)?.position).toBe(1);
+    });
+
+    it('rejects an image owned by a different user', async () => {
+      const post = await insertPost(db, { authorId: userId, orgId, status: 'draft' });
+      const other = await insertUser(db, { orgId });
+      const image = await uploadPostImage(db, storage, {
+        ownerId: other.id,
+        orgId,
+        bytes: await makeJpeg(100, 100),
+      });
+
+      await expect(
+        db.transaction().execute((trx) =>
+          attachImagesToPost(trx, {
+            imageIds: [image.id],
+            postId: post.id,
+            ownerId: userId,
+            orgId,
+          }),
+        ),
+      ).rejects.toThrow();
+    });
   });
 });

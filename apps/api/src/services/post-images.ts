@@ -97,21 +97,34 @@ export async function uploadPostImage(
     throw new StorageError();
   }
 
-  await db
-    .insertInto('post_images')
-    .values({
-      id,
-      org_id: input.orgId,
-      owner_id: input.ownerId,
-      post_id: null,
-      position: existing,
-      storage_key: fullKey(id),
-      thumb_key: thumbKey(id),
-      width: processed.width,
-      height: processed.height,
-      byte_size: processed.full.byteLength,
-    })
-    .execute();
+  try {
+    await db
+      .insertInto('post_images')
+      .values({
+        id,
+        org_id: input.orgId,
+        owner_id: input.ownerId,
+        post_id: null,
+        position: existing,
+        storage_key: fullKey(id),
+        thumb_key: thumbKey(id),
+        width: processed.width,
+        height: processed.height,
+        byte_size: processed.full.byteLength,
+      })
+      .execute();
+  } catch (err) {
+    // Both objects are already written but the row failed — with no row,
+    // the reaper (which scans post_images, not the bucket) can never find
+    // these to clean up. Best-effort delete now so they don't leak forever;
+    // a cleanup failure must not mask the original insert error.
+    try {
+      await storage.remove(POST_IMAGES_BUCKET, [fullKey(id), thumbKey(id)]);
+    } catch {
+      // nothing more to do.
+    }
+    throw err;
+  }
 
   return {
     id,
