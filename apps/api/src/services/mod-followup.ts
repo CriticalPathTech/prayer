@@ -4,7 +4,8 @@ import { sql, type Kysely } from 'kysely';
 import { isPrivilegedRole } from '../lib/roles.js';
 import { ForbiddenError, ValidationError } from '../middleware/error.js';
 
-import { toPostDto, type PostDto, type PostRow } from './posts.js';
+import { fetchPrayedSet, fetchReactionsMap, fetchUpdatesByParent } from './post-enrichment.js';
+import { toPostDto, type PostDto, type PostRow, type ReactionSummary } from './posts.js';
 
 export interface FollowupFilters {
   noPrayers: boolean;
@@ -30,8 +31,19 @@ export interface ListFollowupInput {
   limit: number;
 }
 
+/**
+ * Follow-up cards render with the same PostCard as the feed, so items carry the
+ * same caller-specific state — otherwise a post the moderator already prayed for
+ * comes back showing "I will pray".
+ */
+export type FollowupItem = PostDto & {
+  prayed: boolean;
+  reactions: Record<string, ReactionSummary>;
+  updates: PostDto[];
+};
+
 export interface ListFollowupResult {
-  items: PostDto[];
+  items: FollowupItem[];
   next_cursor: string | null;
 }
 
@@ -163,7 +175,19 @@ export async function listFollowupPosts(
   const rows = (await q.execute()) as unknown as PostRow[];
   const hasMore = rows.length > input.limit;
   const page = hasMore ? rows.slice(0, input.limit) : rows;
-  const items = page.map((row) => toPostDto(row, { role: input.callerRole }, input.callerId));
+  const ctx = { orgId: input.orgId, callerId: input.callerId, callerRole: input.callerRole };
+  const postIds = page.map((p) => p.id);
+  const [prayedSet, reactionsMap, updatesByParent] = await Promise.all([
+    fetchPrayedSet(db, postIds, ctx),
+    fetchReactionsMap(db, postIds, ctx),
+    fetchUpdatesByParent(db, postIds, ctx),
+  ]);
+  const items = page.map((row) => ({
+    ...toPostDto(row, { role: input.callerRole }, input.callerId),
+    prayed: prayedSet.has(row.id),
+    reactions: reactionsMap.get(row.id) ?? {},
+    updates: updatesByParent.get(row.id) ?? [],
+  }));
   const next_cursor =
     hasMore && page.length > 0 ? encodeFollowupCursor(page[page.length - 1]!.id) : null;
   return { items, next_cursor };
