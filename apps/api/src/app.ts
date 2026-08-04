@@ -33,6 +33,7 @@ import { healthRouter } from './routes/health.js';
 import { invitationsRedeemRouter } from './routes/invitations.js';
 import { publicInviteCodesRouter } from './routes/invite-codes.js';
 import { meDraftRouter } from './routes/me-draft.js';
+import { meImagesRouter } from './routes/me-images.js';
 import { meOrgsRouter } from './routes/me-orgs.js';
 import { meRouter } from './routes/me.js';
 import { modApprovalsRouter } from './routes/mod-approvals.js';
@@ -160,6 +161,7 @@ export function buildApp(deps: AppDependencies): Express {
   );
   const auth = [requireAuth({ db: deps.db, jwtVerifier: deps.jwtVerifier }), requireMember()];
   app.use(auth, meRouter({ db: deps.db, storage, publicUrlBase }));
+  app.use(auth, meImagesRouter({ db: deps.db, storage }));
   app.use(auth, meDraftRouter({ db: deps.db }));
   app.use(auth, postsRouter({ db: deps.db }));
   app.use(auth, feedRouter({ db: deps.db }));
