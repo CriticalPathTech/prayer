@@ -3,13 +3,16 @@ import { Router } from 'express';
 import type { Kysely } from 'kysely';
 import { z } from 'zod';
 
+import type { StorageClient } from '../lib/storage.js';
 import { UnauthorizedError, ValidationError } from '../middleware/error.js';
+import { hydratePostImages } from '../services/post-images.js';
 import { getOwnDraft, publishOwnDraft, upsertOwnDraft } from '../services/posts.js';
 
 const zPutDraft = z.object({
   body: z.string().max(10_000),
   expires_at: z.string().datetime().optional(),
   is_anonymous: z.boolean().optional(),
+  image_ids: z.array(z.string().uuid()).max(3).optional(),
 });
 
 const zPublishDraft = z.object({
@@ -18,7 +21,7 @@ const zPublishDraft = z.object({
     .optional(),
 });
 
-export function meDraftRouter(deps: { db: Kysely<Database> }): Router {
+export function meDraftRouter(deps: { db: Kysely<Database>; storage: StorageClient }): Router {
   const router = Router();
 
   router.get('/me/draft', async (req, res, next) => {
@@ -29,7 +32,15 @@ export function meDraftRouter(deps: { db: Kysely<Database> }): Router {
         orgId: req.user.orgId,
         callerRole: req.user.role,
       });
-      res.json({ draft });
+      if (!draft) {
+        res.json({ draft: null });
+        return;
+      }
+      const images = await hydratePostImages(deps.db, deps.storage, {
+        postIds: [draft.id],
+        orgId: req.user.orgId,
+      });
+      res.json({ draft: { ...draft, images: images.get(draft.id) ?? [] } });
     } catch (err) {
       next(err);
     }
@@ -48,6 +59,7 @@ export function meDraftRouter(deps: { db: Kysely<Database> }): Router {
           body: parsed.data.body,
           ...(parsed.data.expires_at !== undefined && { expires_at: parsed.data.expires_at }),
           ...(parsed.data.is_anonymous !== undefined && { is_anonymous: parsed.data.is_anonymous }),
+          ...(parsed.data.image_ids !== undefined && { imageIds: parsed.data.image_ids }),
         },
       });
       res.json({ draft });

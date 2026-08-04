@@ -162,7 +162,7 @@ export function buildApp(deps: AppDependencies): Express {
   const auth = [requireAuth({ db: deps.db, jwtVerifier: deps.jwtVerifier }), requireMember()];
   app.use(auth, meRouter({ db: deps.db, storage, publicUrlBase }));
   app.use(auth, meImagesRouter({ db: deps.db, storage }));
-  app.use(auth, meDraftRouter({ db: deps.db }));
+  app.use(auth, meDraftRouter({ db: deps.db, storage }));
   app.use(auth, postsRouter({ db: deps.db }));
   app.use(auth, feedRouter({ db: deps.db }));
   app.use(auth, usersRouter({ db: deps.db }));

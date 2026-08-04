@@ -16,6 +16,7 @@ import {
 import { writePostEvent } from './events.js';
 import { fetchHideInfo } from './hide-info.js';
 import { fetchMemberSet } from './membership-set.js';
+import { attachImagesToPost } from './post-images.js';
 
 export interface PostRow {
   id: string;
@@ -298,6 +299,7 @@ export interface DraftInput {
   body: string;
   expires_at?: string | undefined;
   is_anonymous?: boolean | undefined;
+  imageIds?: string[] | undefined;
 }
 
 export async function getOwnDraft(
@@ -372,6 +374,15 @@ export async function upsertOwnDraft(
         .execute();
     }
 
+    if (args.input.imageIds !== undefined) {
+      await attachImagesToPost(trx, {
+        imageIds: args.input.imageIds,
+        postId,
+        ownerId: args.userId,
+        orgId: args.orgId,
+      });
+    }
+
     const row = await fetchPostRow(trx, { postId, orgId: args.orgId });
     return toPostDto(row, { role: args.callerRole }, args.userId);
   });
@@ -412,6 +423,24 @@ export async function publishOwnDraft(
     }
     const expiresAt = existing.expires_at ?? new Date(now.getTime() + DEFAULT_EXPIRY_MS);
 
+    // post_images.post_id is ON DELETE CASCADE, so the DELETE below would
+    // destroy any attached images unless they're detached first. NULL out
+    // post_id BEFORE the delete, then re-point the rows onto the new post
+    // id AFTER the insert below.
+    const draftImages = await trx
+      .selectFrom('post_images')
+      .select(['id', 'position'])
+      .where('post_id', '=', existing.id)
+      .orderBy('position')
+      .execute();
+    if (draftImages.length > 0) {
+      await trx
+        .updateTable('post_images')
+        .set({ post_id: null })
+        .where('post_id', '=', existing.id)
+        .execute();
+    }
+
     // DELETE old draft + INSERT a fresh row (atomic: same trx).
     // Drafts can't accumulate child rows (comments/reactions/prayers all
     // gate on status='published'), so the DELETE has no FK side effects.
@@ -444,6 +473,15 @@ export async function publishOwnDraft(
           : {}),
       })
       .execute();
+
+    if (draftImages.length > 0) {
+      await attachImagesToPost(trx, {
+        imageIds: draftImages.map((r) => r.id),
+        postId: newPostId,
+        ownerId: args.userId,
+        orgId: args.orgId,
+      });
+    }
 
     if (goPending) {
       await writePostEvent(trx, {
