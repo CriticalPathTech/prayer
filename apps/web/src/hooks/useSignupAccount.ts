@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-import { previewInviteCode, type InviteCodePreview } from '../lib/api';
+import { previewInviteCode, redeemInviteCode, type InviteCodePreview } from '../lib/api';
 import { authErrorCopy } from '../lib/authErrorCopy';
 import { supabase } from '../lib/supabase';
 
@@ -23,6 +23,9 @@ export interface UseSignupAccountResult {
   submitting: boolean;
   alreadyRegistered: boolean;
   submit: () => Promise<void>;
+  joining: boolean;
+  joinError: string | null;
+  joinExisting: () => Promise<void>;
 }
 
 function previewErrorMessage(status: Exclude<InviteCodePreview['status'], 'valid'>): string {
@@ -45,6 +48,8 @@ export function useSignupAccount(code: string): UseSignupAccountResult {
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [alreadyRegistered, setAlreadyRegistered] = useState(false);
+  const [joining, setJoining] = useState(false);
+  const [joinError, setJoinError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!code) {
@@ -122,6 +127,32 @@ export function useSignupAccount(code: string): UseSignupAccountResult {
     }
   }
 
+  // The account already exists in the shared auth project — which happens to
+  // anyone who was removed from a church, or who belongs to another church on
+  // the same Supabase project. `signUp` short-circuits for them, so the normal
+  // path (write invite_code into user_metadata → redeem at /auth/callback)
+  // never runs and the code is never redeemed. Sign them in with the password
+  // they just typed and redeem directly against their existing session.
+  // POST /invitations/redeem sits behind requireSession, not requireMember, so
+  // a non-member is allowed to call it.
+  async function joinExisting(): Promise<void> {
+    setJoinError(null);
+    setJoining(true);
+    try {
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) {
+        setJoinError(authErrorCopy(error).text);
+        return;
+      }
+      await redeemInviteCode(code);
+      navigate('/', { replace: true });
+    } catch (err) {
+      setJoinError(authErrorCopy(err).text);
+    } finally {
+      setJoining(false);
+    }
+  }
+
   return {
     preview,
     email,
@@ -135,5 +166,8 @@ export function useSignupAccount(code: string): UseSignupAccountResult {
     submitting,
     alreadyRegistered,
     submit,
+    joining,
+    joinError,
+    joinExisting,
   };
 }

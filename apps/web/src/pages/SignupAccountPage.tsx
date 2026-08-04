@@ -37,9 +37,14 @@ export function SignupAccountPage(): JSX.Element {
           Already registered
         </h1>
         <p className="mb-4 text-sm text-[var(--fg-3)]">
-          An account with this email already exists.
+          An account with this email already exists. Sign in with your existing password to join
+          with this invite.
         </p>
-        <p className="text-sm text-[var(--fg-3)]">
+        <Button type="button" size="lg" disabled={f.joining} onClick={() => void f.joinExisting()}>
+          {f.joining ? 'Joining…' : 'Sign in & join'}
+        </Button>
+        {f.joinError ? <p className="mb-4 mt-2 text-sm text-ember-600">{f.joinError}</p> : null}
+        <p className="mt-3 text-sm text-[var(--fg-3)]">
           <Link to="/login" className="font-medium text-vesper-700 hover:underline">
             Sign in
           </Link>{' '}
