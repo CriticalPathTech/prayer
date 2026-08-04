@@ -1,6 +1,7 @@
 import type { Database, PostStatus, UserRole } from '@prayer/db';
 import { newId } from '@prayer/db';
 import type { Kysely } from 'kysely';
+import sharp from 'sharp';
 
 // ---------------------------------------------------------------------------
 // Org
@@ -157,4 +158,17 @@ export async function insertComment(
     })
     .execute();
   return { id };
+}
+
+// ---------------------------------------------------------------------------
+// Images
+// ---------------------------------------------------------------------------
+
+/** Generate a minimal solid-color JPEG fixture for post-image tests. */
+export async function makeJpeg(width: number, height: number): Promise<Buffer> {
+  return sharp({
+    create: { width, height, channels: 3, background: { r: 1, g: 2, b: 3 } },
+  })
+    .jpeg()
+    .toBuffer();
 }
