@@ -116,7 +116,7 @@ export function buildApp(deps: AppDependencies): Express {
     app.use('/invite-codes', buildLimiter(PREVIEW_SCOPE));
     app.use('/invitations/redeem', buildLimiter(ACCEPT_SCOPE));
     app.use(
-      ['/posts', '/posts/:id/updates', '/posts/:id/comments', '/me/avatar'],
+      ['/posts', '/posts/:id/updates', '/posts/:id/comments', '/me/avatar', '/me/images'],
       (req, res, next) => {
         if (req.method === 'POST' || req.method === 'PATCH' || req.method === 'DELETE') {
           return buildLimiter(WRITE_SCOPE)(req, res, next);
