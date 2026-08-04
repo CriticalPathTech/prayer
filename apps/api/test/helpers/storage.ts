@@ -28,5 +28,12 @@ export function makeInMemoryStorage(): InMemoryStorage {
         .filter((k) => k.startsWith(full))
         .map((k) => ({ name: k.slice(full.length) }));
     },
+    async presignGet(bucket: string, path: string, ttlSeconds: number): Promise<string> {
+      const key = `${bucket}/${path}`;
+      if (!(key in objects)) {
+        throw new Error(`no such object: ${key}`);
+      }
+      return `https://fake-storage.test/${bucket}/${path}?expires=${ttlSeconds}`;
+    },
   };
 }
