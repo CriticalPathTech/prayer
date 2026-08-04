@@ -56,7 +56,7 @@ export function InviteEmailTemplate({
 
   if (seatsRemaining <= 0) return null;
 
-  const { subject, body } = buildInviteEmail({
+  const { body } = buildInviteEmail({
     church: churchName(me?.orgDisplayName),
     code,
     signupUrl: `${window.location.origin}/signup`,
@@ -68,23 +68,12 @@ export function InviteEmailTemplate({
       <summary className="cursor-pointer text-sm text-[var(--fg-2)] marker:text-[var(--fg-3)] hover:text-[var(--fg-1)]">
         Email template
       </summary>
-      <div className="mt-3 space-y-3">
-        <div>
-          <div className="flex items-baseline justify-between gap-3">
-            <span className="text-xs font-medium uppercase tracking-wide text-[var(--fg-3)]">
-              Subject
-            </span>
-            <CopyButton text={subject} label="Copy email subject" />
-          </div>
-          <p className="mt-1 text-sm text-[var(--fg-1)]">{subject}</p>
-        </div>
-        <div>
-          <p className="whitespace-pre-wrap rounded-md border border-[var(--border-soft)] bg-[var(--bg-page)] p-3 text-sm leading-relaxed text-[var(--fg-1)]">
-            {body}
-          </p>
-          <div className="mt-2 flex justify-end">
-            <CopyButton text={body} label="Copy email body" />
-          </div>
+      <div className="mt-3">
+        <p className="whitespace-pre-wrap rounded-md border border-[var(--border-soft)] bg-[var(--bg-page)] p-3 text-sm leading-relaxed text-[var(--fg-1)]">
+          {body}
+        </p>
+        <div className="mt-2 flex justify-end">
+          <CopyButton text={body} label="Copy email body" />
         </div>
       </div>
     </details>
