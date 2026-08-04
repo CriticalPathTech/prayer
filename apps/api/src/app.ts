@@ -49,6 +49,7 @@ import { usersRouter } from './routes/users.js';
 import { createEventWorker, type EventHandler, type EventWorker } from './services/event-worker.js';
 import { createExpirySweeper, type ExpiryJobHandle } from './services/expiry-job.js';
 import { flagConsumer } from './services/flag-consumer.js';
+import { createImageReaper, type ImageReaperHandle } from './services/image-reaper-job.js';
 import { commentCreatedBuilder } from './services/notification-builders/comment-created.js';
 import { flagCreatedBuilder } from './services/notification-builders/flag-created.js';
 import { inviteAcceptedBuilder } from './services/notification-builders/invite-accepted.js';
@@ -178,16 +179,24 @@ export function buildApp(deps: AppDependencies): Express {
 
   const expirySweeper = createExpirySweeper({ db: deps.db, storage, logger: deps.logger });
   const pinSweeper = createPinSweeper({ db: deps.db, logger: deps.logger });
+  const imageReaper = createImageReaper({ db: deps.db, storage, logger: deps.logger });
   if (process.env.NODE_ENV !== 'test') {
     expirySweeper.start();
     pinSweeper.start();
+    imageReaper.start();
   }
   (
     app as unknown as {
-      locals: { expirySweeper: ExpiryJobHandle; pinSweeper: PinJobHandle };
+      locals: {
+        expirySweeper: ExpiryJobHandle;
+        pinSweeper: PinJobHandle;
+        imageReaper: ImageReaperHandle;
+      };
     }
   ).locals.expirySweeper = expirySweeper;
   (app as unknown as { locals: { pinSweeper: PinJobHandle } }).locals.pinSweeper = pinSweeper;
+  (app as unknown as { locals: { imageReaper: ImageReaperHandle } }).locals.imageReaper =
+    imageReaper;
 
   let eventWorker: EventWorker | null = null;
   if (process.env.NODE_ENV !== 'test' && deps.databaseUrl) {
