@@ -2,6 +2,9 @@ import type { Database, UserRole } from '@prayer/db';
 import type { Kysely } from 'kysely';
 import { sql } from 'kysely';
 
+import { isPrivilegedRole } from '../lib/roles.js';
+
+import { fetchHideInfo } from './hide-info.js';
 import { toPostDto, type PostDto, type PostRow, type ReactionSummary } from './posts.js';
 
 export interface EnrichmentContext {
@@ -56,9 +59,13 @@ export async function fetchReactionsMap(
 }
 
 /**
- * Published child updates keyed by parent id, oldest → newest. Ordering by
- * `posts.id` is chronological under UUIDv7 and is what the cards rely on when
- * they show only the most recent updates.
+ * Child updates keyed by parent id, oldest → newest. Ordering by `posts.id` is
+ * chronological under UUIDv7 and is what the cards rely on when they show only
+ * the most recent updates.
+ *
+ * Privileged callers also see hidden updates, with hide attribution merged in
+ * from the events outbox — same rule as the feed, so a moderator's cards read
+ * identically on the wall and in the mod surfaces.
  */
 export async function fetchUpdatesByParent(
   db: Kysely<Database>,
@@ -67,6 +74,7 @@ export async function fetchUpdatesByParent(
 ): Promise<Map<string, PostDto[]>> {
   const out = new Map<string, PostDto[]>();
   if (postIds.length === 0) return out;
+  const isPrivileged = isPrivilegedRole(ctx.callerRole);
   const rows = (await db
     .selectFrom('posts')
     .innerJoin('users', 'users.id', 'posts.author_id')
@@ -89,10 +97,27 @@ export async function fetchUpdatesByParent(
     ])
     .where('posts.org_id', '=', ctx.orgId)
     .where('posts.parent_id', 'in', postIds)
-    .where('posts.status', '=', 'published')
+    .$if(!isPrivileged, (b) => b.where('posts.status', '=', 'published'))
+    .$if(isPrivileged, (b) => b.where('posts.status', 'in', ['published', 'hidden']))
     .orderBy('posts.parent_id')
     .orderBy('posts.id', 'asc')
     .execute()) as unknown as PostRow[];
+
+  if (isPrivileged) {
+    const hiddenIds = rows.filter((r) => r.status === 'hidden').map((r) => r.id);
+    if (hiddenIds.length > 0) {
+      const info = await fetchHideInfo(db, hiddenIds, ctx.orgId);
+      for (const row of rows) {
+        const hit = info.get(row.id);
+        if (hit) {
+          row.hidden_by_id = hit.actorId;
+          row.hidden_by_display_name = hit.displayName;
+          row.hidden_source = hit.source;
+        }
+      }
+    }
+  }
+
   for (const row of rows) {
     const parentId = row.parent_id!;
     const dto = toPostDto(row, { role: ctx.callerRole }, ctx.callerId);
