@@ -33,6 +33,7 @@ const samplePost: FeedPost = {
   reaction_count: 0,
   prayer_count: 0,
   updates: [],
+  images: [],
   expires_at: new Date(Date.now() + 30 * 24 * 3600_000).toISOString(),
   edit_deadline: new Date(Date.now() + 3600_000).toISOString(),
   created_at: new Date().toISOString(),
@@ -71,6 +72,7 @@ describe('EditPostPage', () => {
     apiFetchMock.mockResolvedValueOnce({
       post: samplePost,
       updates: [],
+      images: [],
       reactions: {},
       prayer: { prayer_count: 0, prayed: false },
     });
@@ -91,6 +93,7 @@ describe('EditPostPage', () => {
     apiFetchMock.mockResolvedValueOnce({
       post: samplePost,
       updates: [],
+      images: [],
       reactions: {},
       prayer: { prayer_count: 0, prayed: false },
     });
@@ -104,6 +107,7 @@ describe('EditPostPage', () => {
     apiFetchMock.mockResolvedValueOnce({
       post: samplePost,
       updates: [],
+      images: [],
       reactions: {},
       prayer: { prayer_count: 0, prayed: false },
     });
@@ -126,6 +130,7 @@ describe('EditPostPage', () => {
       .mockResolvedValueOnce({
         post: samplePost,
         updates: [],
+        images: [],
         reactions: {},
         prayer: { prayer_count: 0, prayed: false },
       })
@@ -153,6 +158,7 @@ describe('EditPostPage', () => {
       .mockResolvedValueOnce({
         post: samplePost,
         updates: [],
+        images: [],
         reactions: {},
         prayer: { prayer_count: 0, prayed: false },
       })
@@ -175,6 +181,7 @@ describe('EditPostPage', () => {
       .mockResolvedValueOnce({
         post: samplePost,
         updates: [],
+        images: [],
         reactions: {},
         prayer: { prayer_count: 0, prayed: false },
       })
@@ -195,6 +202,7 @@ describe('EditPostPage', () => {
     apiFetchMock.mockResolvedValueOnce({
       post: samplePost,
       updates: [],
+      images: [],
       reactions: {},
       prayer: { prayer_count: 0, prayed: false },
     });
@@ -211,6 +219,7 @@ describe('EditPostPage', () => {
     apiFetchMock.mockResolvedValueOnce({
       post: samplePost,
       updates: [],
+      images: [],
       reactions: {},
       prayer: { prayer_count: 0, prayed: false },
     });
@@ -229,6 +238,7 @@ describe('EditPostPage', () => {
     apiFetchMock.mockResolvedValueOnce({
       post: expired,
       updates: [],
+      images: [],
       reactions: {},
       prayer: { prayer_count: 0, prayed: false },
     });
@@ -249,6 +259,7 @@ describe('EditPostPage', () => {
     apiFetchMock.mockResolvedValueOnce({
       post: other,
       updates: [],
+      images: [],
       reactions: {},
       prayer: { prayer_count: 0, prayed: false },
     });

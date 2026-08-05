@@ -4,6 +4,16 @@ import { apiFetch } from '../lib/api';
 
 export type FeedFilter = 'all' | 'mine' | 'answered';
 
+export interface PostImage {
+  id: string;
+  /** Presigned full-size URL; null when the post archived and it was purged. */
+  url: string | null;
+  thumb_url: string;
+  width: number;
+  height: number;
+  purged: boolean;
+}
+
 export interface FeedPost {
   id: string;
   parent_id: string | null;
@@ -49,6 +59,7 @@ export interface FeedPost {
    * the undefined case defensively). Privileged callers (mods /
    * super_user) also see hidden updates with hidden_by attribution. */
   updates: FeedPost[];
+  images: PostImage[];
 }
 
 export interface FeedResponse {

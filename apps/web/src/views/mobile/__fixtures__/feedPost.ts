@@ -29,6 +29,7 @@ export function makeFeedPost(over: Partial<FeedPost> = {}): FeedPost {
     hidden_source: null,
     is_former_member: false,
     updates: [],
+    images: [],
     ...over,
   };
 }

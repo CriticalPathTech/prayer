@@ -49,6 +49,7 @@ describe('PostCard Answered Prayer', () => {
     reaction_count: 0,
     prayer_count: 0,
     updates: [],
+    images: [],
     expires_at: null,
     edit_deadline: new Date(Date.now() + 3600_000).toISOString(),
     created_at: new Date().toISOString(),
@@ -108,6 +109,7 @@ describe('PostCard Answered Prayer', () => {
       is_answered_prayer: true,
       body: 'first witness',
       updates: [],
+      images: [],
     };
     const later = {
       ...base,
@@ -116,6 +118,7 @@ describe('PostCard Answered Prayer', () => {
       is_answered_prayer: true,
       body: 'thank you Lord',
       updates: [],
+      images: [],
     };
     render(
       <MemoryRouter>
@@ -152,6 +155,7 @@ describe('PostCard inline updates', () => {
     reaction_count: 0,
     prayer_count: 0,
     updates: [],
+    images: [],
     expires_at: null,
     edit_deadline: new Date(Date.now() + 3600_000).toISOString(),
     created_at: new Date().toISOString(),
@@ -167,7 +171,7 @@ describe('PostCard inline updates', () => {
   };
 
   function makeUpdate(id: string, body: string) {
-    return { ...base, id, parent_id: 'parent', body, updates: [] };
+    return { ...base, id, parent_id: 'parent', body, updates: [], images: [] };
   }
 
   it('renders all updates inline when there are 1–3', () => {
@@ -334,6 +338,7 @@ describe('PostCard pinned variant', () => {
     reaction_count: 0,
     prayer_count: 0,
     updates: [],
+    images: [],
     expires_at: null,
     edit_deadline: new Date(Date.now() + 3600_000).toISOString(),
     created_at: new Date().toISOString(),
@@ -426,6 +431,7 @@ describe('PostCard pending variant', () => {
     reaction_count: 0,
     prayer_count: 0,
     updates: [],
+    images: [],
     expires_at: null,
     edit_deadline: new Date(Date.now() + 3600_000).toISOString(),
     created_at: new Date().toISOString(),
@@ -514,6 +520,7 @@ describe('PostCard kebab menu', () => {
     reaction_count: 0,
     prayer_count: 0,
     updates: [],
+    images: [],
     expires_at: null,
     edit_deadline: new Date(Date.now() + 3600_000).toISOString(),
     created_at: new Date().toISOString(),
@@ -604,6 +611,7 @@ describe('PostCard author profile link', () => {
     reaction_count: 0,
     prayer_count: 0,
     updates: [],
+    images: [],
     expires_at: null,
     edit_deadline: new Date(Date.now() + 3600_000).toISOString(),
     created_at: new Date().toISOString(),
@@ -731,6 +739,7 @@ describe('PostCard click-to-open', () => {
     reaction_count: 0,
     prayer_count: 0,
     updates: [],
+    images: [],
     expires_at: null,
     edit_deadline: new Date(Date.now() + 3600_000).toISOString(),
     created_at: new Date().toISOString(),
