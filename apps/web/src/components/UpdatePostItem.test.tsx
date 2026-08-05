@@ -32,6 +32,7 @@ const base: FeedPost = {
   hidden_source: null,
   is_former_member: false,
   updates: [],
+  images: [],
 };
 
 describe('UpdatePostItem', () => {

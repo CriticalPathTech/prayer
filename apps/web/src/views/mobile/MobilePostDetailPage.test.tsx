@@ -44,6 +44,7 @@ function basePost(over: Record<string, unknown> = {}) {
     prayed: false,
     reactions: {},
     updates: [],
+    images: [],
     ...over,
   };
 }
@@ -137,6 +138,30 @@ describe('MobilePostDetailPage', () => {
     });
     renderAt();
     expect(screen.getByText('help')).toBeInTheDocument();
+  });
+
+  it('renders all images in detail variant', () => {
+    usePostMock.mockReturnValue({
+      data: {
+        post: basePost({
+          body: 'help',
+          images: [
+            { id: 'i1', url: 'f1', thumb_url: 't1', width: 10, height: 10, purged: false },
+            { id: 'i2', url: 'f2', thumb_url: 't2', width: 10, height: 10, purged: false },
+          ],
+        }),
+        updates: [],
+        reactions: {},
+        prayer: { prayer_count: 0, prayed: false },
+      },
+      loading: false,
+      notFound: false,
+      error: null,
+      reload: vi.fn(),
+    });
+    renderAt();
+    expect(screen.getByAltText('Cover photo')).toBeInTheDocument();
+    expect(screen.getByAltText('Photo 2')).toBeInTheDocument();
   });
 
   it('author view: shows inline composer per existing thread', () => {

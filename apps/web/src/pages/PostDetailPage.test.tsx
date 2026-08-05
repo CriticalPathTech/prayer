@@ -67,6 +67,7 @@ const basePost = (over: Record<string, unknown> = {}) => ({
   pinned_at: null,
   prayed: false,
   reactions: {},
+  images: [],
   is_own_post: false,
   hidden_by: null,
   hidden_source: null,

@@ -294,4 +294,32 @@ describe('ComposePage', () => {
     const callArg = vi.mocked(api.publishMyDraft).mock.calls.at(-1)![0];
     expect(callArg).toEqual({ pin_duration_days: 3 });
   });
+
+  it('sends image_ids with the draft save', async () => {
+    vi.mocked(api.getMyDraft).mockResolvedValueOnce({
+      draft: {
+        ...baseDraft,
+        body: 'hello',
+        images: [{ id: 'i1', url: 'f1', thumb_url: 't1', width: 10, height: 10, purged: false }],
+      } as never,
+    });
+    vi.mocked(api.saveMyDraft).mockResolvedValue({
+      draft: { ...baseDraft, body: 'updated body' } as never,
+    });
+    renderPage();
+    await waitFor(() =>
+      expect((screen.getByLabelText(/body/i) as HTMLTextAreaElement).value).toBe('hello'),
+    );
+
+    expect(await screen.findByText(/cover photo/i)).toBeInTheDocument();
+
+    await userEvent.clear(screen.getByLabelText(/body/i));
+    await userEvent.type(screen.getByLabelText(/body/i), 'updated body');
+
+    await waitFor(() =>
+      expect(vi.mocked(api.saveMyDraft)).toHaveBeenCalledWith(
+        expect.objectContaining({ body: 'updated body', image_ids: ['i1'] }),
+      ),
+    );
+  });
 });

@@ -2,9 +2,11 @@ import type { Database, ReactionTargetType, UserRole } from '@prayer/db';
 import type { Kysely } from 'kysely';
 import { sql } from 'kysely';
 
+import type { StorageClient } from '../lib/storage.js';
 import { ForbiddenError } from '../middleware/error.js';
 
 import { writeModerationEvent } from './events.js';
+import { hydratePostImages, type PostImageDto } from './post-images.js';
 
 function requireModeratorRole(role: UserRole): void {
   if (role !== 'moderator' && role !== 'super_user') throw new ForbiddenError();
@@ -148,6 +150,9 @@ export interface ModQueueItem {
   latest_flag_at: string;
   hidden: boolean;
   hide_source: 'auto' | 'manual' | null;
+  /** Only present for target_type='post' — comments don't carry photos.
+   * Empty array when the post has none, never absent. */
+  images: PostImageDto[];
 }
 
 export interface ListModQueueInput {
@@ -163,8 +168,25 @@ export interface ListModQueueResult {
   next_cursor: string | null;
 }
 
+/** Batch-hydrate images for the 'post' rows of a mod-queue page and attach
+ * them; comment rows always get an empty array since only posts carry photos. */
+async function attachQueueImages<T extends { target_type: 'post' | 'comment'; target_id: string }>(
+  db: Kysely<Database>,
+  storage: StorageClient,
+  orgId: string,
+  items: T[],
+): Promise<(T & { images: PostImageDto[] })[]> {
+  const postIds = items.filter((i) => i.target_type === 'post').map((i) => i.target_id);
+  const imagesMap = await hydratePostImages(db, storage, { postIds, orgId });
+  return items.map((i) => ({
+    ...i,
+    images: i.target_type === 'post' ? (imagesMap.get(i.target_id) ?? []) : [],
+  }));
+}
+
 export async function listModQueue(
   db: Kysely<Database>,
+  storage: StorageClient,
   input: ListModQueueInput,
 ): Promise<ListModQueueResult> {
   requireModeratorRole(input.callerRole);
@@ -173,7 +195,7 @@ export async function listModQueue(
   // flags were dismissed) must still show up here. Other statuses keep the
   // flag-driven path because they aggregate over unresolved flags.
   if (input.status === 'hidden') {
-    return listHiddenItems(db, input);
+    return listHiddenItems(db, storage, input);
   }
   const rows = await sql<{
     target_type: 'post' | 'comment';
@@ -224,7 +246,7 @@ export async function listModQueue(
   const hasMore = rows.rows.length > input.limit;
   const next = hasMore && page.length > 0 ? page[page.length - 1] : null;
 
-  const items: ModQueueItem[] = page
+  const filtered = page
     .filter((r) => {
       if (input.status === 'pending') return !r.hidden;
       if (input.status === 'auto_hidden') return r.hidden && r.flag_count >= 2;
@@ -243,8 +265,10 @@ export async function listModQueue(
       first_flag_at: r.first_flag_at.toISOString(),
       latest_flag_at: r.latest_flag_at.toISOString(),
       hidden: r.hidden,
-      hide_source: r.hidden ? (r.flag_count >= 2 ? 'auto' : 'manual') : null,
+      hide_source: (r.hidden ? (r.flag_count >= 2 ? 'auto' : 'manual') : null) as
+        'auto' | 'manual' | null,
     }));
+  const items: ModQueueItem[] = await attachQueueImages(db, storage, input.orgId, filtered);
 
   const next_cursor =
     next != null
@@ -268,6 +292,7 @@ export async function listModQueue(
  *  but is never used as the inclusion gate. */
 async function listHiddenItems(
   db: Kysely<Database>,
+  storage: StorageClient,
   input: ListModQueueInput,
 ): Promise<ListModQueueResult> {
   const rows = await sql<{
@@ -348,7 +373,7 @@ async function listHiddenItems(
   const hasMore = rows.rows.length > input.limit;
   const next = hasMore && page.length > 0 ? page[page.length - 1] : null;
 
-  const items: ModQueueItem[] = page.map((r) => ({
+  const mapped = page.map((r) => ({
     target_type: r.target_type,
     target_id: r.target_id,
     post_id: r.post_id,
@@ -359,8 +384,9 @@ async function listHiddenItems(
     first_flag_at: r.first_flag_at.toISOString(),
     latest_flag_at: r.latest_flag_at.toISOString(),
     hidden: true,
-    hide_source: r.flag_count >= 2 ? 'auto' : 'manual',
+    hide_source: (r.flag_count >= 2 ? 'auto' : 'manual') as 'auto' | 'manual',
   }));
+  const items: ModQueueItem[] = await attachQueueImages(db, storage, input.orgId, mapped);
 
   const next_cursor =
     next != null

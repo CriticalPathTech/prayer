@@ -15,6 +15,7 @@ import { ExtendDialog } from './ExtendDialog';
 import { FlagCountPill } from './FlagCountPill';
 import { HiddenBanner } from './HiddenBanner';
 import { HideTombstone } from './HideTombstone';
+import { PostImages } from './PostImages';
 import { PostMenu } from './PostMenu';
 import { PrayButton } from './PrayButton';
 import { UpdatePostItem } from './UpdatePostItem';
@@ -245,6 +246,7 @@ export function PostCard({ post, onChange, onRepost }: PostCardProps): JSX.Eleme
           threshold={600}
           textClassName="m-0 font-serif text-[18px] leading-relaxed text-[var(--fg-2)] whitespace-pre-wrap [text-wrap:pretty]"
         />
+        <PostImages images={post.images} variant="card" />
 
         {showRibbon ? (
           <div className="mt-4 -mx-5 px-5 py-2.5 border-t border-[var(--answered-border)] bg-gradient-to-r from-dawn-50 to-transparent flex items-center gap-2 text-[13px] font-semibold text-[var(--answered-fg)] tracking-[0.02em]">

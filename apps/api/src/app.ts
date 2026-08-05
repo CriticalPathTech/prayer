@@ -33,6 +33,7 @@ import { healthRouter } from './routes/health.js';
 import { invitationsRedeemRouter } from './routes/invitations.js';
 import { publicInviteCodesRouter } from './routes/invite-codes.js';
 import { meDraftRouter } from './routes/me-draft.js';
+import { meImagesRouter } from './routes/me-images.js';
 import { meOrgsRouter } from './routes/me-orgs.js';
 import { meRouter } from './routes/me.js';
 import { modApprovalsRouter } from './routes/mod-approvals.js';
@@ -48,6 +49,7 @@ import { usersRouter } from './routes/users.js';
 import { createEventWorker, type EventHandler, type EventWorker } from './services/event-worker.js';
 import { createExpirySweeper, type ExpiryJobHandle } from './services/expiry-job.js';
 import { flagConsumer } from './services/flag-consumer.js';
+import { createImageReaper, type ImageReaperHandle } from './services/image-reaper-job.js';
 import { commentCreatedBuilder } from './services/notification-builders/comment-created.js';
 import { flagCreatedBuilder } from './services/notification-builders/flag-created.js';
 import { inviteAcceptedBuilder } from './services/notification-builders/invite-accepted.js';
@@ -115,7 +117,7 @@ export function buildApp(deps: AppDependencies): Express {
     app.use('/invite-codes', buildLimiter(PREVIEW_SCOPE));
     app.use('/invitations/redeem', buildLimiter(ACCEPT_SCOPE));
     app.use(
-      ['/posts', '/posts/:id/updates', '/posts/:id/comments', '/me/avatar'],
+      ['/posts', '/posts/:id/updates', '/posts/:id/comments', '/me/avatar', '/me/images'],
       (req, res, next) => {
         if (req.method === 'POST' || req.method === 'PATCH' || req.method === 'DELETE') {
           return buildLimiter(WRITE_SCOPE)(req, res, next);
@@ -160,32 +162,41 @@ export function buildApp(deps: AppDependencies): Express {
   );
   const auth = [requireAuth({ db: deps.db, jwtVerifier: deps.jwtVerifier }), requireMember()];
   app.use(auth, meRouter({ db: deps.db, storage, publicUrlBase }));
-  app.use(auth, meDraftRouter({ db: deps.db }));
-  app.use(auth, postsRouter({ db: deps.db }));
-  app.use(auth, feedRouter({ db: deps.db }));
+  app.use(auth, meImagesRouter({ db: deps.db, storage }));
+  app.use(auth, meDraftRouter({ db: deps.db, storage }));
+  app.use(auth, postsRouter({ db: deps.db, storage }));
+  app.use(auth, feedRouter({ db: deps.db, storage }));
   app.use(auth, usersRouter({ db: deps.db }));
   app.use(auth, commentsRouter({ db: deps.db }));
   app.use(auth, notificationsRouter({ db: deps.db }));
-  app.use(auth, requireModerator(), moderationRouter({ db: deps.db }));
-  app.use(auth, requireModerator(), modApprovalsRouter({ db: deps.db }));
+  app.use(auth, requireModerator(), moderationRouter({ db: deps.db, storage }));
+  app.use(auth, requireModerator(), modApprovalsRouter({ db: deps.db, storage }));
   app.use(auth, requireModerator(), modFollowupRouter({ db: deps.db }));
   app.use(auth, requireModerator(), modPostsPinRouter({ db: deps.db }));
   app.use(auth, requireModerator(), modPostsExtendRouter({ db: deps.db }));
   app.use(auth, requireModerator(), modInviteCodesRouter({ db: deps.db }));
   app.use(auth, requireSuperUser(), adminChurchRouter({ db: deps.db, orgResolver }));
 
-  const expirySweeper = createExpirySweeper({ db: deps.db, logger: deps.logger });
+  const expirySweeper = createExpirySweeper({ db: deps.db, storage, logger: deps.logger });
   const pinSweeper = createPinSweeper({ db: deps.db, logger: deps.logger });
+  const imageReaper = createImageReaper({ db: deps.db, storage, logger: deps.logger });
   if (process.env.NODE_ENV !== 'test') {
     expirySweeper.start();
     pinSweeper.start();
+    imageReaper.start();
   }
   (
     app as unknown as {
-      locals: { expirySweeper: ExpiryJobHandle; pinSweeper: PinJobHandle };
+      locals: {
+        expirySweeper: ExpiryJobHandle;
+        pinSweeper: PinJobHandle;
+        imageReaper: ImageReaperHandle;
+      };
     }
   ).locals.expirySweeper = expirySweeper;
   (app as unknown as { locals: { pinSweeper: PinJobHandle } }).locals.pinSweeper = pinSweeper;
+  (app as unknown as { locals: { imageReaper: ImageReaperHandle } }).locals.imageReaper =
+    imageReaper;
 
   let eventWorker: EventWorker | null = null;
   if (process.env.NODE_ENV !== 'test' && deps.databaseUrl) {

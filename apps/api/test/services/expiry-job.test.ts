@@ -6,6 +6,9 @@ import { initDb } from '../../src/db/index.js';
 import { createLogger } from '../../src/lib/logger.js';
 import { sweepExpired } from '../../src/services/expiry-job.js';
 import { insertOrg, insertPost, insertUser } from '../helpers/seed.js';
+import { makeInMemoryStorage } from '../helpers/storage.js';
+
+const storage = makeInMemoryStorage();
 
 describe('sweepExpired', () => {
   let db: Kysely<Database>;
@@ -47,7 +50,7 @@ describe('sweepExpired', () => {
       expiresAt: past,
     });
 
-    const n = await sweepExpired(db, { logger: createLogger('silent') });
+    const n = await sweepExpired(db, storage, { logger: createLogger('silent') });
     expect(n).toBe(1);
 
     const rows = await db.selectFrom('posts').select(['id', 'status']).execute();
@@ -61,8 +64,8 @@ describe('sweepExpired', () => {
     const user = await insertUser(db, { orgId });
     const past = new Date(Date.now() - 60_000);
     await insertPost(db, { authorId: user.id, orgId, status: 'published', expiresAt: past });
-    const n1 = await sweepExpired(db, { logger: createLogger('silent') });
-    const n2 = await sweepExpired(db, { logger: createLogger('silent') });
+    const n1 = await sweepExpired(db, storage, { logger: createLogger('silent') });
+    const n2 = await sweepExpired(db, storage, { logger: createLogger('silent') });
     expect(n1).toBe(1);
     expect(n2).toBe(0);
   });
@@ -72,7 +75,7 @@ describe('sweepExpired', () => {
     const past = new Date(Date.now() - 60_000);
     await insertPost(db, { authorId: user.id, orgId, status: 'published', expiresAt: past });
     await insertPost(db, { authorId: user.id, orgId, status: 'published', expiresAt: past });
-    await sweepExpired(db, { logger: createLogger('silent') });
+    await sweepExpired(db, storage, { logger: createLogger('silent') });
     const archived = await db
       .selectFrom('posts')
       .select('id')

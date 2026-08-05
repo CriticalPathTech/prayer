@@ -1,4 +1,6 @@
-import type { FeedPost } from '../hooks/useFeed';
+import type { FeedPost, PostImage } from '../hooks/useFeed';
+
+export type { PostImage };
 
 import { supabase } from './supabase';
 
@@ -203,6 +205,26 @@ export interface DraftInput {
   body: string;
   expires_at?: string;
   is_anonymous?: boolean;
+  image_ids?: string[];
+}
+
+/**
+ * Uploads the raw file bytes. No base64, no FormData — the server reads the
+ * body as raw binary, which keeps a 6MB phone photo at 6MB on the wire.
+ * `apiFetch` defaults Content-Type to application/json when a body is present,
+ * so this sets it explicitly.
+ */
+export async function uploadPostImage(file: File): Promise<PostImage> {
+  const { image } = await apiFetch<{ image: PostImage }>('/me/images', {
+    method: 'POST',
+    headers: { 'Content-Type': file.type || 'application/octet-stream' },
+    body: file,
+  });
+  return image;
+}
+
+export async function deletePostImage(id: string): Promise<void> {
+  await apiFetch<void>(`/me/images/${id}`, { method: 'DELETE' });
 }
 
 export async function getMyDraft(): Promise<{ draft: FeedPost | null }> {

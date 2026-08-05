@@ -154,6 +154,21 @@ export interface ModPostSkipsTable {
   skipped_at: Generated<Timestamp>;
 }
 
+export interface PostImagesTable {
+  id: string;
+  org_id: string;
+  owner_id: string;
+  post_id: string | null;
+  position: number;
+  storage_key: string;
+  thumb_key: string;
+  width: number;
+  height: number;
+  byte_size: number;
+  created_at: Generated<Timestamp>;
+  purged_at: Timestamp | null;
+}
+
 export interface Database {
   orgs: OrgsTable;
   user_orgs: UserOrgsTable;
@@ -168,4 +183,5 @@ export interface Database {
   events: EventsTable;
   notifications: NotificationsTable;
   mod_post_skips: ModPostSkipsTable;
+  post_images: PostImagesTable;
 }

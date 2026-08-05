@@ -210,4 +210,34 @@ describe('MobileComposePage', () => {
     const callArg = publishMyDraftMock.mock.calls.at(-1)![0];
     expect(callArg).toEqual({ pin_duration_days: 3 });
   });
+
+  it('sends image_ids with the draft save', async () => {
+    const saveMock = vi.fn();
+    useDraftMock.mockReturnValue(
+      makeDraft({
+        save: saveMock,
+        draft: {
+          id: 'p1',
+          body: 'hello',
+          is_anonymous: false,
+          expires_at: null,
+          images: [{ id: 'i1', url: 'f1', thumb_url: 't1', width: 10, height: 10, purged: false }],
+        },
+      }),
+    );
+    render(
+      <MemoryRouter>
+        <MobileComposePage />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText(/cover photo/i)).toBeInTheDocument();
+
+    const textarea = screen.getByRole('textbox', { name: /body/i });
+    await userEvent.type(textarea, ' more');
+
+    await waitFor(() =>
+      expect(saveMock).toHaveBeenCalledWith(expect.objectContaining({ image_ids: ['i1'] })),
+    );
+  });
 });

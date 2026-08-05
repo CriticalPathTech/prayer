@@ -6,6 +6,7 @@ import { sql } from 'kysely';
 import { z } from 'zod';
 
 import { isPrivilegedRole } from '../lib/roles.js';
+import type { StorageClient } from '../lib/storage.js';
 import {
   EditDeadlinePassedError,
   ForbiddenError,
@@ -16,6 +17,12 @@ import {
 import { writePostEvent } from './events.js';
 import { fetchHideInfo } from './hide-info.js';
 import { fetchMemberSet } from './membership-set.js';
+import {
+  attachImagesToPost,
+  hydratePostImages,
+  purgeFullSizeForPosts,
+  type PostImageDto,
+} from './post-images.js';
 
 export interface PostRow {
   id: string;
@@ -99,6 +106,11 @@ export interface PostDto {
    * the caller doesn't pass a memberSet, defaults to false. */
   is_former_member: boolean;
   is_tombstone?: boolean;
+  /** Empty array when the post has no attached photos — never absent.
+   * Callers that need real hydration (feed, detail, mod views) overwrite
+   * this via a batch call to hydratePostImages and spread over the DTO;
+   * toPostDto itself has no storage client, so it always defaults to []. */
+  images: PostImageDto[];
 }
 
 export interface Caller {
@@ -160,6 +172,7 @@ export function toPostDto(
       hidden_source: null,
       is_former_member: false,
       is_tombstone: true,
+      images: [],
     };
   }
   const canSeeAuthor = !row.is_anonymous || caller.role === 'super_user';
@@ -201,6 +214,7 @@ export function toPostDto(
     hidden_by: hiddenBy,
     hidden_source: hiddenSource,
     is_former_member: isFormerMember,
+    images: [],
   };
 }
 
@@ -298,6 +312,7 @@ export interface DraftInput {
   body: string;
   expires_at?: string | undefined;
   is_anonymous?: boolean | undefined;
+  imageIds?: string[] | undefined;
 }
 
 export async function getOwnDraft(
@@ -372,6 +387,15 @@ export async function upsertOwnDraft(
         .execute();
     }
 
+    if (args.input.imageIds !== undefined) {
+      await attachImagesToPost(trx, {
+        imageIds: args.input.imageIds,
+        postId,
+        ownerId: args.userId,
+        orgId: args.orgId,
+      });
+    }
+
     const row = await fetchPostRow(trx, { postId, orgId: args.orgId });
     return toPostDto(row, { role: args.callerRole }, args.userId);
   });
@@ -412,6 +436,24 @@ export async function publishOwnDraft(
     }
     const expiresAt = existing.expires_at ?? new Date(now.getTime() + DEFAULT_EXPIRY_MS);
 
+    // post_images.post_id is ON DELETE CASCADE, so the DELETE below would
+    // destroy any attached images unless they're detached first. NULL out
+    // post_id BEFORE the delete, then re-point the rows onto the new post
+    // id AFTER the insert below.
+    const draftImages = await trx
+      .selectFrom('post_images')
+      .select(['id', 'position'])
+      .where('post_id', '=', existing.id)
+      .orderBy('position')
+      .execute();
+    if (draftImages.length > 0) {
+      await trx
+        .updateTable('post_images')
+        .set({ post_id: null })
+        .where('post_id', '=', existing.id)
+        .execute();
+    }
+
     // DELETE old draft + INSERT a fresh row (atomic: same trx).
     // Drafts can't accumulate child rows (comments/reactions/prayers all
     // gate on status='published'), so the DELETE has no FK side effects.
@@ -445,6 +487,15 @@ export async function publishOwnDraft(
       })
       .execute();
 
+    if (draftImages.length > 0) {
+      await attachImagesToPost(trx, {
+        imageIds: draftImages.map((r) => r.id),
+        postId: newPostId,
+        ownerId: args.userId,
+        orgId: args.orgId,
+      });
+    }
+
     if (goPending) {
       await writePostEvent(trx, {
         kind: 'post.submitted',
@@ -474,6 +525,7 @@ export async function publishOwnDraft(
 
 export async function getPostWithUpdates(
   db: Kysely<Database>,
+  storage: StorageClient,
   args: { postId: string; orgId: string; callerId: string; callerRole: UserRole },
 ): Promise<PostWithUpdatesResponse> {
   const parentRow = await db
@@ -582,11 +634,20 @@ export async function getPostWithUpdates(
   );
   const memberSet = await fetchMemberSet(db, args.orgId, detailAuthorIds);
 
+  const imagesMap = await hydratePostImages(db, storage, {
+    postIds: [r.id, ...updateRows.map((u) => u.id)],
+    orgId: args.orgId,
+  });
+
   return {
-    post: toPostDto(r, { role: args.callerRole }, args.callerId, memberSet),
-    updates: updateRows.map((u) =>
-      toPostDto(u, { role: args.callerRole }, args.callerId, memberSet),
-    ),
+    post: {
+      ...toPostDto(r, { role: args.callerRole }, args.callerId, memberSet),
+      images: imagesMap.get(r.id) ?? [],
+    },
+    updates: updateRows.map((u) => ({
+      ...toPostDto(u, { role: args.callerRole }, args.callerId, memberSet),
+      images: imagesMap.get(u.id) ?? [],
+    })),
     reactions,
     prayer: {
       prayer_count: Number(prayerRows.prayer_count),
@@ -879,9 +940,10 @@ export async function listArchive(
 
 export async function archivePost(
   db: Kysely<Database>,
+  storage: StorageClient,
   args: { postId: string; orgId: string; callerId: string; reason: 'author' | 'expiry' },
 ): Promise<void> {
-  await db.transaction().execute(async (trx) => {
+  const didArchive = await db.transaction().execute(async (trx) => {
     const existing = await trx
       .selectFrom('posts')
       .select(['id', 'author_id', 'status'])
@@ -892,14 +954,18 @@ export async function archivePost(
     if (args.reason === 'author' && existing.author_id !== args.callerId) {
       throw new ForbiddenError();
     }
-    if (existing.status === 'archived') return;
+    if (existing.status === 'archived') return false;
     await trx
       .updateTable('posts')
       .set({ status: 'archived' })
       .where('id', '=', args.postId)
       .where('org_id', '=', args.orgId)
       .execute();
+    return true;
   });
+  if (didArchive) {
+    await purgeFullSizeForPosts(db, storage, { postIds: [args.postId] });
+  }
 }
 
 // Canonical definition lives in @prayer/shared so the web app's ExtendDialog can

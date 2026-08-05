@@ -9,6 +9,7 @@ import { FlagCountPill } from '../components/FlagCountPill';
 import { HiddenBanner } from '../components/HiddenBanner';
 import { HideTombstone } from '../components/HideTombstone';
 import { PinDialog } from '../components/PinDialog';
+import { PostImages } from '../components/PostImages';
 import { PostMenu } from '../components/PostMenu';
 import { PrayButton } from '../components/PrayButton';
 import { UpdatePostItem } from '../components/UpdatePostItem';
@@ -225,6 +226,7 @@ function PostDetailView({ data, reload, error }: PostDetailViewProps): JSX.Eleme
         <p className="whitespace-pre-wrap font-serif text-[22px] leading-relaxed text-[var(--fg-2)] [text-wrap:pretty]">
           {post.body}
         </p>
+        <PostImages images={post.images} variant="detail" />
         {answered ? (
           <div className="mt-4 -mx-6 px-6 py-2.5 border-t border-[var(--answered-border)] bg-gradient-to-r from-dawn-50 to-transparent flex items-center gap-2 text-[13px] font-semibold text-[var(--answered-fg)] tracking-[0.02em]">
             <Icon name="sunrise" size={16} />

@@ -5,6 +5,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { ExtendDialog } from '../../components/ExtendDialog';
 import { HiddenBanner } from '../../components/HiddenBanner';
 import { HideTombstone } from '../../components/HideTombstone';
+import { PostImages } from '../../components/PostImages';
 import { PostMenu } from '../../components/PostMenu';
 import { UpdatePostItem } from '../../components/UpdatePostItem';
 import { Avatar } from '../../components/ui/Avatar';
@@ -235,6 +236,8 @@ export function MobilePostCard({ post, onChange, onRepost }: MobilePostCardProps
           threshold={280}
           textClassName="m-0 font-serif text-[16px] leading-[1.55] text-[var(--fg-2)] whitespace-pre-wrap [text-wrap:pretty]"
         />
+
+        <PostImages images={post.images} variant="card" />
 
         {post.status !== 'archived' ? (
           <Reactions

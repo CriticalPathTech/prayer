@@ -3,10 +3,11 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import { DEFAULT_EXPIRY_DAYS, ExpiryPicker } from '../../components/ExpiryPicker';
+import { ImageTray } from '../../components/ImageTray';
 import { DEFAULT_PIN_DAYS, PinDurationPicker } from '../../components/PinDurationPicker';
 import { useAuth } from '../../hooks/useAuth';
 import { useDraft } from '../../hooks/useDraft';
-import { ApiError, publishMyDraft } from '../../lib/api';
+import { ApiError, publishMyDraft, type DraftInput, type PostImage } from '../../lib/api';
 
 import { MobilePageHeader } from './MobilePageHeader';
 
@@ -32,6 +33,7 @@ export function MobileComposePage(): JSX.Element {
   const [body, setBody] = useState('');
   const [days, setDays] = useState<number>(DEFAULT_EXPIRY_DAYS);
   const [isAnonymous, setAnonymous] = useState(false);
+  const [images, setImages] = useState<PostImage[]>([]);
   const [pinDays, setPinDays] = useState<number | null>(null);
   const [publishError, setPublishError] = useState<string | null>(null);
   const [publishing, setPublishing] = useState(false);
@@ -45,16 +47,21 @@ export function MobileComposePage(): JSX.Element {
         setBody(draft.body);
         setDays(daysFromExpiresAt(draft.expires_at));
         setAnonymous(draft.is_anonymous);
+        setImages(draft.images ?? []);
       }
     }
   }, [loading, draft]);
 
-  function queueSave(next: Partial<{ body: string; days: number; isAnonymous: boolean }>): void {
-    save({
+  function queueSave(
+    next: Partial<{ body: string; days: number; isAnonymous: boolean; images: PostImage[] }>,
+  ): void {
+    const input: DraftInput = {
       body: next.body ?? body,
       expires_at: buildExpiresAt(next.days ?? days),
       is_anonymous: next.isAnonymous ?? isAnonymous,
-    });
+      image_ids: (next.images ?? images).map((i) => i.id),
+    };
+    save(input);
   }
 
   async function handlePublish(): Promise<void> {
@@ -106,6 +113,14 @@ export function MobileComposePage(): JSX.Element {
           }}
           placeholder="Share your prayer request…"
           className="min-h-[40vh] w-full resize-none rounded-md border border-[var(--border-soft)] bg-[var(--bg-raised)] p-3 font-serif text-[16px] leading-relaxed text-[var(--fg-2)] outline-none focus-visible:shadow-[var(--focus-ring)]"
+        />
+        <ImageTray
+          images={images}
+          disabled={publishing}
+          onChange={(next) => {
+            setImages(next);
+            queueSave({ images: next });
+          }}
         />
         <label className="flex items-center gap-2 text-sm text-[var(--fg-2)]">
           <input

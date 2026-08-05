@@ -4,11 +4,13 @@ import { sql } from 'kysely';
 import { z } from 'zod';
 
 import { isPrivilegedRole } from '../lib/roles.js';
+import type { StorageClient } from '../lib/storage.js';
 
 import { decodeCursor, encodeCursor } from './cursor.js';
 import { getSnapshotId } from './feed-snapshot.js';
 import { fetchHideInfo, type HideInfo } from './hide-info.js';
 import { fetchMemberSet } from './membership-set.js';
+import { hydratePostImages, type PostImageDto } from './post-images.js';
 import { toPostDto, type PostDto, type PostRow, type ReactionSummary } from './posts.js';
 
 export const zFeedQuery = z.object({
@@ -35,6 +37,7 @@ export interface FeedResponse {
 
 export async function fetchFeed(
   db: Kysely<Database>,
+  storage: StorageClient,
   args: FeedQuery & { callerRole: UserRole; callerId: string; orgId: string },
 ): Promise<FeedResponse> {
   const isPrivileged = isPrivilegedRole(args.callerRole);
@@ -100,8 +103,10 @@ export async function fetchFeed(
   let prayedSet = new Set<string>();
   const reactionsMap = new Map<string, Record<string, ReactionSummary>>();
   const updatesByParent = new Map<string, PostDto[]>();
+  let imagesMap = new Map<string, PostImageDto[]>();
   if (page.length > 0) {
     const postIds = page.map((p) => p.id);
+    imagesMap = await hydratePostImages(db, storage, { postIds, orgId: args.orgId });
     const prayedRows = await db
       .selectFrom('prayers')
       .select('post_id')
@@ -176,13 +181,22 @@ export async function fetchFeed(
       }
     }
 
-    for (const row of updateRows) {
-      // parent_id is non-null for update posts
-      const parentId = row.parent_id!;
-      const dto = toPostDto(row, { role: args.callerRole }, args.callerId);
-      const existing = updatesByParent.get(parentId);
-      if (existing) existing.push(dto);
-      else updatesByParent.set(parentId, [dto]);
+    if (updateRows.length > 0) {
+      const updateImagesMap = await hydratePostImages(db, storage, {
+        postIds: updateRows.map((u) => u.id),
+        orgId: args.orgId,
+      });
+      for (const row of updateRows) {
+        // parent_id is non-null for update posts
+        const parentId = row.parent_id!;
+        const dto = {
+          ...toPostDto(row, { role: args.callerRole }, args.callerId),
+          images: updateImagesMap.get(row.id) ?? [],
+        };
+        const existing = updatesByParent.get(parentId);
+        if (existing) existing.push(dto);
+        else updatesByParent.set(parentId, [dto]);
+      }
     }
   }
 
@@ -238,6 +252,10 @@ export async function fetchFeed(
 
     if (pinnedRows.length > 0) {
       const pinnedIds = pinnedRows.map((p) => p.id);
+      const pinnedImagesMap = await hydratePostImages(db, storage, {
+        postIds: pinnedIds,
+        orgId: args.orgId,
+      });
       const pinnedPrayedRows = await db
         .selectFrom('prayers')
         .select('post_id')
@@ -296,12 +314,21 @@ export async function fetchFeed(
         .orderBy('posts.id', 'asc')
         .execute()) as unknown as PostRow[];
       const pinnedUpdatesByParent = new Map<string, PostDto[]>();
-      for (const row of pinnedUpdateRows) {
-        const parentId = row.parent_id!;
-        const dto = toPostDto(row, { role: args.callerRole }, args.callerId);
-        const existing = pinnedUpdatesByParent.get(parentId);
-        if (existing) existing.push(dto);
-        else pinnedUpdatesByParent.set(parentId, [dto]);
+      if (pinnedUpdateRows.length > 0) {
+        const pinnedUpdateImagesMap = await hydratePostImages(db, storage, {
+          postIds: pinnedUpdateRows.map((u) => u.id),
+          orgId: args.orgId,
+        });
+        for (const row of pinnedUpdateRows) {
+          const parentId = row.parent_id!;
+          const dto = {
+            ...toPostDto(row, { role: args.callerRole }, args.callerId),
+            images: pinnedUpdateImagesMap.get(row.id) ?? [],
+          };
+          const existing = pinnedUpdatesByParent.get(parentId);
+          if (existing) existing.push(dto);
+          else pinnedUpdatesByParent.set(parentId, [dto]);
+        }
       }
 
       const pinnedAuthorIds = Array.from(
@@ -313,6 +340,7 @@ export async function fetchFeed(
         prayed: pinnedPrayedSet.has(r.id),
         reactions: pinnedReactionsMap.get(r.id) ?? {},
         updates: pinnedUpdatesByParent.get(r.id) ?? [],
+        images: pinnedImagesMap.get(r.id) ?? [],
       }));
     }
   }
@@ -332,6 +360,7 @@ export async function fetchFeed(
       prayed: prayedSet.has(r.id),
       reactions: reactionsMap.get(r.id) ?? {},
       updates: updatesByParent.get(r.id) ?? [],
+      images: imagesMap.get(r.id) ?? [],
     })),
     nextCursor,
     snapshotId,

@@ -3,12 +3,13 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import { DEFAULT_EXPIRY_DAYS, ExpiryPicker } from '../components/ExpiryPicker';
+import { ImageTray } from '../components/ImageTray';
 import { DEFAULT_PIN_DAYS, PinDurationPicker } from '../components/PinDurationPicker';
 import { Button } from '../components/ui/Button';
 import { Field } from '../components/ui/Field';
 import { useAuth } from '../hooks/useAuth';
 import { useDraft } from '../hooks/useDraft';
-import { ApiError, publishMyDraft, type DraftInput } from '../lib/api';
+import { ApiError, publishMyDraft, type DraftInput, type PostImage } from '../lib/api';
 
 function daysFromExpiresAt(iso: string | null | undefined): number {
   if (!iso) return DEFAULT_EXPIRY_DAYS;
@@ -34,6 +35,7 @@ export function ComposePage(): JSX.Element {
   const [body, setBody] = useState('');
   const [days, setDays] = useState<number>(DEFAULT_EXPIRY_DAYS);
   const [isAnonymous, setAnonymous] = useState(false);
+  const [images, setImages] = useState<PostImage[]>([]);
   const [pinDays, setPinDays] = useState<number | null>(null);
   const [publishError, setPublishError] = useState<string | null>(null);
   const [publishing, setPublishing] = useState(false);
@@ -47,16 +49,20 @@ export function ComposePage(): JSX.Element {
         setBody(draft.body);
         setDays(daysFromExpiresAt(draft.expires_at));
         setAnonymous(draft.is_anonymous);
+        setImages(draft.images ?? []);
       }
     }
   }, [loading, draft]);
 
   // Every user-input change schedules a debounced save.
-  function queueSave(next: Partial<{ body: string; days: number; isAnonymous: boolean }>): void {
+  function queueSave(
+    next: Partial<{ body: string; days: number; isAnonymous: boolean; images: PostImage[] }>,
+  ): void {
     const input: DraftInput = {
       body: next.body ?? body,
       expires_at: buildExpiresAt(next.days ?? days),
       is_anonymous: next.isAnonymous ?? isAnonymous,
+      image_ids: (next.images ?? images).map((i) => i.id),
     };
     save(input);
   }
@@ -110,6 +116,15 @@ export function ComposePage(): JSX.Element {
           className="w-full min-h-[220px] rounded-md border border-[var(--border-default)] bg-[var(--bg-raised)] px-4 py-4 font-serif text-[17px] leading-relaxed text-[var(--fg-1)] outline-none transition-colors placeholder:text-[var(--fg-4)] focus:border-vesper-400 focus-visible:shadow-[0_0_0_3px_theme(colors.vesper.100)]"
         />
       </Field>
+
+      <ImageTray
+        images={images}
+        disabled={publishing}
+        onChange={(next) => {
+          setImages(next);
+          queueSave({ images: next });
+        }}
+      />
 
       <Field label="Keep visible for">
         <ExpiryPicker

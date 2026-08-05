@@ -46,6 +46,7 @@ async function main(): Promise<void> {
       locals: {
         expirySweeper?: { stop: () => void };
         pinSweeper?: { stop: () => void };
+        imageReaper?: { stop: () => void };
         eventWorker?: { stop: () => Promise<void> } | null;
       };
     }
@@ -53,6 +54,7 @@ async function main(): Promise<void> {
   const shutdown = async (): Promise<void> => {
     locals.expirySweeper?.stop();
     locals.pinSweeper?.stop();
+    locals.imageReaper?.stop();
     await locals.eventWorker?.stop();
     process.exit(0);
   };

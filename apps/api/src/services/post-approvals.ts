@@ -4,10 +4,12 @@ import type { Kysely } from 'kysely';
 import { sql } from 'kysely';
 
 import { isPrivilegedRole } from '../lib/roles.js';
+import type { StorageClient } from '../lib/storage.js';
 import { ForbiddenError, NotFoundError, ValidationError } from '../middleware/error.js';
 
 import { writePostEvent } from './events.js';
 import { fetchMemberSet } from './membership-set.js';
+import { hydratePostImages, purgeAllForPost } from './post-images.js';
 import { fetchPostRow, toPostDto, type PostDto, type PostRow } from './posts.js';
 
 const REJECT_NOTE_MAX = 500;
@@ -33,6 +35,7 @@ export interface ListApprovalsResult {
 
 export async function listApprovals(
   db: Kysely<Database>,
+  storage: StorageClient,
   input: ListApprovalsInput,
 ): Promise<ListApprovalsResult> {
   requireModerator(input.callerRole);
@@ -71,10 +74,14 @@ export async function listApprovals(
     new Set(rows.map((r) => r.author_id).filter((id): id is string => id !== null)),
   );
   const memberSet = await fetchMemberSet(db, input.orgId, authorIds);
+  const imagesMap = await hydratePostImages(db, storage, {
+    postIds: rows.map((r) => r.id),
+    orgId: input.orgId,
+  });
 
   const items = (rows as unknown as (PostRow & { skipped_by_me: boolean })[]).map((r) => {
     const dto = toPostDto(r, { role: input.callerRole }, input.callerId, memberSet);
-    return { ...dto, skipped_by_me: r.skipped_by_me };
+    return { ...dto, skipped_by_me: r.skipped_by_me, images: imagesMap.get(r.id) ?? [] };
   });
   return { items };
 }
@@ -181,13 +188,17 @@ export interface RejectPostInput {
   note?: string;
 }
 
-export async function rejectPost(db: Kysely<Database>, input: RejectPostInput): Promise<PostDto> {
+export async function rejectPost(
+  db: Kysely<Database>,
+  storage: StorageClient,
+  input: RejectPostInput,
+): Promise<PostDto> {
   requireModerator(input.callerRole);
   const note = input.note?.trim() ? input.note.trim() : null;
   if (note !== null && note.length > REJECT_NOTE_MAX) {
     throw new ValidationError(`note must be ${REJECT_NOTE_MAX} characters or fewer`);
   }
-  return db.transaction().execute(async (trx) => {
+  const dto = await db.transaction().execute(async (trx) => {
     const existing = await trx
       .selectFrom('posts')
       .select(['id', 'author_id', 'body', 'status'])
@@ -225,4 +236,6 @@ export async function rejectPost(db: Kysely<Database>, input: RejectPostInput): 
     const row = await fetchPostRow(trx, { postId: input.postId, orgId: input.orgId });
     return toPostDto(row, { role: input.callerRole }, input.callerId);
   });
+  await purgeAllForPost(db, storage, { postId: input.postId });
+  return dto;
 }

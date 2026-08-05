@@ -84,6 +84,24 @@ describe('MobilePostCard', () => {
     expect(screen.queryByRole('button', { name: /add reaction/i })).not.toBeInTheDocument();
   });
 
+  it('renders only the cover thumb for a post with multiple images', () => {
+    render(
+      <MemoryRouter>
+        <MobilePostCard
+          post={makeFeedPost({
+            images: [
+              { id: 'i1', url: 'f1', thumb_url: 't1', width: 10, height: 10, purged: false },
+              { id: 'i2', url: 'f2', thumb_url: 't2', width: 10, height: 10, purged: false },
+            ],
+          })}
+        />
+      </MemoryRouter>,
+    );
+    expect(screen.getByAltText('Cover photo')).toBeInTheDocument();
+    expect(screen.queryByAltText('Photo 2')).not.toBeInTheDocument();
+    expect(screen.getByText('+1')).toBeInTheDocument();
+  });
+
   it('renders dual footer buttons "I Will Pray" and "Comment"', () => {
     render(
       <MemoryRouter>

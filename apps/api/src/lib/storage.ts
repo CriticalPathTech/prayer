@@ -3,7 +3,9 @@ import {
   PutObjectCommand,
   DeleteObjectsCommand,
   ListObjectsV2Command,
+  GetObjectCommand,
 } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
 export interface StorageUploadOptions {
   contentType: string;
@@ -21,6 +23,13 @@ export interface StorageClient {
   upload(bucket: string, path: string, body: Buffer, opts: StorageUploadOptions): Promise<void>;
   remove(bucket: string, paths: string[]): Promise<void>;
   list(bucket: string, prefix: string): Promise<StorageFileItem[]>;
+  /**
+   * Mint a time-limited GET URL for a private object. Used for post images,
+   * which live in a bucket with public access blocked — the API is the only
+   * thing that can hand out a readable URL, and only after the caller has
+   * passed the membership + org checks.
+   */
+  presignGet(bucket: string, path: string, ttlSeconds: number): Promise<string>;
 }
 
 export interface StorageClientConfig {
@@ -75,6 +84,11 @@ export function createStorageClient(cfg: StorageClientConfig): StorageClient {
           .filter((name) => name.length > 0)
           .map((name) => ({ name }))
       );
+    },
+    async presignGet(bucket, path, ttlSeconds) {
+      return getSignedUrl(client, new GetObjectCommand({ Bucket: bucket, Key: path }), {
+        expiresIn: ttlSeconds,
+      });
     },
   };
 }

@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 
 import { DEFAULT_EXPIRY_DAYS, ExpiryPicker } from '../components/ExpiryPicker';
+import { PostImages } from '../components/PostImages';
 import { Button } from '../components/ui/Button';
 import { Field } from '../components/ui/Field';
 import { useEditBuffer } from '../hooks/useEditBuffer';
@@ -151,6 +152,15 @@ export function EditPostPage(): JSX.Element {
           className="w-full min-h-[220px] rounded-md border border-[var(--border-default)] bg-[var(--bg-raised)] px-4 py-4 font-serif text-[17px] leading-relaxed text-[var(--fg-1)] outline-none transition-colors placeholder:text-[var(--fg-4)] focus:border-vesper-400 focus-visible:shadow-[0_0_0_3px_theme(colors.vesper.100)]"
         />
       </Field>
+
+      {data.post.images.length > 0 ? (
+        <div className="mb-6">
+          <PostImages images={data.post.images} variant="detail" />
+          <p className="mt-2 text-xs text-[var(--fg-3)]">
+            Photos can&rsquo;t be changed after a prayer request is shared.
+          </p>
+        </div>
+      ) : null}
 
       <Field label="Keep visible for">
         <ExpiryPicker
