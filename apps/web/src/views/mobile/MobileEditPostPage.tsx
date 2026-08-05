@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 
 import { DEFAULT_EXPIRY_DAYS, ExpiryPicker } from '../../components/ExpiryPicker';
+import { PostImages } from '../../components/PostImages';
 import { usePost } from '../../hooks/usePost';
 import { apiFetch } from '../../lib/api';
 
@@ -121,6 +122,14 @@ export function MobileEditPostPage(): JSX.Element {
           disabled={deadlinePassed}
           className="min-h-[40vh] w-full resize-none rounded-md border border-[var(--border-soft)] bg-[var(--bg-raised)] p-3 font-serif text-[16px] leading-relaxed text-[var(--fg-2)] outline-none focus-visible:shadow-[var(--focus-ring)]"
         />
+        {data.post.images.length > 0 ? (
+          <div>
+            <PostImages images={data.post.images} variant="detail" />
+            <p className="mt-2 text-xs text-[var(--fg-3)]">
+              Photos can&rsquo;t be changed after a prayer request is shared.
+            </p>
+          </div>
+        ) : null}
         <div>
           <span className="mb-1 block text-xs font-medium uppercase tracking-[0.06em] text-[var(--fg-3)]">
             Expires after

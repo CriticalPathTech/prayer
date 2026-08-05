@@ -47,6 +47,7 @@ describe('MobileEditPostPage', () => {
           status: 'published',
           is_own_post: true,
           author_id: 'me',
+          images: [],
         },
         updates: [],
         reactions: {},
@@ -86,6 +87,36 @@ describe('MobileEditPostPage', () => {
     await waitFor(() => expect(navigateMock).toHaveBeenCalledWith(-1));
   });
 
+  it('renders images read-only with frozen-set copy, no ImageTray', () => {
+    usePostMock.mockReturnValue({
+      data: {
+        post: {
+          id: 'p1',
+          body: 'old body',
+          edit_deadline: farFuture,
+          expires_at: null,
+          status: 'published',
+          is_own_post: true,
+          author_id: 'me',
+          images: [{ id: 'i1', url: 'f1', thumb_url: 't1', width: 10, height: 10, purged: false }],
+        },
+        updates: [],
+        reactions: {},
+        prayer: { prayer_count: 0, prayed: false },
+      },
+      loading: false,
+      notFound: false,
+      error: null,
+    });
+    renderAtUrl();
+    expect(screen.getByAltText('Cover photo')).toBeInTheDocument();
+    expect(
+      screen.getByText(/photos can.t be changed after a prayer request is shared/i),
+    ).toBeInTheDocument();
+    // Read-only: no upload/remove affordances from ImageTray.
+    expect(screen.queryByRole('button', { name: /remove/i })).not.toBeInTheDocument();
+  });
+
   it('shows "edit window has passed" when deadline is in the past', () => {
     usePostMock.mockReturnValue({
       data: {
@@ -97,6 +128,7 @@ describe('MobileEditPostPage', () => {
           status: 'published',
           is_own_post: true,
           author_id: 'me',
+          images: [],
         },
         updates: [],
         reactions: {},

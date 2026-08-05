@@ -4,6 +4,7 @@ import { Link, useParams } from 'react-router-dom';
 
 import { ExtendDialog } from '../../components/ExtendDialog';
 import { PinDialog } from '../../components/PinDialog';
+import { PostImages } from '../../components/PostImages';
 import { PostMenu } from '../../components/PostMenu';
 import { UpdatePostItem } from '../../components/UpdatePostItem';
 import { Avatar } from '../../components/ui/Avatar';
@@ -145,6 +146,7 @@ export function MobilePostDetailPage(): JSX.Element {
           <p className="mt-3 whitespace-pre-wrap font-serif text-[16px] leading-[1.55] text-[var(--fg-2)] [text-wrap:pretty]">
             {post.body}
           </p>
+          <PostImages images={post.images} variant="detail" />
         </article>
 
         {isAuthor ? <AddUpdateInline postId={post.id} onSaved={() => void reload()} /> : null}
