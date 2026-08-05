@@ -103,6 +103,8 @@ Husky installs a `pre-push` hook (`.husky/pre-push`) that runs `pnpm format:chec
 - **If you see the hook run on every push, it's working.** `pnpm install` enables it via the `prepare` script.
 - **Before pushing, always run `pnpm format && pnpm lint` locally** — the hook is a safety net, not a substitute for running these yourself. Fixing formatting issues after writing the commit means amending or stacking a fixup commit.
 - Use `git push --no-verify` to bypass only when you explicitly know why (e.g., pushing a WIP branch that's not going to CI yet).
+- **`pnpm format:check` scans gitignored files.** A scratch directory inside the repo (agent workspace, scratch notes) fails the check and blocks the push even though it will never be committed. Keep scratch outside the repo, or delete it before pushing.
+- **The pre-push `git rebase origin/main` can strand a worktree mid-rebase.** On a conflict (typically `pnpm-lock.yaml` + `apps/*/package.json` after a dependency bump lands on main) the push aborts and the worktree sits in `interactive rebase in progress`. Recover with `git rebase --abort` — `ORIG_HEAD` is your pre-rebase tip, so nothing is lost. For the lockfile, resolve the manifests by hand then `git checkout origin/main -- pnpm-lock.yaml && nvm exec 24 pnpm install --lockfile-only` instead of hand-merging the lock.
 
 Claude Code also runs hooks (`.claude/settings.json`): `pnpm lint` before every `git commit`, and `git rebase origin/main` + a main-branch guard before every `git push`.
 
