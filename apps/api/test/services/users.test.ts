@@ -6,6 +6,9 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from
 import { ValidationError } from '../../src/middleware/error.js';
 import { fetchUserById, fetchUserPosts, updateDisplayName } from '../../src/services/users.js';
 import { insertOrg, insertPost, insertUser } from '../helpers/seed.js';
+import { makeInMemoryStorage } from '../helpers/storage.js';
+
+const storage = makeInMemoryStorage();
 
 // Local helpers for tests that exercise enrichment (prayed/reactions);
 // the shared seed module doesn't ship inserters for these tables.
@@ -184,7 +187,7 @@ describe('services/users — profile page fetchers', () => {
         orgId,
         status: 'published',
       });
-      const res = await fetchUserPosts(profileDb, {
+      const res = await fetchUserPosts(profileDb, storage, {
         userId: target.id,
         callerRole: 'member',
         callerId: target.id,
@@ -201,7 +204,7 @@ describe('services/users — profile page fetchers', () => {
 
     it('returns the all-zeros sentinel snapshotId when the user has no visible posts', async () => {
       const target = await insertUser(profileDb, { orgId });
-      const res = await fetchUserPosts(profileDb, {
+      const res = await fetchUserPosts(profileDb, storage, {
         userId: target.id,
         callerRole: 'member',
         callerId: target.id,
@@ -221,7 +224,7 @@ describe('services/users — profile page fetchers', () => {
       await insertPost(profileDb, { authorId: target.id, orgId, status: 'hidden' });
       await insertPost(profileDb, { authorId: target.id, orgId, status: 'pending' });
       await insertPost(profileDb, { authorId: target.id, orgId, status: 'published' });
-      const res = await fetchUserPosts(profileDb, {
+      const res = await fetchUserPosts(profileDb, storage, {
         userId: target.id,
         callerRole: 'member',
         callerId: target.id,
@@ -245,7 +248,7 @@ describe('services/users — profile page fetchers', () => {
         status: 'published',
         parentId: parent.id,
       });
-      const res = await fetchUserPosts(profileDb, {
+      const res = await fetchUserPosts(profileDb, storage, {
         userId: target.id,
         callerRole: 'member',
         callerId: target.id,
@@ -271,7 +274,7 @@ describe('services/users — profile page fetchers', () => {
         orgId,
         status: 'published',
       });
-      const res = await fetchUserPosts(profileDb, {
+      const res = await fetchUserPosts(profileDb, storage, {
         userId: target.id,
         callerRole: 'member',
         callerId: other.id,
@@ -296,7 +299,7 @@ describe('services/users — profile page fetchers', () => {
         status: 'published',
         isAnonymous: true,
       });
-      const res = await fetchUserPosts(profileDb, {
+      const res = await fetchUserPosts(profileDb, storage, {
         userId: target.id,
         callerRole: 'member',
         callerId: target.id,
@@ -323,7 +326,7 @@ describe('services/users — profile page fetchers', () => {
         status: 'published',
         isAnonymous: true,
       });
-      const res = await fetchUserPosts(profileDb, {
+      const res = await fetchUserPosts(profileDb, storage, {
         userId: target.id,
         callerRole: 'super_user',
         callerId: su.id,
@@ -345,7 +348,7 @@ describe('services/users — profile page fetchers', () => {
         status: 'published',
         isAnonymous: true,
       });
-      const res = await fetchUserPosts(profileDb, {
+      const res = await fetchUserPosts(profileDb, storage, {
         userId: target.id,
         callerRole: 'moderator',
         callerId: mod.id,
@@ -367,7 +370,7 @@ describe('services/users — profile page fetchers', () => {
         });
         created.push(p.id);
       }
-      const page1 = await fetchUserPosts(profileDb, {
+      const page1 = await fetchUserPosts(profileDb, storage, {
         userId: target.id,
         callerRole: 'member',
         callerId: target.id,
@@ -377,7 +380,7 @@ describe('services/users — profile page fetchers', () => {
       });
       expect(page1.posts).toHaveLength(2);
       expect(page1.nextCursor).not.toBeNull();
-      const page2 = await fetchUserPosts(profileDb, {
+      const page2 = await fetchUserPosts(profileDb, storage, {
         userId: target.id,
         callerRole: 'member',
         callerId: target.id,
@@ -410,7 +413,7 @@ describe('services/users — profile page fetchers', () => {
         orgId,
       });
 
-      const res = await fetchUserPosts(profileDb, {
+      const res = await fetchUserPosts(profileDb, storage, {
         userId: target.id,
         callerRole: 'member',
         callerId: viewer.id,
@@ -453,7 +456,7 @@ describe('services/users — profile page fetchers', () => {
         emoji: '❤️',
       });
 
-      const res = await fetchUserPosts(profileDb, {
+      const res = await fetchUserPosts(profileDb, storage, {
         userId: target.id,
         callerRole: 'member',
         callerId: viewer.id,
@@ -496,7 +499,7 @@ describe('services/users — profile page fetchers', () => {
         parentId: parent.id,
       });
 
-      const res = await fetchUserPosts(profileDb, {
+      const res = await fetchUserPosts(profileDb, storage, {
         userId: target.id,
         callerRole: 'member',
         callerId: target.id,

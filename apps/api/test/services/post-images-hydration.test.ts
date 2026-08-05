@@ -168,4 +168,81 @@ describe('images appear in post-shaped responses', () => {
     const item = res.body.items.find((i: { target_id: string }) => i.target_id === postId);
     expect(item.images).toHaveLength(1);
   });
+
+  it('the mod follow-up tab carries images on parent posts and their inline updates', async () => {
+    const authorToken = await authAsMember();
+    const postId = await publishWithImage(authorToken);
+
+    // Updates don't currently support attaching their own photos (createUpdate
+    // takes no imageIds), but the inline update dto must still carry the
+    // images field shape (empty array, not undefined).
+    await request(ctx.app)
+      .post(`/posts/${postId}/updates`)
+      .set('Authorization', `Bearer ${authorToken}`)
+      .send({ body: 'an update, no photo' });
+
+    const mod = await insertUser(ctx.db, {
+      orgId,
+      role: 'moderator',
+      email: `${Date.now()}mod3@e.com`,
+    });
+    const modToken = await mintTestJwt({ sub: mod.supabaseAuthId, email: mod.email });
+
+    const res = await request(ctx.app)
+      .get('/mod/follow-up')
+      .set('Authorization', `Bearer ${modToken}`);
+    expect(res.status).toBe(200);
+    const item = res.body.items.find((i: { id: string }) => i.id === postId);
+    expect(item.images).toHaveLength(1);
+    expect(item.updates).toHaveLength(1);
+    expect(item.updates[0].images).toEqual([]);
+  });
+
+  it('the member profile page carries images on posts and their inline updates', async () => {
+    const authorToken = await authAsMember();
+    const postId = await publishWithImage(authorToken);
+
+    await request(ctx.app)
+      .post(`/posts/${postId}/updates`)
+      .set('Authorization', `Bearer ${authorToken}`)
+      .send({ body: 'an update, no photo' });
+
+    const me = await request(ctx.app).get('/me').set('Authorization', `Bearer ${authorToken}`);
+    const userId = me.body.id as string;
+
+    const res = await request(ctx.app)
+      .get(`/users/${userId}/posts`)
+      .set('Authorization', `Bearer ${authorToken}`);
+    expect(res.status).toBe(200);
+    const item = res.body.posts.find((p: { id: string }) => p.id === postId);
+    expect(item.images).toHaveLength(1);
+    expect(item.updates).toHaveLength(1);
+    expect(item.updates[0].images).toEqual([]);
+  });
+
+  it('a follow-up post without photos gets an empty images array', async () => {
+    memberToken = await authAsMember();
+    await request(ctx.app)
+      .put('/me/draft')
+      .set('Authorization', `Bearer ${memberToken}`)
+      .send({ body: 'no photos here either' });
+    const pub = await request(ctx.app)
+      .post('/me/draft/publish')
+      .set('Authorization', `Bearer ${memberToken}`)
+      .send({});
+    const postId = pub.body.post.id as string;
+
+    const mod = await insertUser(ctx.db, {
+      orgId,
+      role: 'moderator',
+      email: `${Date.now()}mod4@e.com`,
+    });
+    const modToken = await mintTestJwt({ sub: mod.supabaseAuthId, email: mod.email });
+
+    const res = await request(ctx.app)
+      .get('/mod/follow-up')
+      .set('Authorization', `Bearer ${modToken}`);
+    const item = res.body.items.find((i: { id: string }) => i.id === postId);
+    expect(item.images).toEqual([]);
+  });
 });

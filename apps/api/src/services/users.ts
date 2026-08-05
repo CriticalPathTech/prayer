@@ -8,9 +8,11 @@ import type { Database, UserRole } from '@prayer/db';
 import type { Kysely } from 'kysely';
 import { sql } from 'kysely';
 
+import type { StorageClient } from '../lib/storage.js';
 import { sanitizeDisplayName } from '../middleware/auth.js';
 import { ValidationError } from '../middleware/error.js';
 
+import { hydratePostImages, type PostImageDto } from './post-images.js';
 import { toPostDto, type PostDto, type PostRow, type ReactionSummary } from './posts.js';
 
 export interface UpdateDisplayNameInput {
@@ -159,6 +161,7 @@ function decodeUserPostsCursor(token: string): string {
  */
 export async function fetchUserPosts(
   db: Kysely<Database>,
+  storage: StorageClient,
   args: UserPostsArgs,
 ): Promise<UserPostsResponse> {
   const includeAnonymous = args.callerId === args.userId || args.callerRole === 'super_user';
@@ -276,20 +279,36 @@ export async function fetchUserPosts(
       .orderBy('posts.id', 'asc')
       .execute()) as unknown as PostRow[];
 
+    const updateImagesMap = await hydratePostImages(db, storage, {
+      postIds: updateRows.map((u) => u.id),
+      orgId: args.orgId,
+    });
     for (const row of updateRows) {
       const parentId = row.parent_id!;
-      const dto = toPostDto(row, caller, args.callerId);
+      const dto = {
+        ...toPostDto(row, caller, args.callerId),
+        images: updateImagesMap.get(row.id) ?? [],
+      };
       const existing = updatesByParent.get(parentId);
       if (existing) existing.push(dto);
       else updatesByParent.set(parentId, [dto]);
     }
   }
 
+  const imagesMap: Map<string, PostImageDto[]> =
+    sliced.length > 0
+      ? await hydratePostImages(db, storage, {
+          postIds: sliced.map((p) => p.id),
+          orgId: args.orgId,
+        })
+      : new Map();
+
   const posts: UserPostsItem[] = baseDtos.map((dto) => ({
     ...dto,
     prayed: prayedSet.has(dto.id),
     reactions: reactionsMap.get(dto.id) ?? {},
     updates: updatesByParent.get(dto.id) ?? [],
+    images: imagesMap.get(dto.id) ?? [],
   }));
 
   const last = sliced[sliced.length - 1];

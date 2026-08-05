@@ -11,9 +11,15 @@
 
 import sharp from 'sharp';
 
-const MAX_EDGE = 1600;
-const THUMB_EDGE = 400;
-const WEBP_QUALITY = 80;
+const MAX_EDGE = 2048;
+// Feed cards render thumb_url stretched to full card width (~660px on
+// desktop, more on a 2x display) — 400px was being upscaled by the browser,
+// which is most of what users perceived as "over-compressed." The thumb is
+// what survives archival (full-size objects are purged, thumbs are kept
+// forever), so 800px roughly quadruples per-image retained storage — still
+// small in absolute terms and worth it for legibility.
+const THUMB_EDGE = 800;
+const WEBP_QUALITY = 88;
 
 // Decompression-bomb guard: refuse anything that would decode to more than
 // ~50 megapixels regardless of how small the compressed bytes are.
@@ -73,7 +79,7 @@ export function detectImageMime(buf: Buffer): string | null {
 
 /**
  * Resize, strip metadata, and re-encode to WebP. Returns the full-size variant
- * (long edge <= 1600, never upscaled) and a 400px thumbnail.
+ * (long edge <= 2048, never upscaled) and an 800px thumbnail.
  *
  * The thumbnail is what survives archival — a post's full-size objects are
  * purged when it archives, but the thumb is kept so old posts still render.
@@ -97,13 +103,13 @@ export async function processPostImage(input: Buffer): Promise<ProcessedImage> {
   const full = await sharp(input, { limitInputPixels: MAX_PIXELS })
     .rotate() // bake in EXIF orientation before the metadata is discarded
     .resize({ width: MAX_EDGE, height: MAX_EDGE, fit: 'inside', withoutEnlargement: true })
-    .webp({ quality: WEBP_QUALITY })
+    .webp({ quality: WEBP_QUALITY, smartSubsample: true })
     .toBuffer();
 
   const thumb = await sharp(input, { limitInputPixels: MAX_PIXELS })
     .rotate()
     .resize({ width: THUMB_EDGE, height: THUMB_EDGE, fit: 'inside', withoutEnlargement: true })
-    .webp({ quality: WEBP_QUALITY })
+    .webp({ quality: WEBP_QUALITY, smartSubsample: true })
     .toBuffer();
 
   const fullMeta = await sharp(full).metadata();

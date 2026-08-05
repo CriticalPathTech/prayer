@@ -29,19 +29,19 @@ describe('detectImageMime', () => {
 });
 
 describe('processPostImage', () => {
-  it('caps the long edge at 1600, emits a 400px thumb, and outputs webp', async () => {
+  it('caps the long edge at 2048, emits an 800px thumb, and outputs webp', async () => {
     const { full, thumb, width, height } = await processPostImage(await makeJpeg(4000, 3000));
 
-    expect(width).toBe(1600);
-    expect(height).toBe(1200);
+    expect(width).toBe(2048);
+    expect(height).toBe(1536);
 
     const fullMeta = await sharp(full).metadata();
     expect(fullMeta.format).toBe('webp');
-    expect(fullMeta.width).toBe(1600);
+    expect(fullMeta.width).toBe(2048);
 
     const thumbMeta = await sharp(thumb).metadata();
     expect(thumbMeta.format).toBe('webp');
-    expect(thumbMeta.width).toBe(400);
+    expect(thumbMeta.width).toBe(800);
   });
 
   it('strips all metadata including GPS EXIF', async () => {

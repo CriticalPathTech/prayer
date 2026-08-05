@@ -5,10 +5,12 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { initDb } from '../../src/db/index.js';
 import { listFollowupPosts } from '../../src/services/mod-followup.js';
 import { insertComment, insertPost, insertUser } from '../helpers/seed.js';
+import { makeInMemoryStorage } from '../helpers/storage.js';
 
 describe('listFollowupPosts', () => {
   let db: Kysely<Database>;
   let orgId: string;
+  const storage = makeInMemoryStorage();
   beforeAll(async () => {
     db = initDb(process.env.TEST_DATABASE_URL!);
     orgId = (
@@ -45,7 +47,7 @@ describe('listFollowupPosts', () => {
       body: 'second',
     });
 
-    const out = await listFollowupPosts(db, {
+    const out = await listFollowupPosts(db, storage, {
       callerRole: 'moderator',
       callerId: author.id,
       orgId,
@@ -81,7 +83,7 @@ describe('listFollowupPosts', () => {
     });
     await db.updateTable('posts').set({ prayer_count: 3 }).where('id', '=', some.id).execute();
 
-    const out = await listFollowupPosts(db, {
+    const out = await listFollowupPosts(db, storage, {
       callerRole: 'moderator',
       callerId: author.id,
       orgId,
@@ -105,7 +107,7 @@ describe('listFollowupPosts', () => {
     const some = await insertPost(db, { authorId: author.id, orgId, status: 'published' });
     await db.updateTable('posts').set({ reaction_count: 2 }).where('id', '=', some.id).execute();
 
-    const out = await listFollowupPosts(db, {
+    const out = await listFollowupPosts(db, storage, {
       callerRole: 'moderator',
       callerId: author.id,
       orgId,
@@ -140,7 +142,7 @@ describe('listFollowupPosts', () => {
     });
     await insertComment(db, { postId: replied.id, authorId: responder.id, orgId });
 
-    const out = await listFollowupPosts(db, {
+    const out = await listFollowupPosts(db, storage, {
       callerRole: 'moderator',
       callerId: author.id,
       orgId,
@@ -169,7 +171,7 @@ describe('listFollowupPosts', () => {
       isHidden: true,
     });
 
-    const out = await listFollowupPosts(db, {
+    const out = await listFollowupPosts(db, storage, {
       callerRole: 'moderator',
       callerId: author.id,
       orgId,
@@ -209,7 +211,7 @@ describe('listFollowupPosts', () => {
       body: 'update!',
     });
 
-    const out = await listFollowupPosts(db, {
+    const out = await listFollowupPosts(db, storage, {
       callerRole: 'moderator',
       callerId: author.id,
       orgId,
@@ -248,7 +250,7 @@ describe('listFollowupPosts', () => {
     });
     await insertComment(db, { postId: modReplied.id, authorId: mod.id, orgId });
 
-    const out = await listFollowupPosts(db, {
+    const out = await listFollowupPosts(db, storage, {
       callerRole: 'moderator',
       callerId: author.id,
       orgId,
@@ -286,7 +288,7 @@ describe('listFollowupPosts', () => {
       .where('id', '=', aged.id)
       .execute();
 
-    const out = await listFollowupPosts(db, {
+    const out = await listFollowupPosts(db, storage, {
       callerRole: 'moderator',
       callerId: author.id,
       orgId,
@@ -325,7 +327,7 @@ describe('listFollowupPosts', () => {
       .where('id', '=', aged.id)
       .execute();
 
-    const out = await listFollowupPosts(db, {
+    const out = await listFollowupPosts(db, storage, {
       callerRole: 'moderator',
       callerId: author.id,
       orgId,
@@ -360,7 +362,7 @@ describe('listFollowupPosts', () => {
       body: 'second',
     });
 
-    const out = await listFollowupPosts(db, {
+    const out = await listFollowupPosts(db, storage, {
       callerRole: 'moderator',
       callerId: author.id,
       orgId,
@@ -392,7 +394,7 @@ describe('listFollowupPosts', () => {
       await new Promise((r) => setTimeout(r, 2));
     }
 
-    const page1 = await listFollowupPosts(db, {
+    const page1 = await listFollowupPosts(db, storage, {
       callerRole: 'moderator',
       callerId: author.id,
       orgId,
@@ -410,7 +412,7 @@ describe('listFollowupPosts', () => {
     expect(page1.items.map((p) => p.id)).toEqual(ids.slice(0, 2));
     expect(page1.next_cursor).not.toBeNull();
 
-    const page2 = await listFollowupPosts(db, {
+    const page2 = await listFollowupPosts(db, storage, {
       callerRole: 'moderator',
       callerId: author.id,
       orgId,
@@ -428,7 +430,7 @@ describe('listFollowupPosts', () => {
     });
     expect(page2.items.map((p) => p.id)).toEqual(ids.slice(2, 4));
 
-    const page3 = await listFollowupPosts(db, {
+    const page3 = await listFollowupPosts(db, storage, {
       callerRole: 'moderator',
       callerId: author.id,
       orgId,
@@ -454,7 +456,7 @@ describe('listFollowupPosts', () => {
     for (const status of ['draft', 'archived', 'hidden', 'pending', 'rejected'] as const) {
       await insertPost(db, { authorId: author.id, orgId, status });
     }
-    const out = await listFollowupPosts(db, {
+    const out = await listFollowupPosts(db, storage, {
       callerRole: 'moderator',
       callerId: author.id,
       orgId,
@@ -481,7 +483,7 @@ describe('listFollowupPosts', () => {
       status: 'published',
       parentId: parent.id,
     });
-    const out = await listFollowupPosts(db, {
+    const out = await listFollowupPosts(db, storage, {
       callerRole: 'moderator',
       callerId: author.id,
       orgId,
@@ -508,7 +510,7 @@ describe('listFollowupPosts', () => {
       status: 'published',
       expiresAt: new Date(Date.now() - 3600_000),
     });
-    const out = await listFollowupPosts(db, {
+    const out = await listFollowupPosts(db, storage, {
       callerRole: 'moderator',
       callerId: author.id,
       orgId,
@@ -540,7 +542,7 @@ describe('listFollowupPosts', () => {
       isAnonymous: true,
     });
 
-    const modOut = await listFollowupPosts(db, {
+    const modOut = await listFollowupPosts(db, storage, {
       callerRole: 'moderator',
       callerId: author.id,
       orgId,
@@ -559,7 +561,7 @@ describe('listFollowupPosts', () => {
     expect(modRow.display_name).toBeNull();
     expect(modRow.is_anonymous).toBe(true);
 
-    const suOut = await listFollowupPosts(db, {
+    const suOut = await listFollowupPosts(db, storage, {
       callerRole: 'super_user',
       callerId: author.id,
       orgId,
@@ -581,7 +583,7 @@ describe('listFollowupPosts', () => {
   it('throws ForbiddenError when called by a member', async () => {
     const u = await insertUser(db, { orgId, role: 'member' });
     await expect(
-      listFollowupPosts(db, {
+      listFollowupPosts(db, storage, {
         callerRole: 'member',
         callerId: u.id,
         orgId,
@@ -636,7 +638,7 @@ describe('listFollowupPosts', () => {
     // Too young.
     await insertPost(db, { authorId: author.id, orgId, status: 'published', body: 'young' });
 
-    const out = await listFollowupPosts(db, {
+    const out = await listFollowupPosts(db, storage, {
       callerRole: 'moderator',
       callerId: author.id,
       orgId,
@@ -658,6 +660,7 @@ describe('listFollowupPosts', () => {
 describe('listFollowupPosts caller-specific state', () => {
   let db: Kysely<Database>;
   let orgId: string;
+  const storage = makeInMemoryStorage();
   beforeAll(async () => {
     db = initDb(process.env.TEST_DATABASE_URL!);
     orgId = (
@@ -686,7 +689,7 @@ describe('listFollowupPosts caller-specific state', () => {
       .values({ id: newId(), org_id: orgId, post_id: post.id, user_id: mod.id })
       .execute();
 
-    const out = await listFollowupPosts(db, {
+    const out = await listFollowupPosts(db, storage, {
       orgId,
       callerId: mod.id,
       callerRole: 'moderator',
@@ -715,7 +718,7 @@ describe('listFollowupPosts caller-specific state', () => {
       .values({ id: newId(), org_id: orgId, post_id: post.id, user_id: other.id })
       .execute();
 
-    const out = await listFollowupPosts(db, {
+    const out = await listFollowupPosts(db, storage, {
       orgId,
       callerId: mod.id,
       callerRole: 'moderator',
@@ -768,7 +771,7 @@ describe('listFollowupPosts caller-specific state', () => {
       ])
       .execute();
 
-    const out = await listFollowupPosts(db, {
+    const out = await listFollowupPosts(db, storage, {
       orgId,
       callerId: mod.id,
       callerRole: 'moderator',
@@ -808,7 +811,7 @@ describe('listFollowupPosts caller-specific state', () => {
       body: 'second update',
     });
 
-    const out = await listFollowupPosts(db, {
+    const out = await listFollowupPosts(db, storage, {
       orgId,
       callerId: mod.id,
       callerRole: 'moderator',

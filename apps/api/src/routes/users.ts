@@ -3,6 +3,7 @@ import { Router } from 'express';
 import type { Kysely } from 'kysely';
 import { z } from 'zod';
 
+import type { StorageClient } from '../lib/storage.js';
 import { NotFoundError, UnauthorizedError, ValidationError } from '../middleware/error.js';
 import { fetchUserById, fetchUserPosts } from '../services/users.js';
 
@@ -11,7 +12,7 @@ const zPostsQuery = z.object({
   limit: z.coerce.number().int().min(1).max(50).default(20),
 });
 
-export function usersRouter(deps: { db: Kysely<Database> }): Router {
+export function usersRouter(deps: { db: Kysely<Database>; storage: StorageClient }): Router {
   const router = Router();
 
   router.get('/users/:userId', async (req, res, next) => {
@@ -47,7 +48,7 @@ export function usersRouter(deps: { db: Kysely<Database> }): Router {
         orgId: req.user.orgId,
       });
       if (!target) throw new NotFoundError('User not found');
-      const out = await fetchUserPosts(deps.db, {
+      const out = await fetchUserPosts(deps.db, deps.storage, {
         userId,
         callerRole: req.user.role,
         callerId: req.user.id,
