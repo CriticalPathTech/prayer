@@ -1,6 +1,7 @@
 import type { JSX } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 
+import { PostImages } from '../../components/PostImages';
 import { useAuth } from '../../hooks/useAuth';
 import { useModQueue } from '../../hooks/useModQueue';
 import { isPrivilegedRole } from '../../lib/roles';
@@ -53,6 +54,7 @@ export function MobileModHiddenPage(): JSX.Element {
               {it.reasons.length > 0 ? <> · {it.reasons.join(', ')}</> : null}
             </p>
             <p className="line-clamp-2 text-sm text-[var(--fg-2)]">{it.preview}</p>
+            <PostImages images={it.images} variant="detail" />
             <div className="flex flex-wrap gap-2">
               <button
                 type="button"

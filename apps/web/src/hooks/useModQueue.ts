@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { apiFetch } from '../lib/api';
 
+import type { PostImage } from './useFeed';
+
 export interface ModQueueItem {
   target_type: 'post' | 'comment';
   target_id: string;
@@ -14,6 +16,8 @@ export interface ModQueueItem {
   latest_flag_at: string;
   hidden: boolean;
   hide_source: 'auto' | 'manual' | null;
+  /** Only populated for target_type === 'post'; comments always get []. */
+  images: PostImage[];
 }
 
 type Status = 'pending' | 'auto_hidden' | 'manually_hidden' | 'hidden';

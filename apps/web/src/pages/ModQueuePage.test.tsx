@@ -64,6 +64,7 @@ describe('ModQueuePage', () => {
           latest_flag_at: new Date().toISOString(),
           hidden: false,
           hide_source: null,
+          images: [],
         },
       ],
     });
@@ -74,5 +75,79 @@ describe('ModQueuePage', () => {
     );
     await waitFor(() => expect(screen.getByText(/hello/)).toBeInTheDocument());
     expect(screen.getByRole('button', { name: /hide/i })).toBeInTheDocument();
+  });
+
+  it('renders every photo attached to a flagged post', async () => {
+    useAuthMock.mockReturnValue({
+      me: { id: 'm', role: 'moderator', email: 'm@b', display_name: 'm' },
+      session: {},
+      loading: false,
+      signOut: vi.fn(),
+    });
+    apiFetchMock.mockResolvedValue({
+      items: [
+        {
+          target_type: 'post',
+          target_id: 'p1',
+          post_id: 'p1',
+          author_display_name: 'Author',
+          preview: 'hello',
+          flag_count: 2,
+          reasons: ['off_topic'],
+          first_flag_at: new Date().toISOString(),
+          latest_flag_at: new Date().toISOString(),
+          hidden: false,
+          hide_source: null,
+          images: [
+            { id: 'i1', url: 'full-1', thumb_url: 'thumb-1', width: 10, height: 10, purged: false },
+            { id: 'i2', url: 'full-2', thumb_url: 'thumb-2', width: 10, height: 10, purged: false },
+          ],
+        },
+      ],
+    });
+    render(
+      <MemoryRouter initialEntries={['/mod/queue']}>
+        <ModQueuePage />
+      </MemoryRouter>,
+    );
+    await waitFor(() => expect(screen.getByText(/hello/)).toBeInTheDocument());
+    const images = screen
+      .getAllByRole('img')
+      .filter((img) => img.getAttribute('src')?.startsWith('full-'));
+    expect(images).toHaveLength(2);
+  });
+
+  it('renders no image elements for a flagged item with no photos', async () => {
+    useAuthMock.mockReturnValue({
+      me: { id: 'm', role: 'moderator', email: 'm@b', display_name: 'm' },
+      session: {},
+      loading: false,
+      signOut: vi.fn(),
+    });
+    apiFetchMock.mockResolvedValue({
+      items: [
+        {
+          target_type: 'post',
+          target_id: 'p1',
+          post_id: 'p1',
+          author_display_name: 'Author',
+          preview: 'hello',
+          flag_count: 2,
+          reasons: ['off_topic'],
+          first_flag_at: new Date().toISOString(),
+          latest_flag_at: new Date().toISOString(),
+          hidden: false,
+          hide_source: null,
+          images: [],
+        },
+      ],
+    });
+    render(
+      <MemoryRouter initialEntries={['/mod/queue']}>
+        <ModQueuePage />
+      </MemoryRouter>,
+    );
+    await waitFor(() => expect(screen.getByText(/hello/)).toBeInTheDocument());
+    expect(screen.queryAllByRole('img')).toHaveLength(0);
   });
 });
