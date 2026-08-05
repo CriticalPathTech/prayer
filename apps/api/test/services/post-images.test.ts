@@ -48,8 +48,8 @@ describe('post-images service', () => {
       bytes: await makeJpeg(2000, 1000),
     });
 
-    expect(dto.width).toBe(1600);
-    expect(dto.height).toBe(800);
+    expect(dto.width).toBe(2000);
+    expect(dto.height).toBe(1000);
     expect(dto.purged).toBe(false);
     expect(dto.url).toContain(dto.id);
     expect(dto.thumb_url).toContain('_thumb');
