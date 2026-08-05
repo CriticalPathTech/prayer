@@ -23,7 +23,10 @@ describe('image reaper job', () => {
   });
   afterEach(async () => {
     await db.deleteFrom('post_images').execute();
+    await db.deleteFrom('events').execute();
     await db.deleteFrom('posts').execute();
+    await db.deleteFrom('user_orgs').execute();
+    await db.deleteFrom('users').execute();
   });
 
   it('runOnce reaps unattached rows older than 24h, is idempotent, and spares attached/fresh rows', async () => {

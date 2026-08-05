@@ -1,4 +1,4 @@
-import { afterAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { initDb } from '../../src/db/index.js';
 import { uploadPostImage } from '../../src/services/post-images.js';
@@ -23,6 +23,14 @@ describe('images survive the publish DELETE+INSERT', () => {
     const user = await insertUser(db, { orgId });
     userId = user.id;
     storage = makeInMemoryStorage();
+  });
+
+  afterEach(async () => {
+    await db.deleteFrom('post_images').execute();
+    await db.deleteFrom('events').execute();
+    await db.deleteFrom('posts').execute();
+    await db.deleteFrom('user_orgs').execute();
+    await db.deleteFrom('users').execute();
   });
 
   it('re-points image rows onto the new post id', async () => {

@@ -28,6 +28,8 @@ describe('POST /me/images', () => {
 
   afterEach(async () => {
     await ctx.db.deleteFrom('post_images').execute();
+    await ctx.db.deleteFrom('events').execute();
+    await ctx.db.deleteFrom('posts').execute();
     await ctx.db.deleteFrom('user_orgs').execute();
     await ctx.db.deleteFrom('users').execute();
     await ctx.close();

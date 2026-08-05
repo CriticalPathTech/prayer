@@ -1,4 +1,4 @@
-import { afterAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { initDb } from '../../src/db/index.js';
 import {
@@ -31,6 +31,14 @@ describe('post-images service', () => {
     const user = await insertUser(db, { orgId });
     userId = user.id;
     storage = makeInMemoryStorage();
+  });
+
+  afterEach(async () => {
+    await db.deleteFrom('post_images').execute();
+    await db.deleteFrom('events').execute();
+    await db.deleteFrom('posts').execute();
+    await db.deleteFrom('user_orgs').execute();
+    await db.deleteFrom('users').execute();
   });
 
   it('uploads, stores both variants, and returns presigned urls', async () => {

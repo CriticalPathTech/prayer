@@ -1,4 +1,4 @@
-import { afterAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { initDb } from '../../src/db/index.js';
 import { createLogger } from '../../src/lib/logger.js';
@@ -27,6 +27,14 @@ describe('purge policy', () => {
     const user = await insertUser(db, { orgId });
     userId = user.id;
     storage = makeInMemoryStorage();
+  });
+
+  afterEach(async () => {
+    await db.deleteFrom('post_images').execute();
+    await db.deleteFrom('events').execute();
+    await db.deleteFrom('posts').execute();
+    await db.deleteFrom('user_orgs').execute();
+    await db.deleteFrom('users').execute();
   });
 
   async function postWithImage(status: 'published' | 'pending' = 'published'): Promise<{
