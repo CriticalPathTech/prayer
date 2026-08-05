@@ -75,6 +75,9 @@ nvm exec 24 pnpm --filter @prayer/db --filter @prayer/shared build   # project-r
 - **Pagination response keys:** mod-area endpoints (`moderation.ts`, `notifications.ts`, `mod-followup.ts`) return `next_cursor` (snake_case). Only `services/feed.ts` uses `nextCursor`. When adding a new mod/admin endpoint, match the snake_case neighbors.
 - **`exactOptionalPropertyTypes: true`** in `tsconfig.base.json` → passing `{ foo: value | undefined }` fails type-check. For optional fields, spread conditionally: `...(value !== undefined ? { foo: value } : {})`.
 - **Draft → published is DELETE+INSERT, not UPDATE-in-place.** `services/posts.ts#publishOwnDraft` removes the draft row and inserts a fresh published row in the same transaction. This refreshes both `id` (UUIDv7) and `created_at` to the publish moment, so feed ordering and "X ago" displays reflect when users actually published rather than when they first opened compose. If you edit this code path, preserve the DELETE+INSERT shape — UPDATE-in-place reintroduces a stale-timestamp bug fixed in #49.
+- **Post images are uploaded immediately, attached later.** `post_images.post_id` is nullable: NULL means "uploaded, not attached." `publishOwnDraft` must NULL out `post_id` before its DELETE and re-point after its INSERT — the FK is `ON DELETE CASCADE`, so skipping that step silently destroys every image at publish. Unattached rows older than 24h are reaped by `services/image-reaper-job.ts`.
+- **The `post-images` bucket is private.** Never build a public URL for it. Reads go through `storage.presignGet` (15-minute TTL) behind the normal membership checks. Only `avatars` and the org logo are public.
+- **Images are frozen at publish.** The one-hour edit window changes body text only. `deleteOwnPostImage` refuses any image whose post is not a draft.
 
 ## Where to look
 

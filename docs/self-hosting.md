@@ -42,14 +42,14 @@ pnpm dev                               # api :3001 + web :5173 native
 
 ## Stack components
 
-| Service        | Port        | What it is                                                                                                                 |
-| -------------- | ----------- | -------------------------------------------------------------------------------------------------------------------------- |
-| `postgres`     | 5432        | App data (`public.*`) + GoTrue's auth (`auth.*`)                                                                           |
-| `gotrue`       | (internal)  | Self-hosted Supabase Auth — issues JWTs, no email needed                                                                   |
-| `gotrue-proxy` | 9999        | Tiny nginx in front of GoTrue: strips `/auth/v1` prefix, fixes CORS                                                        |
-| `minio`        | 9000 / 9001 | S3-compatible avatar storage. Console at <http://localhost:9001>, dev creds `prayer-dev-local` / `prayer-dev-local-secret` |
-| `api`          | 3001        | Express + Kysely backend (`/healthz` for a quick check)                                                                    |
-| `web`          | 5173        | Vite + React frontend, served by nginx in the image                                                                        |
+| Service        | Port        | What it is                                                                                                                                      |
+| -------------- | ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `postgres`     | 5432        | App data (`public.*`) + GoTrue's auth (`auth.*`)                                                                                                |
+| `gotrue`       | (internal)  | Self-hosted Supabase Auth — issues JWTs, no email needed                                                                                        |
+| `gotrue-proxy` | 9999        | Tiny nginx in front of GoTrue: strips `/auth/v1` prefix, fixes CORS                                                                             |
+| `minio`        | 9000 / 9001 | S3-compatible storage for avatars and post images. Console at <http://localhost:9001>, dev creds `prayer-dev-local` / `prayer-dev-local-secret` |
+| `api`          | 3001        | Express + Kysely backend (`/healthz` for a quick check)                                                                                         |
+| `web`          | 5173        | Vite + React frontend, served by nginx in the image                                                                                             |
 
 ## Env vars
 
@@ -81,6 +81,7 @@ docker compose ps                 # show health of each service
 
 - **Replace the dev RS256 GoTrue keypair** in `docker/gotrue-jwt/` with your own. Re-mint `VITE_AUTH_ANON_KEY` and `AUTH_ADMIN_KEY` in `docker-compose.yml` accordingly. Without this, anyone who reads the public repo could forge a session.
 - **Replace the dev S3 / MinIO credentials** with your own in `docker-compose.yml` and `.env`.
+- **Create a `post-images` bucket alongside `avatars`, and block all public access on it.** Unlike `avatars`, which serves public URLs directly, `post-images` must never be publicly readable — the API mints 15-minute presigned GET URLs after checking org membership, and that presigning is the entire access-control mechanism for photos. Photos are often more identifying than the prayer text itself and can appear on anonymous posts, so a misconfigured bucket policy here is a real privacy leak, not just a broken feature. Grant the API's IAM identity `s3:PutObject`, `s3:GetObject`, and `s3:DeleteObject` on `arn:aws:s3:::post-images/*`. An S3 lifecycle rule that expires old objects is optional belt-and-braces backup to the orphan reaper (`services/image-reaper-job.ts`), which already deletes unattached uploads after 24h.
 - **Front the stack with TLS** — Caddy, nginx, Cloudflare Tunnel, your choice. Required for browser auth to work cleanly.
 - **Back up the postgres volume regularly.** `docker run --rm -v prayer_pg_data:/data -v $(pwd):/backup ubuntu tar -czf /backup/pg-backup-$(date +%F).tar.gz /data` is one option.
 - **Pin to a SemVer release tag** (e.g., `:0.5.1`) rather than `:main` or `:latest` — avoids surprise breakage when CI publishes a new `:main` image.
