@@ -95,6 +95,7 @@ test/
 ## Testing
 
 - Vitest runs with `globalSetup: test/global-setup.ts` — the schema is dropped + migrated once per run. Individual tests should NOT start transactions themselves; if a test needs clean data, delete specific rows in `afterEach`.
+- **Cleaning up in `beforeEach` instead of `afterEach` breaks a _later_ file, and only in CI.** `test/routes/me-orgs.test.ts` blanket-deletes `users` in its `afterEach`; any earlier file that leaves `posts` behind makes it fail with `posts_author_id_fkey`. Vitest caches durations and reorders files on reruns, so a warm local machine keeps passing while a cold CI run fails. Distinguish from the shared-`prayer_test` race in the root CLAUDE.md: that race hits _different_ files with _different_ counts each run; this hits the _same_ file every cold run. Reproduce with `vitest run <suspect>.test.ts test/routes/me-orgs.test.ts`; prove the fix with `vitest run --sequence.shuffle.files=true`.
 - **Service-level tests don't call `createTestApp()` per test.** Use shared `db` + `orgId` via `beforeAll` (pattern in `test/services/moderation.test.ts`): `initDb` once, look up the seeded `testchurch` org once, `db.destroy()` in `afterAll`. `createTestApp()` opens a new Kysely pool each call — for service tests without an HTTP agent, that's pure leak.
 - Use `createTestApp({ db, env })` from `test/helpers/supertest.ts`. It builds a fresh `app` with injected deps. Never import `src/server.ts` from tests.
 - Mint JWTs with `mintTestJwt({ sub, email })`. `sub` is the Supabase auth id — it maps to `users.supabase_auth_id`.

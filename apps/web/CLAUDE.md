@@ -74,6 +74,7 @@ playwright.config.ts
 - **Module resolution:** Vite uses `"moduleResolution": "Bundler"`, so relative imports do NOT use `.js` extensions. This differs from the API workspace.
 - **Adaptive pages — mobile branch uses `MobilePostCard`, not `PostCard`.** They share the `{post, onChange?, onRepost?}` prop shape (drop-in swap), but the mobile variant renders the touch-optimized layout (chevron menu, full-width Pray/Comment row) that matches `MobileFeedPage` / `MobileArchivePage`.
 - **Mobile pages do NOT render `ModTabs`.** The drawer is the mobile nav surface; the desktop tab strip below `MobilePageHeader` doubles up the hierarchy. Desktop pages keep `ModTabs`.
+- **Moderation surfaces render post bodies directly, NOT through `PostCard`.** `PendingCard` (shared by desktop `ModApprovalsPage` _and_ `MobileModApprovalsPage`), `ModQueuePage`, and `ModHiddenPage` each render `{item.body}` themselves; only `ModFollowupPage` goes through `PostCard`. New per-post UI (photos, badges, banners) must be wired into each of them plus `views/mobile/MobileModQueuePage` and `MobileModHiddenPage`, or it silently never appears in moderation — shipped exactly that way in #148, fixed in #149.
 - **Import ordering:** ESLint's `import/order` rule requires `import type` lines before value imports within the same group. The pre-push (not pre-commit) hook enforces this.
 - **Env vars:** Vite exposes only `VITE_*` vars. Required at build/dev time:
   - `VITE_AUTH_URL`
