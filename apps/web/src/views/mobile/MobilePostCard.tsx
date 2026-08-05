@@ -101,6 +101,7 @@ export function MobilePostCard({ post, onChange, onRepost }: MobilePostCardProps
           threshold={280}
           textClassName="m-0 font-serif text-[16px] leading-[1.55] text-[var(--fg-3)] whitespace-pre-wrap [text-wrap:pretty]"
         />
+        <PostImages images={post.images} variant="card" />
       </article>
     );
   }

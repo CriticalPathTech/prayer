@@ -104,6 +104,7 @@ export function PostCard({ post, onChange, onRepost }: PostCardProps): JSX.Eleme
           threshold={600}
           textClassName="m-0 font-serif text-[18px] leading-relaxed text-[var(--fg-3)] whitespace-pre-wrap [text-wrap:pretty]"
         />
+        <PostImages images={post.images} variant="card" />
       </article>
     );
   }
