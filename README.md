@@ -6,7 +6,8 @@ entirely on your laptop with no external accounts.
 
 ## What's inside
 
-- Prayer feed with three sort modes (newest / updated / popular)
+- Prayer feed with three filters (all requests / my requests / answered)
+- Up to 3 photos per request — stripped of EXIF/GPS, stored privately, served via short-lived signed URLs
 - Private one-on-one comment threads (only the author and commenter see them; moderators can peek)
 - Six emoji reactions, "I prayed" tally, anonymous posts, expiring requests
 - Invite-only signup with seat-capped invite codes
@@ -29,13 +30,13 @@ Open <http://localhost:5173> and sign in as `hopesu@example.com` with password `
 
 ### What you just started
 
-| Service    | Port        | What it is                                                                                                                      |
-| ---------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| `postgres` | 5432        | App data (`public.*`) + GoTrue's auth (`auth.*`)                                                                                |
-| `gotrue`   | 9999        | Self-hosted Supabase Auth — issues JWTs, no email needed                                                                        |
-| `minio`    | 9000 / 9001 | S3-compatible avatar storage. Console: <http://localhost:9001> — dev-only creds: `prayer-dev-local` / `prayer-dev-local-secret` |
-| `api`      | 3001        | Express + Kysely backend (`/healthz` for a quick check)                                                                         |
-| `web`      | 5173        | Vite + React frontend, served by nginx in the image                                                                             |
+| Service    | Port        | What it is                                                                                                                                                                                        |
+| ---------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `postgres` | 5432        | App data (`public.*`) + GoTrue's auth (`auth.*`)                                                                                                                                                  |
+| `gotrue`   | 9999        | Self-hosted Supabase Auth — issues JWTs, no email needed                                                                                                                                          |
+| `minio`    | 9000 / 9001 | S3-compatible storage — `avatars` (public) and `post-images` (private, served via signed URLs). Console: <http://localhost:9001> — dev-only creds: `prayer-dev-local` / `prayer-dev-local-secret` |
+| `api`      | 3001        | Express + Kysely backend (`/healthz` for a quick check)                                                                                                                                           |
+| `web`      | 5173        | Vite + React frontend, served by nginx in the image                                                                                                                                               |
 
 Health-check the stack:
 

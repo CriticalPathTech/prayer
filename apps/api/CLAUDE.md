@@ -12,7 +12,8 @@ src/
   db/index.ts         initDb(connectionString) → Kysely<Database>
   lib/jwt.ts          JWKS-backed verifier (jose)
   lib/logger.ts       pino instance + redaction config
-  lib/storage.ts      Narrow StorageClient interface wrapping @aws-sdk/client-s3 (tests inject a fake)
+  lib/storage.ts      Narrow StorageClient interface wrapping @aws-sdk/client-s3 (tests inject a fake); presignGet mints time-limited GETs for the private post-images bucket
+  lib/image-processing.ts  Pure sharp pipeline — magic-byte sniff, EXIF/GPS strip, resize to 2048, 800px thumb, WebP q88. Server-side enforcement: native iOS/Android clients can't be trusted to resize.
   middleware/auth.ts  requireAuth (JIT-creates user row + sanitizeDisplayName), requireMember/Moderator/SuperUser
   middleware/org-context.ts  Resolves req.org from the Host header (slug.prays.online → orgs row); errors loud on stale-multi-org localhost
   middleware/error.ts Error classes + central errorHandler (UnauthorizedError, ForbiddenError, NotFoundError, ValidationError, EditDeadlinePassedError, TooManyRequestsError, PayloadTooLargeError, StorageError, OnboardingRequiredError, CodeNotFoundError/CodeFullError/CodeInactiveError/AlreadyRedeemedError, TooManySuperUsersError/LastSuperUserError)
@@ -43,6 +44,10 @@ src/
   services/flags.ts          flagPost/flagComment + dedup per (user, target)
   services/prayers.ts, services/prayer-consumer.ts  Prayer toggle + count recomputer (mirrors reactions)
   services/avatars.ts uploadOwnAvatar, deleteOwnAvatar — writes to S3-compatible storage backend, `avatars/` bucket
+  services/post-images.ts  All post_images reads/writes: upload, delete, hydratePostImages, the two purge policies (archive keeps thumbs / reject purges everything), reapUnattachedImages, attachImagesToPost
+  services/image-reaper-job.ts  Hourly cron deleting unattached images (post_id IS NULL) older than 24h — the bound on orphans from upload-on-select
+  services/post-enrichment.ts   Shared batch loaders: fetchPrayedSet, fetchReactionsMap, fetchUpdatesByParent (hydrates images for inline updates)
+  services/mod-followup.ts      Moderator follow-up list (posts needing a nudge); paginates with next_cursor
   services/feed.ts    fetchFeed(args: FeedQuery & {callerRole, callerId, orgId}) + getSnapshotId; filter=all|mine|answered; role-aware status filter; batch-fetches reactions per post (same query pattern as prayedSet); returns a `pinned` slice inline on the first page (no cursor) via a separate query for posts.pinned_at IS NOT NULL AND pin_until > NOW().
   services/feed-snapshot.ts  getSnapshotId — reads latest published post id from DB
   services/hide-info.ts      fetchHideInfo(db, postIds) — batch loader for latest moderator.hide event per post
