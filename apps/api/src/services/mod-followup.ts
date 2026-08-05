@@ -2,9 +2,11 @@ import type { Database, UserRole } from '@prayer/db';
 import { sql, type Kysely } from 'kysely';
 
 import { isPrivilegedRole } from '../lib/roles.js';
+import type { StorageClient } from '../lib/storage.js';
 import { ForbiddenError, ValidationError } from '../middleware/error.js';
 
 import { fetchPrayedSet, fetchReactionsMap, fetchUpdatesByParent } from './post-enrichment.js';
+import { hydratePostImages } from './post-images.js';
 import { toPostDto, type PostDto, type PostRow, type ReactionSummary } from './posts.js';
 
 export interface FollowupFilters {
@@ -77,6 +79,7 @@ export function decodeFollowupCursor(token: string): string {
 
 export async function listFollowupPosts(
   db: Kysely<Database>,
+  storage: StorageClient,
   input: ListFollowupInput,
 ): Promise<ListFollowupResult> {
   if (!isPrivilegedRole(input.callerRole)) throw new ForbiddenError();
@@ -177,16 +180,18 @@ export async function listFollowupPosts(
   const page = hasMore ? rows.slice(0, input.limit) : rows;
   const ctx = { orgId: input.orgId, callerId: input.callerId, callerRole: input.callerRole };
   const postIds = page.map((p) => p.id);
-  const [prayedSet, reactionsMap, updatesByParent] = await Promise.all([
+  const [prayedSet, reactionsMap, updatesByParent, imagesMap] = await Promise.all([
     fetchPrayedSet(db, postIds, ctx),
     fetchReactionsMap(db, postIds, ctx),
-    fetchUpdatesByParent(db, postIds, ctx),
+    fetchUpdatesByParent(db, storage, postIds, ctx),
+    hydratePostImages(db, storage, { postIds, orgId: input.orgId }),
   ]);
   const items = page.map((row) => ({
     ...toPostDto(row, { role: input.callerRole }, input.callerId),
     prayed: prayedSet.has(row.id),
     reactions: reactionsMap.get(row.id) ?? {},
     updates: updatesByParent.get(row.id) ?? [],
+    images: imagesMap.get(row.id) ?? [],
   }));
   const next_cursor =
     hasMore && page.length > 0 ? encodeFollowupCursor(page[page.length - 1]!.id) : null;

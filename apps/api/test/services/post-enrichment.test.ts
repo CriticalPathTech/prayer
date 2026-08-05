@@ -10,11 +10,13 @@ import {
   fetchUpdatesByParent,
 } from '../../src/services/post-enrichment.js';
 import { getTestchurchOrgId, insertPost, insertUser } from '../helpers/seed.js';
+import { makeInMemoryStorage } from '../helpers/storage.js';
 
 describe('post-enrichment', () => {
   let db: Kysely<Database>;
   let orgId: string;
   let otherOrgId: string;
+  const storage = makeInMemoryStorage();
 
   beforeAll(async () => {
     db = initDb(process.env.TEST_DATABASE_URL!);
@@ -59,7 +61,7 @@ describe('post-enrichment', () => {
 
     it('fetchUpdatesByParent returns an empty map without querying', async () => {
       const u = await insertUser(db, { orgId, role: 'member' });
-      await expect(fetchUpdatesByParent(db, [], ctx(u.id))).resolves.toEqual(new Map());
+      await expect(fetchUpdatesByParent(db, storage, [], ctx(u.id))).resolves.toEqual(new Map());
     });
   });
 
@@ -104,7 +106,7 @@ describe('post-enrichment', () => {
         parentId: parent.id,
       });
 
-      const map = await fetchUpdatesByParent(db, [parent.id], ctx(u.id));
+      const map = await fetchUpdatesByParent(db, storage, [parent.id], ctx(u.id));
       expect(map.get(parent.id)).toBeUndefined();
     });
   });
@@ -188,7 +190,7 @@ describe('post-enrichment', () => {
         targetId: hidden.id,
       });
 
-      const map = await fetchUpdatesByParent(db, [parent.id], ctx(member.id, 'member'));
+      const map = await fetchUpdatesByParent(db, storage, [parent.id], ctx(member.id, 'member'));
       expect(map.get(parent.id)!.map((u) => u.id)).toEqual([visible.id]);
     });
 
@@ -210,7 +212,7 @@ describe('post-enrichment', () => {
         targetId: hidden.id,
       });
 
-      const map = await fetchUpdatesByParent(db, [parent.id], ctx(mod.id, 'moderator'));
+      const map = await fetchUpdatesByParent(db, storage, [parent.id], ctx(mod.id, 'moderator'));
       const update = map.get(parent.id)!.find((u) => u.id === hidden.id)!;
       expect(update.status).toBe('hidden');
       expect(update.hidden_by).toEqual({ id: mod.id, display_name: 'Sam Mod' });
@@ -241,7 +243,7 @@ describe('post-enrichment', () => {
       parentId: p1.id,
     });
 
-    const map = await fetchUpdatesByParent(db, [p1.id, p2.id], ctx(u.id));
+    const map = await fetchUpdatesByParent(db, storage, [p1.id, p2.id], ctx(u.id));
     expect(map.get(p1.id)!.map((x) => x.id)).toEqual([a.id, c.id]);
     expect(map.get(p2.id)!.map((x) => x.id)).toEqual([b.id]);
   });

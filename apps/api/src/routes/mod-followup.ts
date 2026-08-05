@@ -3,6 +3,7 @@ import { Router } from 'express';
 import type { Kysely } from 'kysely';
 import { z } from 'zod';
 
+import type { StorageClient } from '../lib/storage.js';
 import { UnauthorizedError, ValidationError } from '../middleware/error.js';
 import { listFollowupPosts } from '../services/mod-followup.js';
 
@@ -18,7 +19,7 @@ const zQuery = z.object({
   cursor: z.string().optional(),
 });
 
-export function modFollowupRouter(deps: { db: Kysely<Database> }): Router {
+export function modFollowupRouter(deps: { db: Kysely<Database>; storage: StorageClient }): Router {
   const router = Router();
 
   router.get('/mod/follow-up', async (req, res, next) => {
@@ -26,7 +27,7 @@ export function modFollowupRouter(deps: { db: Kysely<Database> }): Router {
       if (!req.user) throw new UnauthorizedError();
       const parsed = zQuery.safeParse(req.query);
       if (!parsed.success) throw new ValidationError(parsed.error.message);
-      const out = await listFollowupPosts(deps.db, {
+      const out = await listFollowupPosts(deps.db, deps.storage, {
         callerRole: req.user.role,
         callerId: req.user.id,
         orgId: req.user.orgId,

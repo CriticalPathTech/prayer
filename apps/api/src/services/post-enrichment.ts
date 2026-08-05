@@ -3,8 +3,10 @@ import type { Kysely } from 'kysely';
 import { sql } from 'kysely';
 
 import { isPrivilegedRole } from '../lib/roles.js';
+import type { StorageClient } from '../lib/storage.js';
 
 import { fetchHideInfo } from './hide-info.js';
+import { hydratePostImages } from './post-images.js';
 import { toPostDto, type PostDto, type PostRow, type ReactionSummary } from './posts.js';
 
 export interface EnrichmentContext {
@@ -66,9 +68,14 @@ export async function fetchReactionsMap(
  * Privileged callers also see hidden updates, with hide attribution merged in
  * from the events outbox — same rule as the feed, so a moderator's cards read
  * identically on the wall and in the mod surfaces.
+ *
+ * Hydrates images itself (rather than leaving it to each call site) since
+ * `toPostDto` always defaults `images: []` and this helper's dtos have
+ * historically shipped unhydrated to whichever caller forgot to override.
  */
 export async function fetchUpdatesByParent(
   db: Kysely<Database>,
+  storage: StorageClient,
   postIds: string[],
   ctx: EnrichmentContext,
 ): Promise<Map<string, PostDto[]>> {
@@ -118,9 +125,17 @@ export async function fetchUpdatesByParent(
     }
   }
 
+  const imagesMap = await hydratePostImages(db, storage, {
+    postIds: rows.map((r) => r.id),
+    orgId: ctx.orgId,
+  });
+
   for (const row of rows) {
     const parentId = row.parent_id!;
-    const dto = toPostDto(row, { role: ctx.callerRole }, ctx.callerId);
+    const dto = {
+      ...toPostDto(row, { role: ctx.callerRole }, ctx.callerId),
+      images: imagesMap.get(row.id) ?? [],
+    };
     const existing = out.get(parentId);
     if (existing) existing.push(dto);
     else out.set(parentId, [dto]);
