@@ -9,7 +9,7 @@ import { ForbiddenError, NotFoundError, ValidationError } from '../middleware/er
 
 import { writePostEvent } from './events.js';
 import { fetchMemberSet } from './membership-set.js';
-import { hydratePostImages, purgeAllForPost } from './post-images.js';
+import { attachImagesToPost, hydratePostImages, purgeAllForPost } from './post-images.js';
 import { fetchPostRow, toPostDto, type PostDto, type PostRow } from './posts.js';
 
 const REJECT_NOTE_MAX = 500;
@@ -108,6 +108,24 @@ export async function approvePost(db: Kysely<Database>, input: ApprovePostInput)
       throw new ForbiddenError('cannot approve your own submission');
     }
 
+    // post_images.post_id is ON DELETE CASCADE, so the DELETE below would
+    // destroy any attached images unless they're detached first. NULL out
+    // post_id BEFORE the delete, then re-point the rows onto the new post
+    // id AFTER the insert below. Mirrors publishOwnDraft in services/posts.ts.
+    const pendingImages = await trx
+      .selectFrom('post_images')
+      .select(['id', 'position'])
+      .where('post_id', '=', existing.id)
+      .orderBy('position')
+      .execute();
+    if (pendingImages.length > 0) {
+      await trx
+        .updateTable('post_images')
+        .set({ post_id: null })
+        .where('post_id', '=', existing.id)
+        .execute();
+    }
+
     const now = new Date();
     const newPostId = newId();
     await trx
@@ -130,6 +148,19 @@ export async function approvePost(db: Kysely<Database>, input: ApprovePostInput)
         moderated_at: now,
       })
       .execute();
+
+    if (pendingImages.length > 0) {
+      // ownerId must be the author, not the approving moderator (input.callerId) —
+      // attachImagesToPost validates ownership against owner_id and would throw
+      // ValidationError('Unknown image.') if passed the caller instead.
+      await attachImagesToPost(trx, {
+        imageIds: pendingImages.map((r) => r.id),
+        postId: newPostId,
+        ownerId: existing.author_id,
+        orgId: input.orgId,
+      });
+    }
+
     await writePostEvent(trx, {
       kind: 'post.approved',
       orgId: input.orgId,
