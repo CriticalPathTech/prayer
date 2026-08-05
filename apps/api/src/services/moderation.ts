@@ -266,9 +266,7 @@ export async function listModQueue(
       latest_flag_at: r.latest_flag_at.toISOString(),
       hidden: r.hidden,
       hide_source: (r.hidden ? (r.flag_count >= 2 ? 'auto' : 'manual') : null) as
-        | 'auto'
-        | 'manual'
-        | null,
+        'auto' | 'manual' | null,
     }));
   const items: ModQueueItem[] = await attachQueueImages(db, storage, input.orgId, filtered);
 
