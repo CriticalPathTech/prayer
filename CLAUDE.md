@@ -10,6 +10,7 @@ apps/web          Vite + React frontend (@prayer/web)
 packages/db       Kysely schema types, migrations (SQL), bootstrap, shared invite-code helpers (@prayer/db)
 packages/shared   Shared zod-validated env parsers (@prayer/shared)
 docker/           Local stack fixtures: gotrue-jwt/ (RS256 dev keypair), gotrue-proxy/ (nginx config), init-db.sh
+                  docker-compose also runs MinIO (:9000) + a one-shot bucket init: `avatars` public, `post-images` PRIVATE (no anonymous download).
 docs/             self-hosting.md
 ```
 

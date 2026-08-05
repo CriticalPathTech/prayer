@@ -1,6 +1,6 @@
 # apps/web — Claude Guide
 
-Vite + React 18 + TypeScript + Tailwind. Supabase Auth for sign-in; all data reads go to the api via `apiFetch`.
+Vite + React 19 + TypeScript + Tailwind. Supabase Auth for sign-in; all data reads go to the api via `apiFetch`.
 
 ## Layout
 
@@ -32,6 +32,8 @@ src/
     ModTabs.tsx           Desktop /mod/* — 4 flat tabs: Pending approval | Invites | Flagged | Hidden. Mobile does NOT use this — see views/mobile/MobileReportsTabs.tsx.
     NewActivityBanner.tsx "New activity" banner on feed when snapshotId advances
     PrayButton.tsx        Prayer toggle (optimistic, debounced)
+    ImageTray.tsx         Compose photo picker — max 3, upload-on-select, ✕ deletes server-side. No drag/reorder (deliberate: mobile Safari has no file drag-drop).
+    PostImages.tsx        Read-only photo renderer. variant="card" = cover thumb + "+N"; variant="detail" = every image. Handles `purged` (archived posts keep only the thumb).
     ui/                   Avatar, Button, Field, Icon, Pill, Reactions (+ tests co-located)
   hooks/
     useAuth.tsx           AuthProvider context + useAuth hook
