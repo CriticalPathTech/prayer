@@ -464,6 +464,28 @@ describe('PostCard pending variant', () => {
     expect(screen.getByText('Please pray for me.')).toBeInTheDocument();
   });
 
+  it('renders attached photos on a pending post', () => {
+    const post = {
+      ...base,
+      images: [
+        {
+          id: 'img-1',
+          url: 'full-img-1',
+          thumb_url: 'thumb-img-1',
+          width: 10,
+          height: 10,
+          purged: false,
+        },
+      ],
+    };
+    render(
+      <MemoryRouter>
+        <PostCard post={post} />
+      </MemoryRouter>,
+    );
+    expect(screen.getByRole('img', { name: 'Cover photo' })).toBeInTheDocument();
+  });
+
   it('does not render PrayButton on a pending post', () => {
     render(
       <MemoryRouter>

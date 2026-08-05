@@ -5,7 +5,8 @@ import { approvePost } from '../../src/services/post-approvals.js';
 import { listApprovals } from '../../src/services/post-approvals.js';
 import { rejectPost } from '../../src/services/post-approvals.js';
 import { skipPostReview, unskipPostReview } from '../../src/services/post-approvals.js';
-import { getTestchurchOrgId, insertPost, insertUser } from '../helpers/seed.js';
+import { uploadPostImage } from '../../src/services/post-images.js';
+import { getTestchurchOrgId, insertPost, insertUser, makeJpeg } from '../helpers/seed.js';
 import { makeInMemoryStorage } from '../helpers/storage.js';
 
 const storage = makeInMemoryStorage();
@@ -16,6 +17,7 @@ const storage = makeInMemoryStorage();
 // up posts + events here so the next test file inherits an empty slate.
 const cleanupDb = initDb(process.env.TEST_DATABASE_URL!);
 afterAll(async () => {
+  await cleanupDb.deleteFrom('post_images').execute();
   await cleanupDb.deleteFrom('mod_post_skips').execute();
   await cleanupDb.deleteFrom('events').execute();
   await cleanupDb.deleteFrom('posts').execute();
@@ -114,6 +116,7 @@ describe('approvePost', () => {
   const db = initDb(process.env.TEST_DATABASE_URL!);
 
   beforeEach(async () => {
+    await db.deleteFrom('post_images').execute();
     await db.deleteFrom('mod_post_skips').execute();
     await db.deleteFrom('events').execute();
     await db.deleteFrom('posts').execute();
@@ -149,6 +152,56 @@ describe('approvePost', () => {
       .where('type', '=', 'post.approved')
       .execute();
     expect(evt.length).toBe(1);
+  });
+
+  it('preserves attached images across the DELETE+INSERT', async () => {
+    const orgId = await getTestchurchOrgId(db);
+    const mod = await insertUser(db, { orgId, role: 'moderator' });
+    const author = await insertUser(db, { orgId, role: 'member' });
+    const p = await insertPost(db, {
+      authorId: author.id,
+      orgId,
+      status: 'pending',
+      body: 'please pray, with photos',
+    });
+
+    const a = await uploadPostImage(db, storage, {
+      ownerId: author.id,
+      orgId,
+      bytes: await makeJpeg(100, 100),
+    });
+    const b = await uploadPostImage(db, storage, {
+      ownerId: author.id,
+      orgId,
+      bytes: await makeJpeg(100, 100),
+    });
+    await db
+      .updateTable('post_images')
+      .set({ post_id: p.id, position: 0 })
+      .where('id', '=', a.id)
+      .execute();
+    await db
+      .updateTable('post_images')
+      .set({ post_id: p.id, position: 1 })
+      .where('id', '=', b.id)
+      .execute();
+
+    const result = await approvePost(db, {
+      postId: p.id,
+      orgId,
+      callerId: mod.id,
+      callerRole: 'moderator',
+    });
+    expect(result.id).not.toBe(p.id);
+
+    const after = await db
+      .selectFrom('post_images')
+      .select(['id', 'post_id', 'position'])
+      .orderBy('position')
+      .execute();
+    expect(after).toHaveLength(2);
+    expect(after.map((r) => r.post_id)).toEqual([result.id, result.id]);
+    expect(after.map((r) => r.id)).toEqual([a.id, b.id]);
   });
 
   it('refuses when caller is the author (403)', async () => {

@@ -177,6 +177,24 @@ describe('MobilePostCard', () => {
     expect(screen.queryByRole('button', { name: /^comment$/i })).not.toBeInTheDocument();
   });
 
+  it('renders attached photos on a pending post', () => {
+    render(
+      <MemoryRouter>
+        <MobilePostCard
+          post={makeFeedPost({
+            status: 'pending',
+            is_own_post: true,
+            author_id: 'me',
+            images: [
+              { id: 'i1', url: 'f1', thumb_url: 't1', width: 10, height: 10, purged: false },
+            ],
+          })}
+        />
+      </MemoryRouter>,
+    );
+    expect(screen.getByAltText('Cover photo')).toBeInTheDocument();
+  });
+
   it('does not render the reactions strip on a pending post', () => {
     render(
       <MemoryRouter>
