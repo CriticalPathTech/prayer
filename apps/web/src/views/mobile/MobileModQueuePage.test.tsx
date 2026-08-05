@@ -19,6 +19,7 @@ const SAMPLE_ITEM = {
   flag_count: 4,
   reasons: ['spam', 'harassment'],
   hidden: false,
+  images: [],
 };
 
 describe('MobileModQueuePage', () => {
@@ -97,5 +98,48 @@ describe('MobileModQueuePage', () => {
     );
     await userEvent.click(screen.getByRole('button', { name: /^hide$/i }));
     expect(hideTarget).toHaveBeenCalledWith('post', 'p1');
+  });
+
+  it('renders every photo attached to a flagged post', () => {
+    useModQueueMock.mockReturnValue({
+      items: [
+        {
+          ...SAMPLE_ITEM,
+          images: [
+            { id: 'i1', url: 'full-1', thumb_url: 'thumb-1', width: 10, height: 10, purged: false },
+            { id: 'i2', url: 'full-2', thumb_url: 'thumb-2', width: 10, height: 10, purged: false },
+          ],
+        },
+      ],
+      loading: false,
+      error: null,
+      hideTarget: vi.fn(),
+      unhideTarget: vi.fn(),
+      dismissFlags: vi.fn(),
+    });
+    useAuthMock.mockReturnValue({
+      me: { id: 'me', email: 'm@t.local', displayName: 'Mod', avatarUrl: null, role: 'moderator' },
+    });
+    render(
+      <MemoryRouter>
+        <MobileModQueuePage />
+      </MemoryRouter>,
+    );
+    const images = screen
+      .getAllByRole('img')
+      .filter((img) => img.getAttribute('src')?.startsWith('full-'));
+    expect(images).toHaveLength(2);
+  });
+
+  it('renders no image elements for a flagged item with no photos', () => {
+    useAuthMock.mockReturnValue({
+      me: { id: 'me', email: 'm@t.local', displayName: 'Mod', avatarUrl: null, role: 'moderator' },
+    });
+    render(
+      <MemoryRouter>
+        <MobileModQueuePage />
+      </MemoryRouter>,
+    );
+    expect(screen.queryAllByRole('img')).toHaveLength(0);
   });
 });

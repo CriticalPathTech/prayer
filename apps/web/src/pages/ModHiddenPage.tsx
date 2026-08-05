@@ -2,6 +2,7 @@ import type { JSX } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 
 import { ModTabs } from '../components/ModTabs';
+import { PostImages } from '../components/PostImages';
 import { useAuth } from '../hooks/useAuth';
 import { useModQueue } from '../hooks/useModQueue';
 import { isPrivilegedRole } from '../lib/roles';
@@ -34,6 +35,7 @@ export function ModHiddenPage(): JSX.Element {
               {it.reasons.length > 0 ? <> · {it.reasons.join(', ')}</> : null}
             </div>
             <p className="mt-1 text-sm">{it.preview}</p>
+            <PostImages images={it.images} variant="detail" />
             <div className="mt-2 flex gap-2 text-xs">
               <button
                 onClick={() => void queue.unhideTarget(it.target_type, it.target_id)}

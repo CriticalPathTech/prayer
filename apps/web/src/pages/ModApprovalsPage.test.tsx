@@ -59,6 +59,7 @@ function makeItem(overrides: Partial<Record<string, unknown>> = {}) {
     hidden_source: null,
     is_former_member: false,
     updates: [],
+    images: [],
     skipped_by_me: false,
     ...overrides,
   };
@@ -170,6 +171,42 @@ describe('ModApprovalsPage', () => {
       expect(screen.queryByText(/please pray for my mother/i)).not.toBeInTheDocument(),
     );
     expect(approvePostMock).toHaveBeenCalledWith('p1');
+  });
+
+  it('renders every photo on a pending item, not just the cover', async () => {
+    useAuthMock.mockReturnValue({ me: modMe });
+    listApprovalsMock.mockResolvedValue({
+      items: [
+        makeItem({
+          images: [
+            { id: 'i1', url: 'full-1', thumb_url: 'thumb-1', width: 10, height: 10, purged: false },
+            { id: 'i2', url: 'full-2', thumb_url: 'thumb-2', width: 10, height: 10, purged: false },
+          ],
+        }),
+      ],
+    });
+    render(
+      <MemoryRouter>
+        <ModApprovalsPage />
+      </MemoryRouter>,
+    );
+    await waitFor(() => expect(screen.getByText(/please pray for my mother/i)).toBeInTheDocument());
+    const images = screen
+      .getAllByRole('img')
+      .filter((img) => img.getAttribute('src')?.startsWith('full-'));
+    expect(images).toHaveLength(2);
+  });
+
+  it('renders no image elements for a pending item with no photos', async () => {
+    useAuthMock.mockReturnValue({ me: modMe });
+    listApprovalsMock.mockResolvedValue({ items: [makeItem({ images: [] })] });
+    render(
+      <MemoryRouter>
+        <ModApprovalsPage />
+      </MemoryRouter>,
+    );
+    await waitFor(() => expect(screen.getByText(/please pray for my mother/i)).toBeInTheDocument());
+    expect(screen.queryAllByRole('img', { name: /^(cover photo|photo \d+)$/i })).toHaveLength(0);
   });
 
   it('Decline flow shows back face then calls reject endpoint', async () => {

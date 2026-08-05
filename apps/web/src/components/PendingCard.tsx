@@ -4,6 +4,7 @@ import { useRef, useState } from 'react';
 import type { ApprovalItem } from '../lib/api';
 import { formatAgo } from '../lib/time';
 
+import { PostImages } from './PostImages';
 import { Avatar } from './ui/Avatar';
 
 const REJECT_PRESETS = [
@@ -162,6 +163,8 @@ export function PendingCard({
       </header>
 
       <p className="text-sm text-[var(--fg-1)] leading-relaxed whitespace-pre-wrap">{item.body}</p>
+
+      <PostImages images={item.images} variant="detail" />
 
       {error ? <p className="text-xs text-ember-600">{error}</p> : null}
 

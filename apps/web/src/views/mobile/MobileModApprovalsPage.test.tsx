@@ -55,6 +55,7 @@ function makeItem(overrides: Partial<Record<string, unknown>> = {}) {
     hidden_source: null,
     is_former_member: false,
     updates: [],
+    images: [],
     skipped_by_me: false,
     ...overrides,
   };
