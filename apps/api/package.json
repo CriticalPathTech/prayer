@@ -22,7 +22,7 @@
     "express": "^5.2.1",
     "express-rate-limit": "^8",
     "jose": "^6.2.6",
-    "jsdom": "^29.1.1",
+    "jsdom": "^30.0.1",
     "kysely": "^0.29.4",
     "lru-cache": "^11.5.2",
     "node-cron": "^4.6.0",
