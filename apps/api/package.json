@@ -17,7 +17,7 @@
     "@prayer/db": "workspace:*",
     "@prayer/shared": "workspace:*",
     "cors": "^2.8.5",
-    "dompurify": "^3.4.12",
+    "dompurify": "^3.4.13",
     "dotenv": "^16.4.0",
     "express": "^5.2.1",
     "express-rate-limit": "^8",
