@@ -22,17 +22,17 @@
     "admin:create-org": "tsx src/admin-create-org.ts"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.111.0",
-    "kysely": "^0.29.4",
+    "@supabase/supabase-js": "^2.112.3",
+    "kysely": "^0.29.5",
     "node-pg-migrate": "^7.6.0",
-    "pg": "^8.22.0",
+    "pg": "^8.23.0",
     "uuidv7": "^1.0.2"
   },
   "devDependencies": {
-    "@types/pg": "^8.20.2",
+    "@types/pg": "^8.21.0",
     "cross-env": "^10.1.0",
     "dotenv": "^17.4.2",
-    "tsx": "^4.23.1",
+    "tsx": "^4.23.12",
     "vitest": "^4.1.10"
   }
 }
